@@ -1,2 +1,2 @@
 # charactergenerator
-My first big python project, this generates attributes for 1e AD&amp;D characters
+My first python project, or at least the first one that'll end up getting a user interface.  This generates attributes for 1e AD&D characters
