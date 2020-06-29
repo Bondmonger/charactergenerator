@@ -1,0 +1,7 @@
+,str,int,wis,dex,con,cha,com
+adolescent,-10,-10,-10,-10,-10,-10,-10
+young adult,0,0,-1,0,1,0,0
+mature,1,0,0,0,1,0,0
+middle aged,0,1,1,0,0,0,0
+old,-2,1,2,-2,-1,0,0
+venerable,-3,2,3,-3,-2,0,0

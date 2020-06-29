@@ -1,0 +1,84 @@
+Random NPC generator
+Plug con bonuses into the hp generator
+	note ninja special case con bonus (and Ranger, Monk and Cav?)
+		ninjas get no con bonus / full con bonus to other class
+		otherwise as multiclass
+	need to add age-adjustment method
+Good start on leveling system, but we need:
+	a method for incrementing levels
+	0th level
+	leveling event caps (snipping off the extra xp)
+	de-leveling method
+	class demotion method
+		this actually needs to be a return from attributes.py
+	need to find the > in level-up and make it a >=
+
+
+Completed:
+	Separate out the attribute generator into a module
+	Separate the str percentile into a separate (8th?) attribute
+	need to replace xlwt with either an Excel 10 module or else stick to CSVs
+	converted most of the thresholds in attributes.py to csv
+
+method 0 (3d6)
+	-
+method I (4d6, player selects order)
+	-
+method II (3d6 rolled 12 times, retain top 6 scores, player sets order)
+	-
+method III (3d6 rolled 6 times for each attribute, order is locked)
+	-
+method IV (3d6 method is performed 12 times, order is locked but player may choose whichever set he likes best)
+	-
+method V (UA 3d6-9d6 method)
+	class
+method VI (my custom method)
+	race, class
+
+
+multi_sequencer variables:
+	6 lists (nineDsix, temp1, temp2, temp3, final & ordered_list)
+	4 integers (i, j, num_classes, current_val)
+		ordered_list = [3,4,5,6,7,8,9]
+		num_classes = the # of classes entered
+		nineDsix = a method V list for each class entered: [[9, 3, 5, 7, 8, 6, 4], [7, 4, 9, 5, 8, 6, 3]]
+		i, j & current_val = 0
+
+		str	int	wis	dex	con	cha
+dwarf f/t	13.69	10.37	10.41	14.26	15.23	10.18
+dwarf f		14.13	10.04	11.73	13.13	15.14	11.07
+elf   f		13.90	9.86	11.72	14.73	11.11	12.51
+human f		13.55	10.11	11.78	13.36	13.5	12.70
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
