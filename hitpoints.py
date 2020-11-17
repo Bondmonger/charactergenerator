@@ -10,21 +10,19 @@ def roll(a):
 def call_hp(ch_class):
     # returns hpcalc data for a single class ("Fighter") in order to generate_hp(). The values are:
     # [1HD, 1#rolls, 1bonus, midLevelHD, midCap, maxIncrements, max_con_bonus, bonus_multiplier, fixed_bonus]
-    characterclasses, result, i = open('xpvalues.csv'), [], 0
+    characterclasses, result = open('xpvalues.csv'), []
     for row in csv.reader(characterclasses):
         if ch_class == row[0]:
-            while i < 9:
-                result.append(int(row[39+i]))
-                i += 1
+            for a in range(9):
+                result.append(int(row[39+a]))
     return result
 
 
 def hp_compute_first(hpcalcs):
     # calculates 1st level hitpoints
-    i, hitpoints = 0, 0
-    while i < hpcalcs[1]:
+    hitpoints = 0
+    for a in range(hpcalcs[1]):
         hitpoints += roll(hpcalcs[0]) + (hpcalcs[2])
-        i += 1
     return hitpoints
 
 
@@ -80,29 +78,22 @@ def generate_hp(ch_class, levels, con):
     # generates hit points for new characters of level "levels",
     # returning nested lists showing hit points rolled for each
     # class/level [[fig1, fig2, fig3], [mu1, mu2], [th1, th2, th3, th4]]
-    i, j, num_classes, hpcalcs, hp, final = \
-    0, 0, len(ch_class), [], [], []
-    while i < num_classes:
-        hpcalcs.append(call_hp(ch_class[i]))
-        i += 1
-    while j < num_classes:
-        hp.append(hp_compute_first(hpcalcs[j]))
-        if levels[j] > 1:
-            hp_compute_mid(hpcalcs[j], hp, levels[j])
-        if levels[j] > hpcalcs[j][4]:
-            hp_compute_top(hpcalcs[j], hp, levels[j])
+    number_of_classes, hpcalcs, hp, final = len(ch_class), [], [], []
+    for a in range(number_of_classes):
+        hpcalcs.append(call_hp(ch_class[a]))
+    for a in range(number_of_classes):
+        hp.append(hp_compute_first(hpcalcs[a]))
+        if levels[a] > 1:
+            hp_compute_mid(hpcalcs[a], hp, levels[a])
+        if levels[a] > hpcalcs[a][4]:
+            hp_compute_top(hpcalcs[a], hp, levels[a])
         final.append(hp)
         hp = []
-        j += 1
     con_bonus(final, hpcalcs, con)
     if "Ninja" in ch_class:
-        k = 0
-        while k < len(ch_class):
-            final[len(ch_class)][k] *= 2
-            k += 1
+        for a in range(number_of_classes):
+            final[number_of_classes][a] *= 2
     return final
-
 
 # test = generate_hp(["Barbarian", "Monk"], [13, 13], 6)
 # print(test)
-
