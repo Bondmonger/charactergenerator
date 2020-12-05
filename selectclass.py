@@ -9,13 +9,11 @@ min_df = min_df[min_df.columns[min_cols]]  # creates a dataframe using only the 
 race_df = min_df[min_df['hum_base'] == "-"]  # creates a dataframe slice of races only
 
 
-def _roll(a):
-    # rolls a single die of "a" sides
+def _roll(a):  # rolls a single die of "a" sides
     return random.randrange(1, a + 1)
 
 
-def _dice(r, s):
-    # Rolls "r" dice of "s" sides, returning the sum of the three highest values
+def _dice(r, s):  # rolls "r" dice of "s" sides, returning the sum of the three highest values
     results = []
     for a in range(r):
         results.append(_roll(s))
@@ -28,34 +26,31 @@ def string_to_list(string, stringpartition):
     return li
 
 
-def multi_mins(characterclass):
-    # accepts argument in the form of string 'Fighter/Thief' and returns a list [9, 5, 5, 9, 7, 5]
-    temp_x, m, n, final, lug = string_to_list(characterclass, "/"), 0, 0, [0, 0, 0, 0, 0, 0], []
-    while n < len(temp_x):
+def multi_mins(characterclass):  # accepts argument of form 'Fighter/Thief' and returns a list [9, 5, 5, 9, 7, 5]
+    temp_x, final, lug = string_to_list(characterclass, "/"), [0, 0, 0, 0, 0, 0], []
+    for a in range(len(temp_x)):
         lug, m = [], 0
-        lug.append(min_df.set_index('charclass').loc[temp_x[n], 'strmin'])
-        lug.append(min_df.set_index('charclass').loc[temp_x[n], 'intmin'])
-        lug.append(min_df.set_index('charclass').loc[temp_x[n], 'wismin'])
-        lug.append(min_df.set_index('charclass').loc[temp_x[n], 'dexmin'])
-        lug.append(min_df.set_index('charclass').loc[temp_x[n], 'conmin'])
-        lug.append(min_df.set_index('charclass').loc[temp_x[n], 'chamin'])
-        while m < 6:
-            if final[m] < lug[m]:
-                final[m] = lug[m]
-            m += 1
-        n += 1
+        lug.append(min_df.set_index('charclass').loc[temp_x[a], 'strmin'])
+        lug.append(min_df.set_index('charclass').loc[temp_x[a], 'intmin'])
+        lug.append(min_df.set_index('charclass').loc[temp_x[a], 'wismin'])
+        lug.append(min_df.set_index('charclass').loc[temp_x[a], 'dexmin'])
+        lug.append(min_df.set_index('charclass').loc[temp_x[a], 'conmin'])
+        lug.append(min_df.set_index('charclass').loc[temp_x[a], 'chamin'])
+        for b in range(6):
+            if final[b] < lug[b]:
+                final[b] = lug[b]
     return final
 
 
 def rc_intersect(rc):
     # receives list of eligible races and all legal classes, for example: ['halfling', 'fighter, thief, fighter/thief']
     # then populates temp_dict with Race/Class(es)/minimum attributes for each race/class combination
-    i, availableclasses = 0, string_to_list(rc[1], ", ")
-    while i < len(availableclasses):
+    availableclasses = string_to_list(rc[1], ", ")
+    for a in range(len(availableclasses)):
         temp_dict['Race'].append(rc[0])  # adds race
-        temp_dict['Classes'].append(availableclasses[i])  # adds class as an x/y string
+        temp_dict['Classes'].append(availableclasses[a])  # adds class as an x/y string
         # now we convert the x/y character class into a list of minimum attributes using mult_mins()
-        class_mins = multi_mins(availableclasses[i])
+        class_mins = multi_mins(availableclasses[a])
         # and since the character class(es) are now collapsed into lists of integers, we can use set_index to establish
         # 'charclass' as our index value and compare race minimum against class_mins[x] for each attribute
         temp_dict['StrInd'].append(max(min_df.set_index('charclass').loc[rc[0], 'strmin'], class_mins[0]))
@@ -71,7 +66,6 @@ def rc_intersect(rc):
                                         race_df.set_index('charclass').loc[rc[0], 'conbon'],
                                         race_df.set_index('charclass').loc[rc[0], 'chabon']])
         temp_dict['Eligible'].append('no')
-        i += 1
     pass
 
 
@@ -93,20 +87,17 @@ def eligibility(attributes_dict):
         (attributes_dict['Cha'] >= adjusted_racial_mins['chaadj']), 'eligible'] = "yes"
     eligibleraces_df = adjusted_racial_mins[adjusted_racial_mins['eligible'] == "yes"]  # creates elig.-race slice
     eligibleraces_list = eligibleraces_df.race.tolist()  # creates a list of currently eligible races
-    increment01, increment02 = 0, 0
-    while increment01 < len(eligibleraces_list):  # this loop repeatedly calls rc_intersect to populate final_df
-        race_cl = [eligibleraces_list[increment01]]
+    for a in range(len(eligibleraces_list)):  # this loop calls rc_intersect to populate final_df
+        race_cl = [eligibleraces_list[a]]
         race_cl.append(min_df.set_index('charclass').loc[race_cl[0], 'classes'])
         rc_intersect(race_cl)
-        increment01 += 1
-    while increment02 < len(temp_dict['Race']):  # this loop adjusts the aggregated minimums by racial bonus
-        temp_dict['StrInd'][increment02] -= temp_dict['attbonuses'][increment02][0]
-        temp_dict['IntInd'][increment02] -= temp_dict['attbonuses'][increment02][1]
-        temp_dict['WisInd'][increment02] -= temp_dict['attbonuses'][increment02][2]
-        temp_dict['DexInd'][increment02] -= temp_dict['attbonuses'][increment02][3]
-        temp_dict['ConInd'][increment02] -= temp_dict['attbonuses'][increment02][4]
-        temp_dict['ChaInd'][increment02] -= temp_dict['attbonuses'][increment02][5]
-        increment02 += 1
+    for b in range(len(temp_dict['Race'])):  # this loop adjusts the aggregated minimums by racial bonus
+        temp_dict['StrInd'][b] -= temp_dict['attbonuses'][b][0]
+        temp_dict['IntInd'][b] -= temp_dict['attbonuses'][b][1]
+        temp_dict['WisInd'][b] -= temp_dict['attbonuses'][b][2]
+        temp_dict['DexInd'][b] -= temp_dict['attbonuses'][b][3]
+        temp_dict['ConInd'][b] -= temp_dict['attbonuses'][b][4]
+        temp_dict['ChaInd'][b] -= temp_dict['attbonuses'][b][5]
     final_df = pd.DataFrame.from_dict(temp_dict)
     final_df.loc[  # compares current character to adjusted class minimums
         (attributes_dict['Str'] >= final_df['StrInd']) &
@@ -148,20 +139,17 @@ def eligible_races(attributes_dict, char_class):
         (attributes_dict['Cha'] >= adjusted_racial_mins['chaadj']), 'eligible'] = "yes"
     eligibleraces_df = adjusted_racial_mins[adjusted_racial_mins['eligible'] == "yes"]  # creates elig.-race slice
     eligibleraces_list = eligibleraces_df.race.tolist()  # creates a list of currently eligible races
-    increment01, increment02 = 0, 0
-    while increment01 < len(eligibleraces_list):  # this loop repeatedly calls rc_intersect to populate final_df
-        race_cl = [eligibleraces_list[increment01]]
+    for a in range(len(eligibleraces_list)):  # this loop repeatedly calls rc_intersect to populate final_df
+        race_cl = [eligibleraces_list[a]]
         race_cl.append(min_df.set_index('charclass').loc[race_cl[0], 'classes'])
         rc_intersect(race_cl)
-        increment01 += 1
-    while increment02 < len(temp_dict['Race']):  # this loop adjusts the aggregated minimums by racial bonus
-        temp_dict['StrInd'][increment02] -= temp_dict['attbonuses'][increment02][0]
-        temp_dict['IntInd'][increment02] -= temp_dict['attbonuses'][increment02][1]
-        temp_dict['WisInd'][increment02] -= temp_dict['attbonuses'][increment02][2]
-        temp_dict['DexInd'][increment02] -= temp_dict['attbonuses'][increment02][3]
-        temp_dict['ConInd'][increment02] -= temp_dict['attbonuses'][increment02][4]
-        temp_dict['ChaInd'][increment02] -= temp_dict['attbonuses'][increment02][5]
-        increment02 += 1
+    for b in range(len(temp_dict['Race'])):  # this loop adjusts the aggregated minimums by racial bonus
+        temp_dict['StrInd'][b] -= temp_dict['attbonuses'][b][0]
+        temp_dict['IntInd'][b] -= temp_dict['attbonuses'][b][1]
+        temp_dict['WisInd'][b] -= temp_dict['attbonuses'][b][2]
+        temp_dict['DexInd'][b] -= temp_dict['attbonuses'][b][3]
+        temp_dict['ConInd'][b] -= temp_dict['attbonuses'][b][4]
+        temp_dict['ChaInd'][b] -= temp_dict['attbonuses'][b][5]
     final_df = pd.DataFrame.from_dict(temp_dict)
     final_df.loc[  # compares current character to adjusted class minimums
         (attributes_dict['Str'] >= final_df['StrInd']) &

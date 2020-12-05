@@ -20,11 +20,6 @@ def _cruncher(crunch):  # converts ints into floats with small positive decimal 
     return crunch
 
 
-def _puffer(puff):  # adds 10 to a value, to clear space for tiebreakers
-    puff = puff + 10
-    return puff
-
-
 def _d6_attributes(b):  # generates list of seven attribute values via b highest six-sided dice
     col_set = []
     for a in range(7):
@@ -46,72 +41,47 @@ def _racial_bonus(race, temp):  # racial modifier - temp is the list of attribut
     return temp
 
 
-def _minimums(cla_rac):  # returns minimum attribute values for either race or class
-    temp, mins, i = [], open('attributemins.csv'), 1
+def _minimums(cla_rac):  # returns minimum attribute values by either race or class
+    temp, mins = [], open('attributemins.csv')
     for row in csv.reader(mins):
         if cla_rac == row[0]:
-            while i < 8:
-                temp.append(int(row[i]))
-                i += 1
+            for a in range(1, 8):
+                temp.append(int(row[a]))
     return temp
 
 
-def _racial_maximums(race):
-    # max attribute values by race. WARNING: THIS FUNCTION IS ONLY CHECKING THE FIRST TEN CHARACTERS OF BOTH CLASS NAME
-    # AND THE FIRST COLUMN IN ATTRIBUTEMAX.CSV - I did this so I could get away with one hengeyokai entry in that
-    # spreadsheet, but it's a bad idea
-    temp, maxs, i, race = [], open('attributemax.csv'), 1, race[0:10]
+def _racial_maximums(race):  # returns maximum attribute values by race
+    temp, maxs = [], open('attributemax.csv')
     for row in csv.reader(maxs):
-        if row[0][0:10] == race:
-            while i < 8:
-                temp.append(int(row[i]))
-                i += 1
+        if row[0] == race:
+            for a in range(1, 8):
+                temp.append(int(row[a]))
     return temp
 
 
-def _clip_surplus(race, attrs):  # nips the tops off attributes higher than racial maximum
-    i, rac_max, surplus = 0, _racial_maximums(race), []
-    while i < 7:
-        if attrs[i] <= rac_max[i]:
+def clip_surplus(race, attrs):  # nips the tops off attributes higher than racial maximum
+    rac_max, surplus = _racial_maximums(race), []
+    for a in range(7):
+        if attrs[a] <= rac_max[a]:  # if attribute is under the max, place a zero in the surplus list...
             surplus.append(0)
-        else:
-            surplus.append(attrs[i] - rac_max[i])
-            attrs[i] = rac_max[i]
-        i += 1
+        else:  # ...otherwise set the attribute to the max and place the difference in the surplus list
+            surplus.append(attrs[a] - rac_max[a])
+            attrs[a] = rac_max[a]
     return surplus
 
 
 def _comeliness_bonus(attrs):  # applies charisma bonus to comeliness
-    if attrs[5] < 4:
-        attrs[6] -= 5
-        pass
-    elif attrs[5] < 6:
-        attrs[6] -= 3
-        pass
-    elif attrs[5] < 9:
-        attrs[6] -= 1
-        pass
-    elif attrs[5] < 13:
-        attrs[6] += 0
-        pass
-    elif attrs[5] < 16:
-        attrs[6] += 1
-        pass
-    elif attrs[5] < 18:
-        attrs[6] += 2
-        pass
-    elif attrs[5] == 18:
-        attrs[6] += 3
-        pass
-    elif attrs[5] > 18:
-        attrs[6] += 5
-        pass
+    bonuses = open('attributevalues.csv')
+    for row in csv.reader(bonuses):
+        if row[0] == str(attrs[5]):
+            attrs[6] += int(row[41])
+            pass
 
 
 def _exceptional_str(race):
     # returns max percentile strength; note that halflings are capped at zero, which we would want to have drop down to
     # a flat 18 (for instance if they roll the max (17) and then landed in the mature age category)
-    bonuses, i, temp = open('attrbonuses.csv'), 0, 0
+    bonuses, temp = open('attrbonuses.csv'), 0
     for row in csv.reader(bonuses):
         if race == row[0]:
             temp = int(row[8])
@@ -126,34 +96,38 @@ def _archetype(ch_class):  # returns ch_class's archetype
     return class_archetype
 
 
-def _compute_exstr(attrs, race, ch_class, excess):
-    # computes exceptional strength on fighter types, calling _exceptional_str() for racial limits, then increasing
-    # values by 10pts for each excess point
-    archetypes = []
-    if attrs[0] == 18:
-        for a in range(len(ch_class)):
-            archetypes.append(_archetype(ch_class[a]))
-        if "Fighter" in archetypes:
-            attrs.append(_roll(_exceptional_str(race)))
-            while excess[0] > 0:
-                if attrs[8] < _exceptional_str(race):
-                    excess[0] -= 1
-                    attrs[8] += 10
-                    if attrs[8] > _exceptional_str(race):
-                        attrs[8] = _exceptional_str(race)
-                        if attrs[8] == 101:
-                            attrs[0] = 19
-                        return
-                else:
-                    pass
-        else:
-            pass
-    else:
-        pass
+def compute_exstr(attrs, race, ch_class, excess):  # computes an exceptional strength for all incoming characters
+    archetypes, max_racial_str = [], _exceptional_str(race)
+    if max_racial_str > 0:  # rolls an attrs[8] less than or equal to max racial str
+        attrs.append(_roll(max_racial_str))
+    else:  # prevents index error if racial max is a flat 18
+        attrs.append(0)
+    while attrs[0] > 18:  # converts strength values above 18 into excess points
+        attrs[0] -= 1
+        excess[0] += 1
+    attrs[7] += excess[0] * 10  # increases percentile points by excess (1 point = +10)
+    if attrs[7] > max_racial_str:  # if percentile is greater than racial max...
+        excess[0] = 0
+        while attrs[7] > max_racial_str:
+            excess[0] += 1  # ...transfers surplus points back to excess (at 10:1 ratio)...
+            attrs[7] -= 10
+        attrs[7] = max_racial_str  # ...and sets percentile = racial max
+    if attrs[7] > 100:  # transfers percentile points above 100 back to base strength (at 10:1 ratio, rounding up)
+        while attrs[7] > 100:
+            attrs[0] += 1
+            attrs[7] -= 10
+        attrs[7] = 100
+    for a in range(len(ch_class)):  # determines archetypes (to check for fighter-type later on)
+        archetypes.append(_archetype(ch_class[a]))
+    if "Fighter" not in archetypes:
+        attrs[7] = 0  # non fighter-types lose a) percentile points and b) excess points burned reaching racial max
 
 
-def _ua_attr(ch_class):
-    # returns a list of method V die values for called class
+# attsss = [23, 9, 11, 14, 12, 5, 3, [2, 0, 0, 0, 0, 0, 0]]
+# _compute_exstr(attsss, "Human", ['Magic User'], attsss[7])
+# print(attsss)
+
+def _ua_attr(ch_class):  # returns a list of method V die values for called class
     ua_dice, temp = open('xpvalues.csv'), []
     for row in csv.reader(ua_dice):
         if ch_class == row[0]:
@@ -162,147 +136,93 @@ def _ua_attr(ch_class):
     return temp
 
 
-def _sequencer(ch_class, race):
-    # sequences a 3d6-to-9d6 for single-class characters
-    temp, seq, i = [], _ua_attr(ch_class), 0
-    while i < 7:
-        temp.insert(i, _dice(seq[i], 6))
-        i += 1
+def _sequencer(ch_class, race):  # sequences a 3d6-to-9d6 for single-class characters
+    temp, seq = [], _ua_attr(ch_class)
+    for a in range(7):
+        temp.insert(a, _dice(seq[a], 6))
     _racial_bonus(race, temp)
     return temp
 
 
-def _multi_sequencer(race, *ch_class):
-    # if a single character class is passed in, calls _sequencer and returns a sequenced 3d6-to-9d6.  If two or three
-    # classes are passed in then it goes on to the else function. There are a lot of variables here so let's go through
-    # them:
-    # nineDsix: the list of all relevant 9d6s (method V arrays)
-    # numclasses: the number of elements in ch_class (checking for multi-class)
-    # ordered_list: [3,4,5,6,7,8,9]
-    # temp1: holds items from like positions in nineDsix (that is, it sums up all the strengths, then all the ints, etc,
-    # then passes along sums of each like position to temp2)
-    # temp2: receives sums from temp1 - also tallies first level of tiebreakers (two highest elements of each position
-    # from temp1 - thus (9 + 7) > (8+8))
-    # temp3: first applies coin flip tiebreaker to values in temp2, then replaces cumulative/tiebroken values with
-    # corresponding 9d6 values from ordered_list
-    # final: performs a set of 9d6s using the hierarchy in temp3, then applies racial bonuses
+def _multi_sequencer(race, *ch_class):  # sequences list of 7 attributes via 3d6-to-9d6 (for multi-class characters)
     if len(ch_class[0]) == 1:
-        return _sequencer(ch_class[0][0], race)
+        return _sequencer(ch_class[0][0], race)  # if the character is single class, _sequencer can handle it
     else:
-        ninedsix, temp1, temp2, temp3, final, i, j = [], [], [], [], [], 0, 0
-        num_classes, ordered_list = len(ch_class[0]), [*range(3, 10, 1)]
-        while i < num_classes:
-            # generates nests containing the method V values (for multiclass)
-            # [[9, 3, 5, 7, 8, 6, 4], [7, 4, 9, 5, 8, 6, 3]]
-            ninedsix.insert(0, _ua_attr(ch_class[0][i]))
-            i += 1
-        i, current_val = 0, 0
-        while i < 7:
-            while j < num_classes:
-                # generates a temp1 list containing method V values for the
-                # current "i" attribute, so first [9, 7], then [3, 4], etc
-                temp1.insert(i, ninedsix[j][i])
-                j += 1
-            temp1.sort(), temp1.reverse()
-            temp2.insert(i, sum(temp1) + 0.1 * temp1[0] + 0.01 * temp1[1])
-            j, temp1 = 0, []
-            i += 1
-        # cruncher to break ties, puffer (+10) to keep the keep all 7 temp2
-        # values north of the ordered_list (UA) values
-        temp3 = list(map(_cruncher, temp2))
-        temp3 = list(map(_puffer, temp3))
+        ninedsix, summed_attrs, final, ordered_list = [], [], [], [*range(3, 10, 1)]
+        for a in range(len(ch_class[0])):  # nests method V values [[9, 3, 5, 7, 8, 6, 4], [7, 4, 9, 5, 8, 6, 3], etc]
+            ninedsix.append(_ua_attr(ch_class[0][a]))
+        for a in range(7):  # groups and then sums method V values for 'a' attribute ( [9, 7], then [3, 4], etc )
+            grouped_attrs = []
+            for b in range(len(ch_class[0])):
+                grouped_attrs.append(ninedsix[b][a])
+            grouped_attrs.sort(reverse=True)  # sorts only the subgroups for tiebreaker purposes ( 9 + 7 > 8 + 8 )
+            summed_attrs.append(sum(grouped_attrs) + 0.1 * grouped_attrs[0] + 0.01 * grouped_attrs[1])
+            summed_attrs[a] = _cruncher(summed_attrs[a]) + 10  # applies cruncher to break ties
         ordered_list.reverse()
-        while j < 7:
-            temp3[temp3.index(max(temp3))] = ordered_list[j]
-            j += 1
-        i = 0
-        while i < 7:            
-            final.insert(i, _dice(temp3[i], 6))
-            i += 1
+        for a in range(7):  # ...this from overwriting the method V values
+            summed_attrs[summed_attrs.index(max(summed_attrs))] = ordered_list[a]
+        for a in range(7):  # rolls up via newly sequenced method V values
+            final.append(_dice(summed_attrs[a], 6))
         _racial_bonus(race, final)
         return final
 
 
-def _prioritize(raw_attr, sequence_attr, race):
-    # orders a raw_attr list (4d6s) and _prioritizes those values via a sequence_attr (method V) list, cruncher() to
-    # break ties
-    raw_attr.sort(), raw_attr.reverse()
+def _prioritize(raw_attr, sequence_attr, race):  # _prioritizes raw_attr via sequence_attr
+    raw_attr.sort(reverse=True)
     sequence_attr = list(map(_cruncher, sequence_attr))
-    i, j = 26, 0
-    while i < 33:
-        sequence_attr[sequence_attr.index(min(sequence_attr))] = i
-        i += 1
-    while j < 7:
-        sequence_attr[sequence_attr.index(max(sequence_attr))] = raw_attr[j]
-        j += 1
+    for a in range(26, 33):
+        sequence_attr[sequence_attr.index(min(sequence_attr))] = a
+    for a in range(7):
+        sequence_attr[sequence_attr.index(max(sequence_attr))] = raw_attr[a]
     _racial_bonus(race, sequence_attr)
     return sequence_attr
 
 
-def _min_merger(_minimums):
-    # merges any number of minimum attribute lists
-    temp, i, j, rcelements, holder = [], 0, 0, len(_minimums), []
-    while i < 7:
-        while j < rcelements:
-            temp.append(_minimums[j][i])
-            j += 1
-        holder.append(max(temp))
-        i += 1
-        j, temp = 0, []
-    return holder
-
-
-def _deficit(mins, atts):
-    # returns current attributes minus the minimums
-    i, diff = 0, []
-    while i < 7:
-        diff.append(atts[i] - mins[i])
-        i += 1
-    return diff
-
-
-def _positives(diffs):
-    # converts negative differences into zeroes, randomly reducing a surplus attribute without driving it negative
-    i, neg, temp = 0, 0, []
-    for att in diffs:
-        if att > 0:
-            temp.append(i)
-        else:
-            neg, diffs[i] = neg + diffs[i], 0
-        i += 1
-    while neg < 0:
-        a = random.choice(temp)
-        diffs[a] -= 1
-        if diffs[a] == 0:
-            temp.remove(a)
-        neg += 1
-    pass
-
-
-def _re_combine(mins, diffs):
-    # sums minimums and "differences," returning combined attributes
-    i, temp = 0, []
-    while i < 7:
-        temp.append(mins[i] + diffs[i])
-        i += 1
-    return temp
-
-
-def _clean_up(char):
-    # combines attributes into a list
-    i, temp, final = 0, [], []
-    while i < 7:
-        temp.append(char[i])
-        i += 1
-    if len(char) == 9:
-        temp.append(char[8])
-    final.append(temp)
-    final.append(char[7])
+def _min_merger(_minimums):  # merges any number of minimum attribute lists
+    final = []
+    for a in range(7):
+        temp = []
+        for b in range(len(_minimums)):
+            temp.append(_minimums[b][a])
+        final.append(max(temp))
     return final
 
 
-def _demote_class(cha_class):
-    # drops a class one tier, potentially returning "0-level"
+def _deficit(mins, atts):  # returns current attributes minus the minimums
+    diff = []
+    for a in range(7):
+        diff.append(atts[a] - mins[a])
+    return diff
+
+
+def _positives(diffs):  # negative differences become 0s, randomly reduces surplus values without driving them negative
+    neg, temp = 0, []
+    for ind, att in enumerate(diffs):
+        if att > 0:
+            temp.append(ind)  # assembles a list of index values for ONLY the positive diffs and...
+        else:
+            neg, diffs[ind] = neg + diffs[ind], 0  # ...sums up negative values
+    for values in range(neg, 0):  # then deducts randomly from the positions in temp until 'neg' is back up to 0
+        index_a = random.choice(temp)
+        diffs[index_a] -= 1
+        if diffs[index_a] == 0:
+            temp.remove(index_a)
+    pass
+
+
+# test_pos = [4, 0, 2, -2, 1, 0, 3]
+# _positives(test_pos)
+# print(test_pos)
+
+def _re_combine(mins, diffs):
+    # sums minimums and "differences," returning combined attributes
+    temp = []
+    for a in range(7):
+        temp.append(mins[a] + diffs[a])
+    return temp
+
+
+def _demote_class(cha_class):  # drops a class one tier, potentially returning "0-level"
     characterclasses, result = open('xpvalues.csv'), 0
     for row in csv.reader(characterclasses):
         if cha_class == row[0]:
@@ -310,47 +230,37 @@ def _demote_class(cha_class):
     return result
 
 
-def _minimum_sum(ch_class):
-    # returns the minimum attribute SUM for a single character class
-    classminimums, i, tempsum = open('attributemins.csv'), 1, 0
+def _minimum_sum(ch_class):  # returns the minimum attribute SUM for a single character class
+    classminimums, tempsum = open('attributemins.csv'), 0
     for row in csv.reader(classminimums):
         if ch_class == row[0]:
-            while i < 9:
-                tempsum += int(row[i])
-                i += 1
+            for a in range(1, 9):
+                tempsum += int(row[a])
     return tempsum
 
 
-def _maxindex(listofvalues):
-    # flags the position of the largest value in a list
-    maximum, maxlocation, i = 0, 0, 0
-    for i, value in enumerate(listofvalues):
+def _maxindex(listofvalues):  # flags the index position of the largest value in a list
+    maximum, maxlocation = 0, 0
+    for a, value in enumerate(listofvalues):
         if value > maximum:
             maximum = value
-            maxlocation = i
-        i += 1
+            maxlocation = a
     return maxlocation
 
 
 def _demotion(race, ch_classes, raw_atts, merged_mins):
-    # performs class demotion (Paladin into Fighter, etc) on characters who do not have enough attribute points to meet
-    # their race/class mins
-    racialbonuses, racialsum, i = open('attrbonuses.csv'), 0, 1
+    # performs class demotion (Paladin into Fighter, etc) on characters with insufficient attribute points
+    racialbonuses, racialsum = open('attrbonuses.csv'), 0
     for row in csv.reader(racialbonuses):
         if race == row[0]:
-            while i < 8:
-                racialsum += int(row[i])
-                i += 1
-    while sum(raw_atts) + racialsum < sum(merged_mins):
-        # ninja is always the first cut
-        j, minsum = 0, []
-        while j < len(ch_classes):
-            # cruncher to break ties on the per-class sums (minimum attributes)
-            minsum.append(_cruncher(_minimum_sum((ch_classes[j]))))
-            j += 1
+            for a in range(1, 8):
+                racialsum += int(row[a])
+    while sum(raw_atts) + racialsum < sum(merged_mins):  # ninja is always the first cut
+        minsum = []
+        for a in range(len(ch_classes)):
+            minsum.append(_cruncher(_minimum_sum((ch_classes[a]))))  # cruncher breaks ties on per-class minimum sums
         # _maxindex(minsum) is the index position of the class with the highest attribute threshold
-        newclass = _demote_class(ch_classes[_maxindex(minsum)])
-        # if multiclassed, remove any 0-level results from string...
+        newclass = _demote_class(ch_classes[_maxindex(minsum)])  # also removes 0-level results from multi-class chars
         if len(ch_classes) > 1:
             ch_classes.remove(ch_classes[_maxindex(minsum)])
             if newclass == '0-level':
@@ -359,25 +269,21 @@ def _demotion(race, ch_classes, raw_atts, merged_mins):
                 ch_classes.append(newclass)
                 ch_classes.sort()
                 pass
-        # ...otherwise simply demote them to 0-level
-        else:
+        else:  # ...otherwise simply demote them to 0-level
             ch_classes.append(newclass)
             ch_classes.remove(ch_classes[0])
             if newclass == '0-level':
-                return
-        # recalculate the minimums and try again
-        minlist = list(map(_minimums, ch_classes))
+                pass
+        minlist = list(map(_minimums, ch_classes))  # recalculates the mins and tries again
         minlist.append(_minimums(race))
         newmins, k = _min_merger(minlist), 0
-        while k < 7:
-            merged_mins.append(newmins[k])
-            k += 1
+        for a in range(7):
+            merged_mins.append(newmins[a])
         del merged_mins[0:7]
     pass
 
-
 # testclass = ["Ninja", "Bushi"]
-# test1 = _demotion('Hengeyokai: Crab', testclass, [12, 10, 3, 13, 6, 15, 3], [11, 15, 3, 15, 6, 16, 3])
+# test1 = _demotion('Bamboo Spirit Folk', testclass, [12, 10, 6, 13, 6, 15, 3], [11, 15, 3, 15, 6, 16, 3])
 # print(testclass)
 
 
@@ -394,19 +300,18 @@ def _attr_listdict(attr):
 
 
 def place_atts(attributes):
-    i, final = 0, {}
-    while i < 6:
-        if attributes[i-1] == attributes[i]:
-            n = input("Where would you like the next " + str(attributes[i]) + "? ")
+    final = {}
+    for a in range(6):
+        if attributes[a-1] == attributes[a]:
+            n = input("Where would you like the next " + str(attributes[a]) + "? ")
         else:
-            n = input("Where would you like the " + str(attributes[i]) + "? ")
-        final[n] = attributes[i]
-        i += 1
+            n = input("Where would you like the " + str(attributes[a]) + "? ")
+        final[n] = attributes[a]
     return final
 
 
 def methodi():  # 4d6, keep the top three dice, user chooses order
-    rawatts, final, i = _d6_attributes(4), {}, 0
+    rawatts, final = _d6_attributes(4), {}
     comeliness = rawatts.pop(6)
     print("You rolled the following values: " + str(rawatts))
     rawatts.sort(reverse=True)
@@ -420,11 +325,10 @@ def methodi():  # 4d6, keep the top three dice, user chooses order
 
 
 def methodii():  # 3d6 12 times, keep the top six values totals, user chooses order
-    rawatts, i = [], 0
+    rawatts = []
     comeliness = _dice(3, 6)
-    while i < 12:
+    for a in range(12):
         rawatts.append(_dice(3, 6))
-        i += 1
     rawatts.sort(reverse=True)
     rawatts = rawatts[0:6]
     print("You rolled the following values: " + str(rawatts))
@@ -438,10 +342,9 @@ def methodii():  # 3d6 12 times, keep the top six values totals, user chooses or
 
 
 def methodiii():  # 3d6 6 times for each attribute, order is locked
-    rawatts, final, i = [], {}, 0
-    while i < 42:
+    rawatts, final = [], {}
+    for a in range(42):
         rawatts.append(_dice(3, 6))
-        i += 1
     final["Str"] = max(rawatts[0:6])
     final["Int"] = max(rawatts[6:12])
     final["Wis"] = max(rawatts[12:18])
@@ -459,8 +362,8 @@ def methodiii():  # 3d6 6 times for each attribute, order is locked
 def methodiv():  # 3d6 locked, creating 12 full characters, user selects character to keep
     orderedatts = {'char': [], 'Str': [], 'Int': [], 'Wis': [], 'Con': [], 'Dex': [], 'Cha': [], 'Com': []}
     final, i, n = {}, 0, 0
-    while i < 12:
-        orderedatts["char"].append(i)
+    for a in range(12):
+        orderedatts["char"].append(a)
         orderedatts["Str"].append(_dice(3, 6))
         orderedatts["Int"].append(_dice(3, 6))
         orderedatts["Wis"].append(_dice(3, 6))
@@ -469,12 +372,11 @@ def methodiv():  # 3d6 locked, creating 12 full characters, user selects charact
         orderedatts["Cha"].append(_dice(3, 6))
         orderedatts["Com"].append(_dice(3, 6))
         # note the +1 in the first print argument below; it's just to make them 1-12 rather than 0-11...
-        print("Character #"+str(i+1)+" - Str: "+str(orderedatts["Str"][i])+" Int: "+str(orderedatts["Int"][i]) +
-              " Wis: "+str(orderedatts["Wis"][i])+" Con: "+str(orderedatts["Con"][i])+" Dex: " +
-              str(orderedatts["Dex"][i])+" Cha: "+str(orderedatts["Cha"][i])+" Com: "+str(orderedatts["Com"][i]))
-        print("   attribute sum: "+str(orderedatts["Str"][i]+orderedatts["Int"][i]+orderedatts["Wis"][i] +
-                                       orderedatts["Dex"][i]+orderedatts["Con"][i]+orderedatts["Cha"][i]))
-        i += 1
+        print("Character #"+str(a+1)+" - Str: "+str(orderedatts["Str"][a])+" Int: "+str(orderedatts["Int"][a]) +
+              " Wis: "+str(orderedatts["Wis"][a])+" Con: "+str(orderedatts["Con"][a])+" Dex: " +
+              str(orderedatts["Dex"][a])+" Cha: "+str(orderedatts["Cha"][a])+" Com: "+str(orderedatts["Com"][a]))
+        print("   attribute sum: "+str(orderedatts["Str"][a]+orderedatts["Int"][a]+orderedatts["Wis"][a] +
+                                       orderedatts["Dex"][a]+orderedatts["Con"][a]+orderedatts["Cha"][a]))
     n = int(input("Which character would you like to select? ")) - 1  # ...and here we correct the incrementer
     final["Str"] = orderedatts["Str"][n]
     final["Int"] = orderedatts["Int"][n]
@@ -486,19 +388,17 @@ def methodiv():  # 3d6 locked, creating 12 full characters, user selects charact
     selectclass.eligibility(final)
     return final
 
-
 # test4 = methodiv()
 # print("method IV: "+str(test4))
 
 
 def methodv(charclass):  # weighted, class-specific range, retaining top 3 values (from 3d6 to 9d6) for each attribute
-    attr_names, tempx, j = ['Str', 'Int', 'Wis', 'Dex', 'Con', 'Cha', 'Com'], string_to_list(charclass, "/"), 1
+    attr_names, tempx = ['Str', 'Int', 'Wis', 'Dex', 'Con', 'Cha', 'Com'], string_to_list(charclass, "/")
     tempx, ninedsix = list(map(_ua_attr, tempx)), [*range(3, 10, 1)]
     combolist, values = tempx[0], [_dice(x, 6) for x in ninedsix]
-    while j < len(tempx):
-        for i in range(0, len(tempx[0])):
-            combolist[i] = combolist[i] + int(tempx[j][i])
-        j += 1
+    for b in range(1, len(tempx)):
+        for a in range(0, len(tempx[0])):
+            combolist[a] = combolist[a] + int(tempx[b][a])
     combolist = list(map(_cruncher, combolist))
     temp_dict = dict(zip(attr_names, combolist))
     temp_dict = {k: v for k, v in sorted(temp_dict.items(), key=lambda item: item[1], reverse=True)}
@@ -508,33 +408,28 @@ def methodv(charclass):  # weighted, class-specific range, retaining top 3 value
     selectclass.eligible_races(final, charclass)
     return final
 
-
 # characterclass = 'Bushi'
 # test5 = methodv(characterclass)
 # print("method V: "+str(test5))
 
 
-def methodvi(race, ch_classes):
-    # returns modified attributes and an 'excess' list
-    raw_atts = _d6_attributes(4)
-    mincom = list(map(_minimums, ch_classes))
-    mincom.append(_minimums(race))
-    # mincon is lists [[classmins1], [classmins2]..., [racemins]]
+def methodvi(race, ch_classes):  # returns modified attributes and an 'excess' list
+    raw_atts, mincom = _d6_attributes(4), list(map(_minimums, ch_classes))
+    mincom.append(_minimums(race))  # mincon is lists [[classmins1], [classmins2]..., [racemins]]
     merged_mins = _min_merger(mincom)
     _demotion(race, ch_classes, raw_atts, merged_mins)
     if ch_classes[0] == "0-level":
         scrub = [raw_atts, [0, 0, 0, 0, 0, 0, 0]]
         return scrub
-    nine_d_six = _multi_sequencer(race, ch_classes)
-    ordered_atts = _prioritize(raw_atts, nine_d_six, race)
-    surplus_atts = _deficit(merged_mins, ordered_atts)
-    _positives(surplus_atts)
-    re_attached = _re_combine(merged_mins, surplus_atts)
-    excess = _clip_surplus(race, re_attached)
-    re_attached.append(excess)
-    _compute_exstr(re_attached, race, ch_classes, excess)
+    nine_d_six = _multi_sequencer(race, ch_classes)  # rolls up a Method V character and applies racial mods
+    ordered_atts = _prioritize(raw_atts, nine_d_six, race)  # substitutes in the 4d6 values and applies racial mods
+    surplus_atts = _deficit(merged_mins, ordered_atts)  # flags attributes below race/class minimum(s)
+    _positives(surplus_atts)  # redistributes surplus attribute points to negative values
+    re_attached = _re_combine(merged_mins, surplus_atts)  # recombines redist. points with merged minimums
+    excess = clip_surplus(race, re_attached)  # creates the excess list and nips off attributes over racial caps
+    compute_exstr(re_attached, race, ch_classes, excess)
     _comeliness_bonus(re_attached)
-    final = _clean_up(re_attached)
+    final = [re_attached, excess]
     return final
 
 

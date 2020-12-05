@@ -2,13 +2,11 @@ import random
 import csv
 
 
-def _roll(a):
-    # rolls a single die of "a" sides
+def _roll(a):  # rolls a single die of "a" sides
     return random.randrange(1, a + 1)
 
 
-def _archetype(ch_class):
-    # returns ch_class's archetype
+def _archetype(ch_class):  # returns ch_class's archetype
     archetypes = open('xpvalues.csv')
     for row in csv.reader(archetypes):
         if ch_class == row[0]:
@@ -16,28 +14,24 @@ def _archetype(ch_class):
     return ch_class
 
 
-def _age_variables(race, ch_class):
-    # returns a three-item list [base_age, #ofrolls, #ofsides]
-    minput, temp, i, j = open('attributemins.csv'), [], 0, 0
+def _age_variables(race, ch_class):  # returns a three-item list [base_age, #ofrolls, #ofsides]
+    minput, temp, i = open('attributemins.csv'), [], 0
     if race != "Human":
         i += 3
-        ch_class = _archetype(ch_class)
-        # i transposes the csv call based on the returned archetype (Thief is +12)
+        ch_class = _archetype(ch_class)  # i transposes the csv call based on the returned archetype (Thief is +12)
         if ch_class != "Fighter":
             i += 3
             if ch_class != "Magic User":
                 i += 3
                 if ch_class != "Cleric":
                     i += 3
-    else:
-        # ...but because humans get a unique age range for each subclass...
+    else:  # ...but because humans get a unique age range for each subclass...
         race = ch_class
     for row in csv.reader(minput):
         if race == row[0]:
-            while j < 3:
-                attr_pos = 10 + i + j
+            for a in range(3):
+                attr_pos = 10 + i + a
                 temp.append(int(row[attr_pos]))
-                j += 1
     return temp
 
 
@@ -55,8 +49,7 @@ def _merge_variables(race, ch_class):
     return final
 
 
-def _age_name(iterator):
-    # returns age category for a given integer (22 is a 'mature' human, etc)
+def _age_name(iterator):  # returns age category for a given integer (22 is a 'mature' human, etc)
     age_names, firstrow = open('attrbonuses.csv'), "Header"
     for row in csv.reader(age_names):
         if firstrow == row[0]:
@@ -64,9 +57,8 @@ def _age_name(iterator):
 
 
 def _age_cat(race, age):
-    # generates a two-item list: first item is a call to _age_name,
-    # designating an age category (string), second item is the impending
-    # category threshold (integer)
+    # generates a two-item list: first item is a call to _age_name, designating an age category (string), second item
+    # is the impending category threshold (integer)
     age_categories, temp, i, next_cat = open('attrbonuses.csv'), [], 10, 0
     for row in csv.reader(age_categories):
         if race == row[0]:
@@ -78,25 +70,22 @@ def _age_cat(race, age):
     return temp
 
 
-def _age_adj(age_categ):
-    # cycles through the age categories and returns cumulative age bonuses/penalties
-    bonuses, i, temp = open('agecategories.csv'), 0, []
+def _age_adj(age_categ):  # cycles through the age categories and returns cumulative age bonuses/penalties
+    bonuses, temp = open('agecategories.csv'), []
     for row in csv.reader(bonuses):
         if age_categ == row[0]:
-            while i < 7:
-                temp.append(int(row[i + 1]))
-                i += 1
+            for a in range(7):
+                temp.append(int(row[a + 1]))
     return temp
 
 
 def _natural_death(race):
-    determination, age_thresholds, i = [0, 0, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 4, 4, ], [], 0
+    determination, age_thresholds = [0, 0, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 4, 4, ], []
     age_categories, var_value, temp = open('attrbonuses.csv'), [8, 4, 6, 10, 20], random.choice(determination)
     for row in csv.reader(age_categories):
         if race == row[0]:
-            while i < 6:
-                age_thresholds.append(int(row[10+i]))
-                i += 1
+            for a in range(6):
+                age_thresholds.append(int(row[10+a]))
     # this calculates the age-span for the relevant category to determine which age_modifier to apply
     term = age_thresholds[4+round(temp/3)] - age_thresholds[3+round(temp/3)]
     age_modifier = 1 ** int(term < 100) * 10 ** int(100 >= term <= 250) * 20 ** int(term > 250)

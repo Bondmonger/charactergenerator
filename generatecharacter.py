@@ -11,7 +11,7 @@ def roll(a):  # rolls a single die of "a" sides
     return random.randrange(1, a + 1)
 
 
-def display_classes(ch_classes):  # sorts classes alphabetically and converts list into a slash-separated string
+def display_classes(ch_classes):  # sorts classes and converts list to a slash-separated string
     displayed_class = ""
     ch_classes.sort()
     for a in range(len(ch_classes)):
@@ -40,21 +40,29 @@ def display_level(levels):  # converts the list of levels into a displayable str
 
 # 1) still need a mechanism to prevent 0-hp leveling events with negative constitution
 #       except do we though? I kinda like this mechanic the way it is
-#       also Barbarian max wis is not coded in (unnecessary?)
+#       also Barbarian max wis isn't coded in anywhere (unnecessary?)
 #       need to add age increments for character creation leveling events (is this a separate task?)
 # 2) add methods I through V to attributes.py
-#       still need to standardize outputs
-#       still need to add in racial bonuses, trigger height/weight/age modifiers and calculate level/hp
-#       need to code in racial maximums (particularly for max str/con, which are often going above 18)
-#       note that methods I through IV returns blank lists if the class minimums are not met
-# 	    break up selectclass.eligibility and selectclass.eligible_races into smaller functions to reduce redundancy
+#       still need to standardize outputs (methodvi currently returns [12, 7, 9, 11, 10, 8, 6 [0, 0, 0, 0, 0, 0, 0]])
+#           to make methods I-V work we need to modify the driver code in make_character send/receive race/class
+#           also need to add in racial bonuses before the attributes are passed back to generatecharacter.py
+##################################################################
+##################################################################
+#       need a modify_attribute function
+#       need to create a racial max check (to run after the age determination)
+#           points trimmed must be checked against the surplus list
+#       need a modify_age function
+#       need a modify_level function
+#           this may as well be a modify_xp function
+#           but here is where we get into the character as class issue
+##################################################################
+##################################################################
+# 	    break selectclass.eligibility and selectclass.eligible_races into smaller functions to reduce redundancy
 # 	    do we need an eligible_classes counterpart to eligible_races / can it be made reversible?
 #       convert more of the attribute creation routines into zips - this is templated at attributes.methodv
 # 	    switch those race/class selection routine into tkinter with buttons
-#       add some toggle-able randomizer code for methods I through V (just for bulk testing without user entry)
-# 3) create a character gen randomizer (primarily for method VI)
-#       big hurdle: the weighted selection system
-#       xp-based character gen AND strict level-5-fighter gen
+#       add some toggle-able randomizer code for methods I through V (for bulk testing without user entry)
+#       strict 'level-5-fighter' gen
 # 4) create a function for incrementing levels with xp awards:
 #       create a statement preventing multiple leveling events for a given class
 #       calculate/update hit points
@@ -141,7 +149,7 @@ def flatten(x):  # adds up the elements in the nested HP list(s)
 
 
 def display_attributes(final):  # displays labels attributes in the terminal
-    if len(final['attributes']) > 7:
+    if final['attributes'][0] == 18 and final['attributes'][7] > 0:
         displaystr = str(final['attributes'][0])+'/'+str(final['attributes'][7]).zfill(2)
     else:
         displaystr = str(final['attributes'][0])
@@ -163,6 +171,9 @@ def generate_level(re_attached, ch_classes, race, xp):
              'race': race, 'levels': levels, 'xp': xp, 'age': age_object}
     for a in range(7):
         final['attributes'][a] += final['age'][3][a]
+    new_excess = attributes.clip_surplus(race, final['attributes'])
+    for a in range(7):
+        final['excess'][a] += new_excess[a]
     if ch_classes[0] == "0-level":
         final['next_level'] = ["not applicable", "0-level"]
     else:
@@ -181,7 +192,6 @@ def make_character(gender, race, xp, ch_classes):
     final['hp'] = hitpoints.generate_hp(final['classes'], final['levels'], final['attributes'][4])
     final['size'] = heightweight.size(race, gender)
     display_attributes(final)
-    # print(final)
     character_dict['Race'].append(final['race'])
     character_dict['Class'].append(final['display_classes'])
     character_dict['hp'].append([flatten(final['hp'])])
@@ -194,8 +204,7 @@ def make_character(gender, race, xp, ch_classes):
     character_dict['Com'].append(final['attributes'][6])
 
 
-def pc_xp(level):
-    # returns a randomized xp value for an NPC of level "level"
+def pc_xp(level):  # returns a randomized xp value for an NPC of level "level"
     currentXP, base, increments, value = open('xpvalues.csv'), [], [], 0
     for row in csv.reader(currentXP):
         if "MeanSum" == row[0]:
@@ -207,9 +216,25 @@ def pc_xp(level):
     return value
 
 
-for individuals in range(500):
+# make_character("male", "Mountain Dwarf", pc_xp(4), ["Fighter", "Cleric"])
+
+
+for individuals in range(100):
     race = selectclass.random_race()
     make_character("male", race, pc_xp(3), selectclass.random_class(race))
+
+
+# class Person:
+#   def __init__(self, name, age):
+#     self.name = name
+#     self.age = age
+#
+# p1 = Person("John", 36)
+# p2 = Person("Carol", 28)
+#
+# print(vars(p1))
+# print(p2.__dict__)
+
 
 print("Str: "+str(round(sum(character_dict['Str'])/len(character_dict['Str']), 2)))
 print("Int: "+str(round(sum(character_dict['Int'])/len(character_dict['Int']), 2)))
@@ -219,27 +244,3 @@ print("Con: "+str(round(sum(character_dict['Con'])/len(character_dict['Con']), 2
 print("Cha: "+str(round(sum(character_dict['Cha'])/len(character_dict['Cha']), 2)))
 print("Com: "+str(round(sum(character_dict['Com'])/len(character_dict['Com']), 2)))
 
-
-# not in use
-def armor(arm):
-    # converts armor STRs into INT values
-    ac, ad = 10, arm[-12]
-    if ad == "none":
-        ac = 10
-    elif ad == "leather armor" or ad == "padded armor":
-        ac = 8
-    elif ad == "studded leather" or ad == "ring mail":
-        ac = 7
-    elif ad == "scale mail":
-        ac = 6
-    elif ad == "chain mail" or ad == "elfin chain":
-        ac = 5
-    elif ad == "splint mail" or ad == "banded mail":
-        ac = 4
-    elif ad == "plate mail":
-        ac = 3
-    elif ad == "field plate":
-        ac = 2
-    elif ad == "full plate":
-        ac = 1
-    return ac
