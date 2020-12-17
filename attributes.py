@@ -50,7 +50,7 @@ def _minimums(cla_rac):  # returns minimum attribute values by either race or cl
     return temp
 
 
-def _racial_maximums(race):  # returns maximum attribute values by race
+def racial_maximums(race):  # returns maximum attribute values by race
     temp, maxs = [], open('attributemax.csv')
     for row in csv.reader(maxs):
         if row[0] == race:
@@ -60,7 +60,7 @@ def _racial_maximums(race):  # returns maximum attribute values by race
 
 
 def clip_surplus(race, attrs):  # nips the tops off attributes higher than racial maximum
-    rac_max, surplus = _racial_maximums(race), []
+    rac_max, surplus = racial_maximums(race), []
     for a in range(7):
         if attrs[a] <= rac_max[a]:  # if attribute is under the max, place a zero in the surplus list...
             surplus.append(0)
@@ -78,9 +78,7 @@ def _comeliness_bonus(attrs):  # applies charisma bonus to comeliness
             pass
 
 
-def _exceptional_str(race):
-    # returns max percentile strength; note that halflings are capped at zero, which we would want to have drop down to
-    # a flat 18 (for instance if they roll the max (17) and then landed in the mature age category)
+def exceptional_str(race):  # returns max percentile strength by race
     bonuses, temp = open('attrbonuses.csv'), 0
     for row in csv.reader(bonuses):
         if race == row[0]:
@@ -88,7 +86,7 @@ def _exceptional_str(race):
     return temp
 
 
-def _archetype(ch_class):  # returns ch_class's archetype
+def archetype(ch_class):  # returns ch_class's archetype
     archetypes, class_archetype = open('xpvalues.csv'), ''
     for row in csv.reader(archetypes):
         if ch_class == row[0]:
@@ -97,7 +95,7 @@ def _archetype(ch_class):  # returns ch_class's archetype
 
 
 def compute_exstr(attrs, race, ch_class, excess):  # computes an exceptional strength for all incoming characters
-    archetypes, max_racial_str = [], _exceptional_str(race)
+    archetypes, max_racial_str = [], exceptional_str(race)
     if max_racial_str > 0:  # rolls an attrs[8] less than or equal to max racial str
         attrs.append(_roll(max_racial_str))
     else:  # prevents index error if racial max is a flat 18
@@ -117,10 +115,6 @@ def compute_exstr(attrs, race, ch_class, excess):  # computes an exceptional str
             attrs[0] += 1
             attrs[7] -= 10
         attrs[7] = 100
-    for a in range(len(ch_class)):  # determines archetypes (to check for fighter-type later on)
-        archetypes.append(_archetype(ch_class[a]))
-    if "Fighter" not in archetypes:
-        attrs[7] = 0  # non fighter-types lose a) percentile points and b) excess points burned reaching racial max
 
 
 # attsss = [23, 9, 11, 14, 12, 5, 3, [2, 0, 0, 0, 0, 0, 0]]
@@ -360,7 +354,7 @@ def methodiii():  # 3d6 6 times for each attribute, order is locked
 
 
 def methodiv():  # 3d6 locked, creating 12 full characters, user selects character to keep
-    orderedatts = {'char': [], 'Str': [], 'Int': [], 'Wis': [], 'Con': [], 'Dex': [], 'Cha': [], 'Com': []}
+    orderedatts = {'char': [], 'Str': [], 'Int': [], 'Wis': [], 'Dex': [], 'Con': [], 'Cha': [], 'Com': []}
     final, i, n = {}, 0, 0
     for a in range(12):
         orderedatts["char"].append(a)
@@ -373,8 +367,8 @@ def methodiv():  # 3d6 locked, creating 12 full characters, user selects charact
         orderedatts["Com"].append(_dice(3, 6))
         # note the +1 in the first print argument below; it's just to make them 1-12 rather than 0-11...
         print("Character #"+str(a+1)+" - Str: "+str(orderedatts["Str"][a])+" Int: "+str(orderedatts["Int"][a]) +
-              " Wis: "+str(orderedatts["Wis"][a])+" Con: "+str(orderedatts["Con"][a])+" Dex: " +
-              str(orderedatts["Dex"][a])+" Cha: "+str(orderedatts["Cha"][a])+" Com: "+str(orderedatts["Com"][a]))
+              " Wis: "+str(orderedatts["Wis"][a])+" Dex: "+str(orderedatts["Dex"][a])+" Con: " +
+              str(orderedatts["Con"][a])+" Cha: "+str(orderedatts["Cha"][a])+" Com: "+str(orderedatts["Com"][a]))
         print("   attribute sum: "+str(orderedatts["Str"][a]+orderedatts["Int"][a]+orderedatts["Wis"][a] +
                                        orderedatts["Dex"][a]+orderedatts["Con"][a]+orderedatts["Cha"][a]))
     n = int(input("Which character would you like to select? ")) - 1  # ...and here we correct the incrementer
@@ -415,6 +409,7 @@ def methodv(charclass):  # weighted, class-specific range, retaining top 3 value
 
 def methodvi(race, ch_classes):  # returns modified attributes and an 'excess' list
     raw_atts, mincom = _d6_attributes(4), list(map(_minimums, ch_classes))
+    attr_names = ['Str', 'Int', 'Wis', 'Dex', 'Con', 'Cha', 'Com', 'Exc']
     mincom.append(_minimums(race))  # mincon is lists [[classmins1], [classmins2]..., [racemins]]
     merged_mins = _min_merger(mincom)
     _demotion(race, ch_classes, raw_atts, merged_mins)
@@ -429,7 +424,10 @@ def methodvi(race, ch_classes):  # returns modified attributes and an 'excess' l
     excess = clip_surplus(race, re_attached)  # creates the excess list and nips off attributes over racial caps
     compute_exstr(re_attached, race, ch_classes, excess)
     _comeliness_bonus(re_attached)
-    final = [re_attached, excess]
+    attr_dict = dict(zip(attr_names, re_attached))
+    excess_dict = dict(zip(attr_names, excess))
+    final = [attr_dict, excess_dict]
+    # final = [re_attached, excess]
     return final
 
 

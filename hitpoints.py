@@ -22,8 +22,8 @@ def hp_compute_first(hpcalcs):  # calculates starter hit points: roundup(maximum
     return hitpoints
 
 
-def hp_compute_mid(hpcalcs, hp, level):  # calculates mid-level hit points and adds them to list hp
-    for a in range(1, level):
+def hp_compute_mid(hpcalcs, hp, level, incoming_level=1):  # calculates mid-level hit points and adds them to list hp
+    for a in range(incoming_level, level):  # incoming level needs to be the number of hp rolls for class [a]
         if a < hpcalcs[4]:
             hp.append(roll(hpcalcs[3])+hpcalcs[8])  # hpcalcs[8] is the +1 per level that Wu-jen get
         else:
@@ -32,7 +32,8 @@ def hp_compute_mid(hpcalcs, hp, level):  # calculates mid-level hit points and a
 
 def hp_compute_top(hpcalcs, hp, level):  # calculates name-level hit points and adds them to list hp
     for a in range(hpcalcs[4], level):
-        hp.append(hpcalcs[5])
+        if a > len(hp):
+            hp.append(hpcalcs[5])
 
 
 def con_bonus(hitpoints, hpcalcs, con):  # grabs con bonus info from attributevalue.csv and class info from hpcalcs
@@ -71,8 +72,8 @@ def generate_hp(ch_class, levels, con):  # generates new character hp of level "
     if "Ninja" in ch_class:  # ninjas don't get a con bonus but receive double con bonus for their alternative class
         for a in range(number_of_classes):
             final[number_of_classes][a] *= 2
-    return final  # [[fig1, fig2, fig3], [mu1, mu2], [th1, th2, th3, th4]]
+    return final  # [[fig1, fig2, fig3], [mu1, mu2], [th1, th2, th3, th4], [figcon, mucon, thcon]]
 
 
-# test = generate_hp(["Barbarian", "Monk"], [13, 13], 6)
+# test = generate_hp(["Barbarian", "Monk"], [5, 5], 17)
 # print(test)

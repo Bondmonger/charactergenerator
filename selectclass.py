@@ -202,6 +202,13 @@ def random_race():  # returns a random race from the weighted array | WARNING: u
     return final
 
 
+def random_gender():
+    roll, gender = _dice(1, 5), "male"
+    if roll == 5:
+        gender = "female"
+    return gender
+
+
 def random_class(race_is):
     classlist = list(min_df.loc[min_df['charclass'] == race_is]['classes'])
     classlist = string_to_list(classlist[0], ', ')
@@ -234,23 +241,3 @@ def random_class(race_is):
 # print('single class: ' + str(single_class))
 # print('multiclass: '+str(multi_class))
 # print('dictionary version of singles:: '+str(single_dict))
-
-
-
-
-# sample_dict = {"atomic wedgies": 4, "noogies": 2, "purple nurples": 1}
-# probability_sum, final_list = sum(sample_dict.values()), []
-# for a in range(1000):
-#     rand_value, final = random.randrange(0, probability_sum), ''
-#     for key in sample_dict:
-#         if rand_value >= sample_dict[key]:
-#             rand_value -= sample_dict[key]
-#         elif rand_value >= 0:
-#             final = key
-#             rand_value -= sample_dict[key]
-#     final_list.append(final)
-#
-#
-# print(final_list.count("atomic wedgies"))
-# print(final_list.count("noogies"))
-# print(final_list.count("purple nurples"))

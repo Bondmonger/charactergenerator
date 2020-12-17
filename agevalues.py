@@ -56,7 +56,7 @@ def _age_name(iterator):  # returns age category for a given integer (22 is a 'm
             return row[iterator]
 
 
-def _age_cat(race, age):
+def age_cat(race, age):
     # generates a two-item list: first item is a call to _age_name, designating an age category (string), second item
     # is the impending category threshold (integer)
     age_categories, temp, i, next_cat = open('attrbonuses.csv'), [], 10, 0
@@ -70,7 +70,7 @@ def _age_cat(race, age):
     return temp
 
 
-def _age_adj(age_categ):  # cycles through the age categories and returns cumulative age bonuses/penalties
+def age_adj(age_categ):  # cycles through the age categories and returns cumulative age bonuses/penalties
     bonuses, temp = open('agecategories.csv'), []
     for row in csv.reader(bonuses):
         if age_categ == row[0]:
@@ -80,7 +80,7 @@ def _age_adj(age_categ):  # cycles through the age categories and returns cumula
 
 
 def _natural_death(race):
-    determination, age_thresholds = [0, 0, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 4, 4, ], []
+    determination, age_thresholds = [0, 0, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 4, 4], []
     age_categories, var_value, temp = open('attrbonuses.csv'), [8, 4, 6, 10, 20], random.choice(determination)
     for row in csv.reader(age_categories):
         if race == row[0]:
@@ -96,20 +96,21 @@ def _natural_death(race):
     return temp_base + temp_roll
 
 
-def generate_age(race, ch_class):
-    temp, final = _merge_variables(race, ch_class), []
+def generate_age(race, ch_class, level):
+    temp, final, attr_names = _merge_variables(race, ch_class), [], ['Str', 'Int', 'Wis', 'Dex', 'Con', 'Cha', 'Com']
     age = temp[0]
     for a in range(temp[1]):
         age += _roll(temp[2])
-    final.append(age)
-    final.append(_age_cat(race, age)[0])
-    final.append(_age_cat(race, age)[1])
-    final.append(_age_adj(final[1]))
+    final.append(age - 1 + level)
+    final.append(age_cat(race, age)[0])
+    final.append(age_cat(race, age)[1])
+    final.append(dict(zip(attr_names, age_adj(final[1]))))
+    final[3]['Exc'] = 0
     final.append(_natural_death(race))
     return final
 
 
 # testrace = "Korobokuru"
 # testclass = ["Shukenja"]
-# a = generate_age(testrace, testclass)
+# a = generate_age(testrace, testclass, 2)
 # print(a)
