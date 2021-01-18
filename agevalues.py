@@ -6,19 +6,19 @@ def _roll(a):  # rolls a single die of "a" sides
     return random.randrange(1, a + 1)
 
 
-def _archetype(ch_class):  # returns ch_class's archetype
-    archetypes = open('xpvalues.csv')
-    for row in csv.reader(archetypes):
-        if ch_class == row[0]:
-            ch_class = row[38]
-    return ch_class
+def archetype(ch_class):  # returns ch_class's archetype
+    with open('xpvalues.csv') as archetypes:
+        for row in csv.reader(archetypes):
+            if ch_class == row[0]:
+                class_archetype = row[38]
+    return class_archetype
 
 
 def _age_variables(race, ch_class):  # returns a three-item list [base_age, #ofrolls, #ofsides]
-    minput, temp, i = open('attributemins.csv'), [], 0
+    temp, i = [], 0
     if race != "Human":
         i += 3
-        ch_class = _archetype(ch_class)  # i transposes the csv call based on the returned archetype (Thief is +12)
+        ch_class = archetype(ch_class)  # i transposes the csv call based on the returned archetype (Thief is +12)
         if ch_class != "Fighter":
             i += 3
             if ch_class != "Magic User":
@@ -27,11 +27,12 @@ def _age_variables(race, ch_class):  # returns a three-item list [base_age, #ofr
                     i += 3
     else:  # ...but because humans get a unique age range for each subclass...
         race = ch_class
-    for row in csv.reader(minput):
-        if race == row[0]:
-            for a in range(3):
-                attr_pos = 10 + i + a
-                temp.append(int(row[attr_pos]))
+    with open('attributemins.csv') as minput:
+        for row in csv.reader(minput):
+            if race == row[0]:
+                for a in range(3):
+                    attr_pos = 10 + i + a
+                    temp.append(int(row[attr_pos]))
     return temp
 
 
@@ -50,50 +51,57 @@ def _merge_variables(race, ch_class):
 
 
 def _age_name(iterator):  # returns age category for a given integer (22 is a 'mature' human, etc)
-    age_names, firstrow = open('attrbonuses.csv'), "Header"
-    for row in csv.reader(age_names):
-        if firstrow == row[0]:
-            return row[iterator]
+    firstrow = "Header"
+    with open('attrbonuses.csv') as age_names:
+        for row in csv.reader(age_names):
+            if firstrow == row[0]:
+                return row[iterator]
 
 
-def age_cat(race, age):
-    # generates a two-item list: first item is a call to _age_name, designating an age category (string), second item
-    # is the impending category threshold (integer)
-    age_categories, temp, i, next_cat = open('attrbonuses.csv'), [], 10, 0
-    for row in csv.reader(age_categories):
-        if race == row[0]:
-            while age > int(row[i]):
-                i += 1
-            next_cat = row[i]
+def age_cat(race, age):  # generates two-item list: [age category (string), impending category threshold (integer)]
+    temp, i, next_cat = [], 10, 0
+    with open('attrbonuses.csv') as age_categories:
+        for row in csv.reader(age_categories):
+            if race == row[0]:
+                while age > int(row[i]):
+                    i += 1
+                next_cat = row[i]
     temp.append(_age_name(i))
     temp.append(next_cat)
     return temp
 
 
 def age_adj(age_categ):  # cycles through the age categories and returns cumulative age bonuses/penalties
-    bonuses, temp = open('agecategories.csv'), []
-    for row in csv.reader(bonuses):
-        if age_categ == row[0]:
-            for a in range(7):
-                temp.append(int(row[a + 1]))
+    temp = []
+    with open('agecategories.csv') as bonuses:
+        for row in csv.reader(bonuses):
+            if age_categ == row[0]:
+                for a in range(7):
+                    temp.append(int(row[a + 1]))
     return temp
 
 
 def _natural_death(race):
     determination, age_thresholds = [0, 0, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 4, 4], []
-    age_categories, var_value, temp = open('attrbonuses.csv'), [8, 4, 6, 10, 20], random.choice(determination)
-    for row in csv.reader(age_categories):
-        if race == row[0]:
-            for a in range(6):
-                age_thresholds.append(int(row[10+a]))
+    var_value, temp = [8, 4, 6, 10, 20], random.choice(determination)
+    with open('attrbonuses.csv') as age_categories:
+        for row in csv.reader(age_categories):
+            if race == row[0]:
+                for a in range(6):
+                    age_thresholds.append(int(row[10+a]))
     # this calculates the age-span for the relevant category to determine which age_modifier to apply
     term = age_thresholds[4+round(temp/3)] - age_thresholds[3+round(temp/3)]
-    age_modifier = 1 ** int(term < 100) * 10 ** int(100 >= term <= 250) * 20 ** int(term > 250)
+    age_modifier = 1 * int(term < 100) + 10 * int(100 <= term <= 250) + 20 * int(term > 250)
     # this formula computes the base age corresponding with the temp value
     temp_base = int(age_thresholds[round((temp+6.5)/2)]) + int(temp == 0 or temp == 2)
     # this formula computes the die roll, span modifier and operator corresponding with the temp value
     temp_roll = (_roll(var_value[temp]) * age_modifier + _roll(age_modifier) - 1) * (temp % 2 * -2 + 1)
     return temp_base + temp_roll
+
+
+# for i in range(100):
+#     temp_death = _natural_death("Human")
+#     print(temp_death)
 
 
 def generate_age(race, ch_class, level):

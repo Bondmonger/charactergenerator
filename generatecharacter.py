@@ -36,10 +36,25 @@ def display_level(levels):  # converts the list of levels into a displayable str
 # 	    switch race/class selection routines into tkinter with buttons
 #       strict 'level-5-fighter' gen
 ##################################################################
-# 4) stat up 0-level humans/demi-humans
-# 5) dual-classing and bards
-# 6) figure out storage/equipment fields
+# INTERFACE
+#   modify attributes
+#   adjust calculate_ac() to account for Monks (who don't get a dex bonus)
+#   create a calculate_th() that can deal with exceptional strength
+#   add in placeholder equipment window/fields
+#   add character names
+#       need text input fields
+#       reorder party
+#   clear the table once a character has been converted to wight or zero class
+#       this will probably require new windows for wights and zero class (to remove buttons & text)
+#   create a level/race/class selection fields for method VI (including random options for all three)
+#   fold in the other character attribute methods (I through V)
+#       dovetail those into the character class (or maybe create a separate class definition for each method?)
+#   OUTSTANDING: no alignment, equipment, proficiencies, spells, race/class abilities, languages
+##################################################################
+# 4) figure out storage/equipment fields
 #       csv all the armor and weapons
+# 5) dual-classing and bards
+# 6) stat up 0-level humans/demi-humans
 # 7) add in special abilities/special ability fields
 #       spells per level
 #       thief-like abilities
@@ -97,14 +112,14 @@ def return_xp(ch_class):  # returns the complete list of xp thresholds for the i
             return xpvalues[0][2:28]  # ['0', '1500', '3000', ...]
 
 
-def next_xp(classes, levels, attrs, diff=0):  # returns list of impending xp thresholds
+def next_xp(classes, levels, attrs, diff=0):                                            # returns impending thresholds
     xpvalues, number_of_classes, attrs_list = [], len(classes), list(attrs.values())
     for a in range(number_of_classes):                                                  # diff = -1 is most recent
         subsequent_threshold = int(return_xp(classes[a])[levels[a] + diff])             # diff = 0 is imminent threshold
         xpvalues.append(subsequent_threshold * number_of_classes)                       # diff = 1 is 2 levels up, etc
         if bonus_check(classes[a], attrs_list) is True:
             xpvalues[a] = xpvalues[a] * 10 / 11
-    return xpvalues  # [7272.7, 12000]
+    return xpvalues                                                                     # [7272.7, 12000]
 
 
 # test_class = ['Fighter', 'Cleric']
@@ -113,19 +128,19 @@ def next_xp(classes, levels, attrs, diff=0):  # returns list of impending xp thr
 # print(next_xp(test_class, test_level, test_attrs, -1))
 
 
-def increment_xp(classes, levels, xp, atts):  # increments levels until all xp are spent
+def increment_xp(classes, levels, xp, atts):                    # increments levels until all xp are spent
     temp = next_xp(classes, levels, atts)
     nextlevel, nextxp_class = temp[temp.index(min(temp))], []
     while nextlevel <= xp:
         levels[temp.index(min(temp))] += 1
         temp = next_xp(classes, levels, atts)
-        nextlevel = temp[temp.index(min(temp))]  # Modifies levels[]
+        nextlevel = temp[temp.index(min(temp))]                 # Modifies levels[]
     nextxp_class.append(nextlevel)
     nextxp_class.append(classes[temp.index(min(temp))])
-    return nextxp_class  # ...and returns the impending level threshold
+    return nextxp_class                                         # ...and returns the impending level threshold
 
 
-def flatten(x):  # adds up the elements in the nested HP list(s)
+def flatten(x):                                                 # adds up the elements in nested HP list(s)
     temp = []
     for a in range(len(x)):
         for b in range(len(x[a])):
@@ -133,7 +148,7 @@ def flatten(x):  # adds up the elements in the nested HP list(s)
     return round(sum(temp)/(len(x)-1))
 
 
-def generate_level(attrs, ch_classes, race, xp, excess):  # creates and updates levels and xp thresholds
+def generate_level(attrs, ch_classes, race, xp, excess):        # creates and updates levels and xp thresholds
     levels, final = [], {}
     for a in range(len(ch_classes)):
         levels.append(0)
@@ -147,16 +162,29 @@ def generate_level(attrs, ch_classes, race, xp, excess):  # creates and updates 
     return final
 
 
-def pc_xp(level):  # returns a randomized xp value for an NPC of level "level"
-    currentXP, base, increments, value = open('xpvalues.csv'), [], [], 0
-    for row in csv.reader(currentXP):
-        if "MeanSum" == row[0]:
-            base.append(row)
-        if "MeanDif" == row[0]:
-            increments.append(row)
-    base, increments = base[0], increments[0]
-    value = int(base[level + 1]) + roll(int(increments[level + 2]))
+def pc_xp(level):                                               # returns a randomized xp value for a given level
+    base, increments, value = [], [], 0
+    with open('xpvalues.csv') as currentxp:
+        for row in csv.reader(currentxp):
+            if "MeanSum" == row[0]:
+                base.append(row)
+            if "MeanDif" == row[0]:
+                increments.append(row)
+    base, increments = base[0][1:28], increments[0][2:28]       # note the differing start points
+    value = int(base[level]) + roll(int(increments[level]))     # this is to turn increments[level + 1] to [level]
     return value
+
+
+def impending_mean_xp(xp):                                      # returns the next mean xp threshold (an integer)
+    base = []
+    with open('xpvalues.csv') as currentxp:
+        for row in csv.reader(currentxp):
+            if "MeanSum" == row[0]:
+                base.append(row)
+    base = base[0][2:28]
+    for a in base:
+        if xp < int(a):
+            return a
 
 
 ################## not in use ##################
@@ -170,7 +198,6 @@ def display_attributes(final):  # displays labels attributes in the terminal
         str(final['size'][1])+' lbs  age: ' + str(final['age'][0])+' ('+final['age'][1]+') --- str: '+displaystr +
         ', int: '+str(final['attributes'][1]) + ', wis: '+str(final['attributes'][2]) + ', dex: '
         + str(final['attributes'][3])+', con: '+str(final['attributes'][4])+', cha: ' + str(final['attributes'][5]))
-        # + ' --- '+str(final['next_level'][0])+', '+final['next_level'][1])
 
 
 ################## not in use ##################

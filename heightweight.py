@@ -14,13 +14,13 @@ def _rollreps(rolls, die):  # repeatedly calls _roll and sums the results
 
 
 def size(race, gender):
-    sizevalues, racialsum = open('attrbonuses.csv'), []
-    # populates the racialsum list with the (26!) racial height/weight values for the provided race argument
-    for row in csv.reader(sizevalues):
-        if race == row[0]:
-            for a in range(26):
-                racialsum.append(int(row[a + 18]))
-    temp, i, gender = _roll(600), 0, 8 * int(gender == "female")  # in other words, "add 8 if female"
+    racialsum = []
+    with open('attrbonuses.csv') as sizevalues:
+        for row in csv.reader(sizevalues):
+            if race == row[0]:  # populates racialsum list with the racial height/weight values for the provided race
+                for a in range(26):
+                    racialsum.append(int(row[a + 18]))
+    temp, i, gender = _roll(600), 0, 8 * int(gender == "female")  # in other words, "transpose by 8 if female"
     while temp >= racialsum[i]:  # increments through the 5 height tiers for the respective race
         i += 1
     height = racialsum[10 + gender] \

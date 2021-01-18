@@ -33,104 +33,107 @@ def string_to_list(string, stringpartition):
 
 
 def _racial_bonus(race, temp):  # racial modifier - temp is the list of attributes
-    bonuses = open('attrbonuses.csv')
-    for row in csv.reader(bonuses):
-        if race == row[0]:
-            for a in range(7):
-                temp[a] += int(row[a+1])
+    with open('attrbonuses.csv') as bonuses:
+        for row in csv.reader(bonuses):
+            if race == row[0]:
+                for a in range(7):
+                    temp[a] += int(row[a+1])
     return temp
 
 
 def _minimums(cla_rac):  # returns minimum attribute values by either race or class
-    temp, mins = [], open('attributemins.csv')
-    for row in csv.reader(mins):
-        if cla_rac == row[0]:
-            for a in range(1, 8):
-                temp.append(int(row[a]))
-    return temp
+    final = []
+    with open('attributemins.csv') as mins:
+        for row in csv.reader(mins):
+            if cla_rac == row[0]:
+                for a in range(1, 8):
+                    final.append(int(row[a]))
+    return final
 
 
 def racial_maximums(race):  # returns maximum attribute values by race
-    temp, maxs = [], open('attributemax.csv')
-    for row in csv.reader(maxs):
-        if row[0] == race:
-            for a in range(1, 8):
-                temp.append(int(row[a]))
-    return temp
+    final = []
+    with open('attributemax.csv') as maxs:
+        for row in csv.reader(maxs):
+            if row[0] == race:
+                for a in range(1, 8):
+                    final.append(int(row[a]))
+    return final
 
 
-def clip_surplus(race, attrs):  # nips the tops off attributes higher than racial maximum
+def clip_surplus(race, attrs):                  # nips the tops off attributes higher than racial maximum
     rac_max, surplus = racial_maximums(race), []
     for a in range(7):
-        if attrs[a] <= rac_max[a]:  # if attribute is under the max, place a zero in the surplus list...
+        if attrs[a] <= rac_max[a]:              # if attribute is under the max, place a zero in the surplus list...
             surplus.append(0)
-        else:  # ...otherwise set the attribute to the max and place the difference in the surplus list
+        else:                                   # ...otherwise sets attr to max and places difference in surplus list
             surplus.append(attrs[a] - rac_max[a])
             attrs[a] = rac_max[a]
     return surplus
 
 
 def _comeliness_bonus(attrs):  # applies charisma bonus to comeliness
-    bonuses = open('attributevalues.csv')
-    for row in csv.reader(bonuses):
-        if row[0] == str(attrs[5]):
-            attrs[6] += int(row[41])
-            pass
+    with open('attributevalues.csv') as bonuses:
+        for row in csv.reader(bonuses):
+            if row[0] == str(attrs[5]):
+                attrs[6] += int(row[41])
+                pass
 
 
 def exceptional_str(race):  # returns max percentile strength by race
-    bonuses, temp = open('attrbonuses.csv'), 0
-    for row in csv.reader(bonuses):
-        if race == row[0]:
-            temp = int(row[8])
-    return temp
+    with open('attrbonuses.csv') as bonuses:
+        for row in csv.reader(bonuses):
+            if race == row[0]:
+                maximum_exceptional_strength = int(row[8])
+    return maximum_exceptional_strength
 
 
 def archetype(ch_class):  # returns ch_class's archetype
-    archetypes, class_archetype = open('xpvalues.csv'), ''
-    for row in csv.reader(archetypes):
-        if ch_class == row[0]:
-            class_archetype = row[38]
+    with open('xpvalues.csv') as archetypes:
+        for row in csv.reader(archetypes):
+            if ch_class == row[0]:
+                class_archetype = row[38]
     return class_archetype
 
 
-def compute_exstr(attrs, race, ch_class, excess):  # computes an exceptional strength for all incoming characters
+def compute_exstr(attrs, race, excess):     # computes an exceptional strength regardless of class
     archetypes, max_racial_str = [], exceptional_str(race)
-    if max_racial_str > 0:  # rolls an attrs[8] less than or equal to max racial str
+    if max_racial_str > 0:                  # rolls an attrs[8] less than or equal to max racial str
         attrs.append(_roll(max_racial_str))
-    else:  # prevents index error if racial max is a flat 18
+    else:                                   # prevents index error if racial max is a flat 18
         attrs.append(0)
-    while attrs[0] > 18:  # converts strength values above 18 into excess points
+    while attrs[0] > 18:                    # converts strength values above 18 into excess points
         attrs[0] -= 1
         excess[0] += 1
-    attrs[7] += excess[0] * 10  # increases percentile points by excess (1 point = +10)
-    if attrs[7] > max_racial_str:  # if percentile is greater than racial max...
+    attrs[7] += excess[0] * 10              # increases percentile points by excess (1 point = +10)
+    if attrs[7] > max_racial_str:           # if percentile is greater than racial max...
         excess[0] = 0
         while attrs[7] > max_racial_str:
-            excess[0] += 1  # ...transfers surplus points back to excess (at 10:1 ratio)...
+            excess[0] += 1                  # ...transfers surplus points back to excess (at 10:1 ratio)...
             attrs[7] -= 10
-        attrs[7] = max_racial_str  # ...and sets percentile = racial max
-    if attrs[7] > 100:  # transfers percentile points above 100 back to base strength (at 10:1 ratio, rounding up)
+        attrs[7] = max_racial_str           # ...and sets percentile = racial max
+    if attrs[7] > 100:                      # transfers % above 100 back to base strength (at 10:1 ratio, rounding up)
         while attrs[7] > 100:
             attrs[0] += 1
             attrs[7] -= 10
         attrs[7] = 100
 
 
-# attsss = [23, 9, 11, 14, 12, 5, 3, [2, 0, 0, 0, 0, 0, 0]]
-# _compute_exstr(attsss, "Human", ['Magic User'], attsss[7])
-# print(attsss)
+# attsss, exc = [23, 9, 11, 14, 12, 5, 3], [2, 0, 0, 0, 0, 0, 0]
+# compute_exstr(attsss, "Human", exc)
+# print(attsss, exc)
 
-def _ua_attr(ch_class):  # returns a list of method V die values for called class
-    ua_dice, temp = open('xpvalues.csv'), []
-    for row in csv.reader(ua_dice):
-        if ch_class == row[0]:
-            for a in range(7):
-                temp.append(int(row[a + 29]))
-    return temp
+def _ua_attr(ch_class):                     # returns a list of method V die counts for called class
+    v_values = []
+    with open('xpvalues.csv') as ua_dice:
+        for row in csv.reader(ua_dice):
+            if ch_class == row[0]:
+                for a in range(7):
+                    v_values.append(int(row[a + 29]))
+    return v_values
 
 
-def _sequencer(ch_class, race):  # sequences a 3d6-to-9d6 for single-class characters
+def _sequencer(ch_class, race):             # sequences a 3d6-to-9d6 for single-class characters
     temp, seq = [], _ua_attr(ch_class)
     for a in range(7):
         temp.insert(a, _dice(seq[a], 6))
@@ -138,24 +141,24 @@ def _sequencer(ch_class, race):  # sequences a 3d6-to-9d6 for single-class chara
     return temp
 
 
-def _multi_sequencer(race, *ch_class):  # sequences list of 7 attributes via 3d6-to-9d6 (for multi-class characters)
+def _multi_sequencer(race, *ch_class):                          # sequences 7 attributes via method V (3d6-to-9d6)
     if len(ch_class[0]) == 1:
-        return _sequencer(ch_class[0][0], race)  # if the character is single class, _sequencer can handle it
+        return _sequencer(ch_class[0][0], race)                 # _sequencer() handles single-class characters
     else:
         ninedsix, summed_attrs, final, ordered_list = [], [], [], [*range(3, 10, 1)]
-        for a in range(len(ch_class[0])):  # nests method V values [[9, 3, 5, 7, 8, 6, 4], [7, 4, 9, 5, 8, 6, 3], etc]
+        for a in range(len(ch_class[0])):                       # nests method V values [[9, 3, 5, 7, 8, 6, 4], ...etc]
             ninedsix.append(_ua_attr(ch_class[0][a]))
-        for a in range(7):  # groups and then sums method V values for 'a' attribute ( [9, 7], then [3, 4], etc )
+        for a in range(7):                                      # sums method V values by attribute ([9,7], then [3,4])
             grouped_attrs = []
             for b in range(len(ch_class[0])):
                 grouped_attrs.append(ninedsix[b][a])
-            grouped_attrs.sort(reverse=True)  # sorts only the subgroups for tiebreaker purposes ( 9 + 7 > 8 + 8 )
+            grouped_attrs.sort(reverse=True)                    # sorts subgroups for tiebreakers ( 9 + 7 > 8 + 8 )
             summed_attrs.append(sum(grouped_attrs) + 0.1 * grouped_attrs[0] + 0.01 * grouped_attrs[1])
-            summed_attrs[a] = _cruncher(summed_attrs[a]) + 10  # applies cruncher to break ties
+            summed_attrs[a] = _cruncher(summed_attrs[a]) + 10   # applies cruncher to break ties
         ordered_list.reverse()
-        for a in range(7):  # ...this from overwriting the method V values
+        for a in range(7):
             summed_attrs[summed_attrs.index(max(summed_attrs))] = ordered_list[a]
-        for a in range(7):  # rolls up via newly sequenced method V values
+        for a in range(7):                                      # rolls up via newly sequenced method V values
             final.append(_dice(summed_attrs[a], 6))
         _racial_bonus(race, final)
         return final
@@ -182,10 +185,10 @@ def _min_merger(_minimums):  # merges any number of minimum attribute lists
     return final
 
 
-def _deficit(mins, atts):  # returns current attributes minus the minimums
+def _deficit(mins, attrs):  # returns current attributes minus the minimums
     diff = []
     for a in range(7):
-        diff.append(atts[a] - mins[a])
+        diff.append(attrs[a] - mins[a])
     return diff
 
 
@@ -208,8 +211,7 @@ def _positives(diffs):  # negative differences become 0s, randomly reduces surpl
 # _positives(test_pos)
 # print(test_pos)
 
-def _re_combine(mins, diffs):
-    # sums minimums and "differences," returning combined attributes
+def _re_combine(mins, diffs):               # sums minimums and "differences," returning combined attributes
     temp = []
     for a in range(7):
         temp.append(mins[a] + diffs[a])
@@ -217,10 +219,10 @@ def _re_combine(mins, diffs):
 
 
 def _demote_class(cha_class):  # drops a class one tier, potentially returning "0-level"
-    characterclasses, result = open('xpvalues.csv'), 0
-    for row in csv.reader(characterclasses):
-        if cha_class == row[0]:
-            result = row[37]
+    with open('xpvalues.csv') as characterclasses:
+        for row in csv.reader(characterclasses):
+            if cha_class == row[0]:
+                result = row[37]
     return result
 
 
@@ -234,21 +236,20 @@ def _minimum_sum(ch_class):  # returns the minimum attribute SUM for a single ch
 
 
 def _maxindex(listofvalues):  # flags the index position of the largest value in a list
-    maximum, maxlocation = 0, 0
+    maximum = 0
     for a, value in enumerate(listofvalues):
         if value > maximum:
-            maximum = value
-            maxlocation = a
-    return maxlocation
+            maximum, max_location = value, a
+    return max_location
 
 
-def _demotion(race, ch_classes, raw_atts, merged_mins):
-    # performs class demotion (Paladin into Fighter, etc) on characters with insufficient attribute points
-    racialbonuses, racialsum = open('attrbonuses.csv'), 0
-    for row in csv.reader(racialbonuses):
-        if race == row[0]:
-            for a in range(1, 8):
-                racialsum += int(row[a])
+def _demotion(race, ch_classes, raw_atts, merged_mins):  # demotes characters with insufficient attribute points
+    racialsum = 0
+    with open('attrbonuses.csv') as racial_bonuses:
+        for row in csv.reader(racial_bonuses):
+            if race == row[0]:
+                for a in range(1, 8):
+                    racialsum += int(row[a])
     while sum(raw_atts) + racialsum < sum(merged_mins):  # ninja is always the first cut
         minsum = []
         for a in range(len(ch_classes)):
@@ -422,12 +423,11 @@ def methodvi(race, ch_classes):  # returns modified attributes and an 'excess' l
     _positives(surplus_atts)  # redistributes surplus attribute points to negative values
     re_attached = _re_combine(merged_mins, surplus_atts)  # recombines redist. points with merged minimums
     excess = clip_surplus(race, re_attached)  # creates the excess list and nips off attributes over racial caps
-    compute_exstr(re_attached, race, ch_classes, excess)
+    compute_exstr(re_attached, race, excess)
     _comeliness_bonus(re_attached)
     attr_dict = dict(zip(attr_names, re_attached))
     excess_dict = dict(zip(attr_names, excess))
     final = [attr_dict, excess_dict]
-    # final = [re_attached, excess]
     return final
 
 

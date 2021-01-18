@@ -1,3 +1,4 @@
+import csv
 import random
 import attributes
 import hitpoints
@@ -16,6 +17,8 @@ class Character:
         self.gender = selectclass.random_gender()
         self.race = selectclass.random_race()
         self.classes = selectclass.random_class(self.race)
+        # self.race = "Human"
+        # self.classes = ['Fighter']
         self.xp = generatecharacter.pc_xp(level)
         self.attributes = attributes.methodvi(self.race, self.classes)
         self.excess, self.attributes = self.attributes.pop(1), self.attributes[0]
@@ -25,12 +28,14 @@ class Character:
         self.display_class = generatecharacter.display_classes(self.classes)
         self.level = generatecharacter.generate_level(self.attributes, self.classes, self.race, self.xp, self.excess)
         self.level, self.next_level = self.level['level'], self.level.pop('next_level')
+        self.display_level = generatecharacter.display_level(self.level)
         self.hp_history = hitpoints.generate_hp(self.classes, self.level, self.attributes['Con'])
+        self.modify_age(0)  # this is to factor in modifiers from the age increments in generate_level()
         self.size = heightweight.size(self.race, self.gender)
         self.hp = generatecharacter.flatten(self.hp_history)
         return
 
-    def display_attributes(self):  # displays attributes in the terminal
+    def display_strength(self):  # calculates a displayable strength
         archetypes = []
         for obj in range(len(self.classes)):
             archetypes.append(attributes.archetype(self.classes[obj]))
@@ -38,34 +43,37 @@ class Character:
             displaystr = str(self.attributes['Str']) + '/' + str(self.attributes['Exc']).zfill(2)
         else:
             displaystr = str(self.attributes['Str'])
+        return displaystr
+
+    def display_attributes(self):  # displays attributes in terminal
         print("{} {} {} {} --- hp: {} | hgt: {}'{}” wgt: {} lbs  age: {} ({}) --- str: {}, int {}, wis {}, dex {}, con "
             "{}, cha {}".format(generatecharacter.display_level(self.level), self.gender, self.race, self.display_class,
             str(self.hp), str(self.size[0] / 12)[0:1], str(self.size[0] % 12), str(self.size[1]), str(self.age[0]),
-            self.age[1], displaystr, str(self.attributes['Int']), str(self.attributes['Wis']),
+            self.age[1], self.display_strength(), str(self.attributes['Int']), str(self.attributes['Wis']),
             str(self.attributes['Dex']), str(self.attributes['Con']), str(self.attributes['Cha'])))
         return
 
     def modify_str(self, adjustment):
-        max_strength = attributes.racial_maximums(self.race)[0]  # used at the end
+        max_strength = attributes.racial_maximums(self.race)[0]     # used at the end
         self.attributes['Str'] += adjustment
         if self.attributes['Str'] > 17:
             max_racial_str = attributes.exceptional_str(self.race)
-            while self.attributes['Str'] > 18:  # converts strength values above 18 into excess points
+            while self.attributes['Str'] > 18:                      # converts strength above 18 into excess points
                 self.attributes['Str'] -= 1
                 self.excess['Str'] += 1
-            self.attributes['Exc'] += self.excess['Str'] * 10  # dumps excess points into exceptional strength (*10)
-            self.excess['Str'] = 0  # tares excess to zero
+            self.attributes['Exc'] += self.excess['Str'] * 10       # dumps excess points into exc. strength (*10)
+            self.excess['Str'] = 0                                  # tares excess to zero
             if self.attributes['Exc'] > max_racial_str:
                 while self.attributes['Exc'] > max_racial_str + 9:
                     self.excess['Str'] += 1
                     self.attributes['Exc'] -= 10
-                self.attributes['Exc'] = max_racial_str  # reduces exceptional strength to racial max (if necessary)
+                self.attributes['Exc'] = max_racial_str             # reduces exc. strength to racial max (if necessary)
             if self.attributes['Exc'] > 100:
                 while self.attributes['Exc'] > 100:
                     self.attributes['Str'] += 1
                     self.attributes['Exc'] -= 10
-                self.attributes['Exc'] = 100  # converts +00 percentile scores into 19+ strength
-        if self.attributes['Str'] > max_strength:  # for low maximum strength races (halfling, drow, etc)
+                self.attributes['Exc'] = 100                        # converts +00 percentile scores into 19+ strength
+        if self.attributes['Str'] > max_strength:                   # for low max strength races (halfling, drow, etc)
             self.excess['Str'] += self.attributes['Str'] - max_strength
             self.attributes['Str'] = max_strength
         return
@@ -83,12 +91,13 @@ class Character:
         return
 
     def modify_other_att(self, adjustment, attribute):
-        max_constitution = attributes.racial_maximums(self.race)[4]
+        ord_attrs = ['Str', 'Int', 'Wis', 'Dex', 'Con', 'Cha', 'Com']
+        max_att = attributes.racial_maximums(self.race)[ord_attrs.index(attribute)]     # racial max by attr index pos.
         self.attributes[attribute] += self.excess[attribute] + adjustment
-        self.excess[attribute] = 0  # tares excess to zero
-        if self.attributes[attribute] > max_constitution:
-            self.excess[attribute] += self.attributes[attribute] - max_constitution
-            self.attributes[attribute] = max_constitution
+        self.excess[attribute] = 0                                                      # tares excess to zero
+        if self.attributes[attribute] > max_att:
+            self.excess[attribute] += self.attributes[attribute] - max_att
+            self.attributes[attribute] = max_att
         return
 
     def modify_attribute(self, attr, adjustment):
@@ -124,20 +133,33 @@ class Character:
         return
 
     def modify_xp(self, adjustment):
+        if self.xp + adjustment >= int(generatecharacter.impending_mean_xp(self.xp)):
+            self.modify_age(1)
         self.xp += adjustment
         return
 
+    def wightify(self):
+        self.hp = 3
+        for a in range(4):
+            self.hp += roll(8)
+        self.race, self.classes, self.next_level, self.display_level = '', ['0-level'], [0, 'Wight'], ''
+        self.display_class, self.age[1], self.xp = 'Wight', 'undead', 0
+        self.attributes['Str'], self.attributes['Dex'], self.attributes['Con'], self.attributes['Com'] = 10, 10, 10, 10
+        pass
+
     def calculate_level(self, adj=0):                           # also updates hit points
         if max(self.level) + adj < 1:                           # 1st level energy drain targets become wights
-            print("This is a wight")
-            return
+            self.wightify()
+            message = "This character has become a WIGHT!"
+            return message
+        message = ''
         current_xp_floor = max(generatecharacter.next_xp(self.classes, self.level, self.attributes, -1))
         current_xp_ceiling = min(generatecharacter.next_xp(self.classes, self.level, self.attributes))
         if adj < 0:                                             # if the adjustment is negative...
             upper_thr = max(generatecharacter.next_xp(self.classes, self.level, self.attributes, adj))
             ind_pos = generatecharacter.next_xp(self.classes, self.level, self.attributes, adj).index(upper_thr)
             lower_threshold = generatecharacter.next_xp(self.classes, self.level, self.attributes, adj - 1)[ind_pos]
-            self.xp = (lower_threshold + upper_thr) / 2         # ...sets xp to midpoint of destination level
+            self.xp = int((lower_threshold + upper_thr) / 2)         # ...sets xp to midpoint of destination level
         if current_xp_floor <= self.xp < current_xp_ceiling:
             return
         hp_calcs, number_of_classes = [], len(self.level)
@@ -150,31 +172,44 @@ class Character:
         if self.xp < current_xp_floor:                          # if xp are lower than the current floor...
             for ch_cl in range(number_of_classes):              # ...trims off hp
                 self.hp_history[ch_cl] = self.hp_history[ch_cl][0:self.level[ch_cl]]
+                message = '{} has lost one level!'.format(self.display_class)
         if self.xp >= current_xp_ceiling:                       # if xp are greater than the current ceiling...
             for ch_cl in range(number_of_classes):              # ...calculates additional hp
                 hitpoints.hp_compute_mid(hp_calcs[ch_cl], self.hp_history[ch_cl], self.level[ch_cl],
                                          len(self.hp_history[ch_cl]))
                 hitpoints.hp_compute_top(hp_calcs[ch_cl], self.hp_history[ch_cl], self.level[ch_cl])
+                message = '{} has leveled up!'.format(self.display_class)
         self.hp_history = self.hp_history[0:number_of_classes]  # recalculates con bonus from scratch
         hitpoints.con_bonus(self.hp_history, hp_calcs, self.attributes['Con'])
         if "Ninja" in self.classes:                             # ninjas require a special exception for con bonus
             for b in range(number_of_classes):
                 self.hp_history[number_of_classes][b] *= 2
         self.hp = generatecharacter.flatten(self.hp_history)
-        return
+        self.display_level = generatecharacter.display_level(self.level)
+        return message
+
+    def calculate_ac(self):
+        with open('attributevalues.csv') as dexbonus:
+            for row in csv.reader(dexbonus):
+                if str(self.attributes['Dex']) == row[0]:
+                    dex_ac = int(row[22])
+        return dex_ac
 
 
-ident = {}
-
-for a in range(10):
-    temp = 'p' + str(a+1).zfill(2)
-    ident[temp] = temp
-    ident[temp] = Character(4)
-    ident[temp].display_attributes()
-    # ident[temp].modify_xp(1000)
+# ident = {}
+#
+# for a in range(10):
+#     temp = 'p' + str(a+1).zfill(2)
+#     ident[temp] = temp
+#     ident[temp] = Character(7)
+#     # ident[temp].modify_age(5)
+#     ident[temp].display_attributes()
+    # print(ident[temp].calculate_ac())
+    # if ident[temp][]
+    # print(ident[temp].__dict__, "\n")
+    # ident[temp].modify_xp(10000)
     # ident[temp].calculate_level(0)
     # ident[temp].display_attributes()
-    # print(ident[temp].__dict__)
 
 # print('p01')
 # print(list(ident.keys()))

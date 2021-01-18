@@ -7,11 +7,12 @@ def roll(a):  # rolls a single die of "a" sides
 
 
 def call_hp(ch_class):  # returns hpcalc data for a single class ("Fighter") in order to generate_hp()
-    character_classes, result = open('xpvalues.csv'), []
-    for row in csv.reader(character_classes):
-        if ch_class == row[0]:
-            for a in range(9):
-                result.append(int(row[39+a]))
+    result = []
+    with open('xpvalues.csv') as character_classes:
+        for row in csv.reader(character_classes):
+            if ch_class == row[0]:
+                for a in range(9):
+                    result.append(int(row[39+a]))
     return result  # [1HD, 1#rolls, 1bon, midLevelHD, midCap, maxIncrs, max_con_bonus, bonus_multiplier, fixed_bonus]
 
 
@@ -37,10 +38,11 @@ def hp_compute_top(hpcalcs, hp, level):  # calculates name-level hit points and 
 
 
 def con_bonus(hitpoints, hpcalcs, con):  # grabs con bonus info from attributevalue.csv and class info from hpcalcs
-    attr_bonuses, bonus, temp = open('attributevalues.csv'), 0, []
-    for row in csv.reader(attr_bonuses):  # creates a list of con bonuses, one for each class
-        if str(con) == row[0]:
-            bonus = int(row[29])
+    bonus, temp = 0, []
+    with open('attributevalues.csv') as attr_bonuses:
+        for row in csv.reader(attr_bonuses):  # creates a list of con bonuses, one for each class
+            if str(con) == row[0]:
+                bonus = int(row[29])
     for a in range(len(hpcalcs)):
         if bonus > hpcalcs[a][6]:  # trims bonus for non-fighter types
             temp.append(hpcalcs[a][6])
