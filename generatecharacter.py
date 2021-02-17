@@ -37,16 +37,11 @@ def display_level(levels):  # converts the list of levels into a displayable str
 #       strict 'level-5-fighter' gen
 ##################################################################
 # INTERFACE
-#   modify attributes
-#   adjust calculate_ac() to account for Monks (who don't get a dex bonus)
-#   create a calculate_th() that can deal with exceptional strength
 #   add in placeholder equipment window/fields
 #   add character names
-#       need text input fields
-#       reorder party
-#   clear the table once a character has been converted to wight or zero class
-#       this will probably require new windows for wights and zero class (to remove buttons & text)
-#   create a level/race/class selection fields for method VI (including random options for all three)
+#   reorder party
+#   clear the table once a character has been converted to 0-level
+#   create level/race/class selection fields for method VI (including random options for all three)
 #   fold in the other character attribute methods (I through V)
 #       dovetail those into the character class (or maybe create a separate class definition for each method?)
 #   OUTSTANDING: no alignment, equipment, proficiencies, spells, race/class abilities, languages

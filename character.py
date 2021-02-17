@@ -13,12 +13,10 @@ def roll(b):  # rolls a single die of "b" sides
 
 
 class Character:
-    def __init__(self, level):
+    def __init__(self, level=1):
         self.gender = selectclass.random_gender()
         self.race = selectclass.random_race()
         self.classes = selectclass.random_class(self.race)
-        # self.race = "Human"
-        # self.classes = ['Fighter']
         self.xp = generatecharacter.pc_xp(level)
         self.attributes = attributes.methodvi(self.race, self.classes)
         self.excess, self.attributes = self.attributes.pop(1), self.attributes[0]
@@ -35,17 +33,17 @@ class Character:
         self.hp = generatecharacter.flatten(self.hp_history)
         return
 
-    def display_strength(self):  # calculates a displayable strength
+    def display_strength(self):                                     # calculates a displayable strength
         archetypes = []
         for obj in range(len(self.classes)):
             archetypes.append(attributes.archetype(self.classes[obj]))
         if self.attributes['Str'] == 18 and self.attributes['Exc'] > 0 and "Fighter" in archetypes:
-            displaystr = str(self.attributes['Str']) + '/' + str(self.attributes['Exc']).zfill(2)
+            displaystr = str(self.attributes['Str']) + '/' + str(self.attributes['Exc'])[-2:].zfill(2)
         else:
             displaystr = str(self.attributes['Str'])
         return displaystr
 
-    def display_attributes(self):  # displays attributes in terminal
+    def display_attributes(self):                                   # displays attributes in terminal
         print("{} {} {} {} --- hp: {} | hgt: {}'{}” wgt: {} lbs  age: {} ({}) --- str: {}, int {}, wis {}, dex {}, con "
             "{}, cha {}".format(generatecharacter.display_level(self.level), self.gender, self.race, self.display_class,
             str(self.hp), str(self.size[0] / 12)[0:1], str(self.size[0] % 12), str(self.size[1]), str(self.age[0]),
@@ -90,6 +88,15 @@ class Character:
         self.hp = generatecharacter.flatten(self.hp_history)
         return
 
+    def modify_wis(self, adjustment):
+        max_wisdom = 25                                                                 # removes Wis max in all cases
+        self.attributes['Wis'] += self.excess['Wis'] + adjustment
+        self.excess['Wis'] = 0  # tares excess to zero
+        if self.attributes['Wis'] > max_wisdom:
+            self.excess['Wis'] += self.attributes['Wis'] - max_wisdom
+            self.attributes['Wis'] = max_wisdom
+        return
+
     def modify_other_att(self, adjustment, attribute):
         ord_attrs = ['Str', 'Int', 'Wis', 'Dex', 'Con', 'Cha', 'Com']
         max_att = attributes.racial_maximums(self.race)[ord_attrs.index(attribute)]     # racial max by attr index pos.
@@ -111,9 +118,13 @@ class Character:
             self.modify_str(adjustment)
         if attr == 'Con':
             self.modify_con(adjustment)
-            return
-        if attr in ['Int', 'Wis', 'Dex', 'Cha', 'Com']:
+        if attr == 'Wis':
+            self.modify_wis(adjustment)
+        if attr in ['Int', 'Dex', 'Cha', 'Com']:
             self.modify_other_att(adjustment, attr)
+        self.calculate_level()
+        self.next_level = generatecharacter.generate_level(self.attributes, self.classes, self.race, self.xp,
+                                                           self.excess).pop('next_level')
         return
 
     def modify_age(self, adjustment):
@@ -188,17 +199,83 @@ class Character:
         self.display_level = generatecharacter.display_level(self.level)
         return message
 
-    def calculate_ac(self):
+    def calculate_ac(self):                                 # calculates AC from dex_multiplier() and class_ac()
         with open('attributevalues.csv') as dexbonus:
             for row in csv.reader(dexbonus):
                 if str(self.attributes['Dex']) == row[0]:
-                    dex_ac = int(row[22])
-        return dex_ac
+                    dex_ac = int(row[22]) * self.dex_multiplier()
+        final = dex_ac - self.class_ac()
+        return final
+
+    def calculate_thaco(self):                                 # calculates to-hit from str
+        str_th = 0
+        if len(self.display_strength()) > 2:                   # first checks for exceptional str
+            with open('excstr.csv') as excbonus:
+                for row in csv.reader(excbonus):
+                    if self.attributes['Exc'] > int(row[0]):
+                        str_th = (row[1]) * self.str_multiplier()
+        else:                                                   # ...then calculates for non-exceptional str
+            with open('attributevalues.csv') as strbonus:
+                for line in csv.reader(strbonus):
+                    if self.attributes['Str'] == int(line[0]):
+                        str_th = int(line[1]) * self.str_multiplier()
+        final = -(int(str_th) + self.class_thaco())
+        return final
+
+    def dex_multiplier(self):
+        result, final = [], 1
+        with open('xpvalues.csv') as character_classes:
+            for row in csv.reader(character_classes):
+                for a in range(len(self.classes)):
+                    if self.classes[a] == row[0]:
+                        result.append(int(row[48]))
+        for a in result:                                    # calculates a product of the dex multipliers
+            final = final * a                               # monks are 0, barbarians are 2, all others are 1
+        return final
+
+    def str_multiplier(self):
+        result, final = [], 1
+        with open('xpvalues.csv') as character_classes:
+            for row in csv.reader(character_classes):
+                for a in range(len(self.classes)):
+                    if self.classes[a] == row[0]:
+                        result.append(int(row[49]))
+        for a in result:                                    # calculates a product of the dex multipliers
+            final = final * a                               # monks are 0, barbarians are 2, all others are 1
+        return final
+
+    def class_ac(self):                                     # calculates AC bonuses for non-armored characters
+        result, final = [], []
+        for a in range(len(self.classes)):                  # first it returns a 'transposition' value for each class
+            with open('attributemins.csv') as ac_trans:
+                for row in csv.reader(ac_trans):            # basically a 1 for kensai, 2 for monks, 0 for all others
+                    if self.classes[a] == row[0]:
+                        result.append(int(row[76]))
+        for b in range(len(self.classes)):                  # then it compares those values...
+            with open('levelvalues.csv') as ac_classmods:
+                for row_lvl in csv.reader(ac_classmods):
+                    if self.level[b] == int(row_lvl[0]):    # ...against class level to return an AC bonus
+                        final.append(int(row_lvl[1+result[b]]))
+        return max(final)
+
+    def class_thaco(self):                                  # calculates thac0
+        result, final = [], []
+        for a in range(len(self.classes)):                  # first it returns a 'transposition' value by archetype
+            with open('xpvalues.csv') as th_trans:
+                for row in csv.reader(th_trans):            # 0 for F, 1 for C, 2 for T and 3 for M
+                    if self.classes[a] == row[0]:
+                        result.append(int(row[51]))
+        for b in range(len(self.classes)):                  # then it compares those values...
+            with open('levelvalues.csv') as thaco_mod:
+                for row_lvl in csv.reader(thaco_mod):
+                    if self.level[b] == int(row_lvl[0]):    # ...against class level to return a thac0 bonus
+                        final.append(int(row_lvl[5+result[b]]))
+        return max(final)
 
 
 # ident = {}
 #
-# for a in range(10):
+# for a in range(300):
 #     temp = 'p' + str(a+1).zfill(2)
 #     ident[temp] = temp
 #     ident[temp] = Character(7)

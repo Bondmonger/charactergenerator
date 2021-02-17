@@ -1,4 +1,7 @@
-,str_tohit,str_dmg,str_wght,opn_dr,dr_div,opn_mg,mg_div,bb_lg,,int_addlg,know_sp,splvl_min,splvl_max,illus_imm,,wis_save,div_fail,dv1_bon,immunity,,dex_react,dex_AC,pickpock,openlock,finremtrp,moveslnt,hideshad,,con_hp,sys_shck,resurrect,min_hp,pois_bon,regen,regen_div,,cha_react,cha_loy,maxhnch,awe_HD,modcom
+-20,str_tohit,str_dmg,str_wght,opn_dr,dr_div,opn_mg,mg_div,bb_lg,,int_addlg,know_sp,splvl_min,splvl_max,illus_imm,,wis_save,div_fail,dv1_bon,immunity,,dex_react,dex_AC,pickpock,openlock,finremtrp,moveslnt,hideshad,,con_hp,sys_shck,resurrect,min_hp,pois_bon,regen,regen_div,,cha_react,cha_loy,maxhnch,awe_HD,modcom
+0,-3,-1,0,1,6,0,6,0,,0,0,0,0,0,,-3,0.2,"[0,0,0,0,0,0,0]",[],,-3,4,-0.45,-0.4,-0.45,0.5,-0.4,,-2,0.35,0.4,1,0,0,1,,-0.25,-0.3,1,0,-5
+1,-3,-1,0,1,6,0,6,0,,0,0,0,0,0,,-3,0.2,"[0,0,0,0,0,0,0]",[],,-3,4,-0.45,-0.4,-0.45,0.5,-0.4,,-2,0.35,0.4,1,0,0,1,,-0.25,-0.3,1,0,-5
+2,-3,-1,0,1,6,0,6,0,,0,0,0,0,0,,-3,0.2,"[0,0,0,0,0,0,0]",[],,-3,4,-0.45,-0.4,-0.45,0.5,-0.4,,-2,0.35,0.4,1,0,0,1,,-0.25,-0.3,1,0,-5
 3,-3,-1,0,1,6,0,6,0,,0,0,0,0,0,,-3,0.2,"[0,0,0,0,0,0,0]",[],,-3,4,-0.45,-0.4,-0.45,0.5,-0.4,,-2,0.35,0.4,1,0,0,1,,-0.25,-0.3,1,0,-5
 4,-2,-1,10,1,6,0,6,0,,0,0,0,0,0,,-2,0.15,"[0,0,0,0,0,0,0]",[],,-2,3,-0.4,-0.35,-0.4,-0.45,-0.35,,-1,0.4,0.45,1,0,0,1,,-0.2,-0.25,1,0,-3
 5,-2,-1,10,1,6,0,6,0,,0,0,0,0,0,,-1,0.1,"[0,0,0,0,0,0,0]",[],,-1,2,-0.35,-0.3,-0.35,-0.4,-0.3,,-1,0.45,0.5,1,0,0,1,,-0.15,-0.2,2,0,-3
