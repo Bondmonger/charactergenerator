@@ -37,24 +37,20 @@ def display_level(levels):  # converts the list of levels into a displayable str
 #       strict 'level-5-fighter' gen
 ##################################################################
 # INTERFACE
-#   add in placeholder equipment window/fields
-#   add character names
-#   reorder party
-#   clear the table once a character has been converted to 0-level
 #   create level/race/class selection fields for method VI (including random options for all three)
 #   fold in the other character attribute methods (I through V)
 #       dovetail those into the character class (or maybe create a separate class definition for each method?)
-#   OUTSTANDING: no alignment, equipment, proficiencies, spells, race/class abilities, languages
+#   OUTSTANDING: alignment, equipment, proficiencies, spells, race/class abilities, languages
 ##################################################################
 # 4) figure out storage/equipment fields
 #       csv all the armor and weapons
+#       weapon proficiencies
+#       multi-attack
 # 5) dual-classing and bards
-# 6) stat up 0-level humans/demi-humans
+# 6) stat up 0-level humans, demi-humans & wights
 # 7) add in special abilities/special ability fields
 #       spells per level
 #       thief-like abilities
-#       weapon proficiencies
-#       multi-attack
 #       psionics
 #       miscellaneous ability/resistance definitions
 
@@ -72,22 +68,21 @@ def clip_surplus_dict(race, attrs, excess):  # nips the tops off attributes abov
     return
 
 
-def primary_att(cha_class):  # returns minimum attributes for the 10% xp bonus
+def primary_att(cha_class):                     # returns minimum attributes for the 10% xp bonus
     maxxp, xps, final, attnames = open('xpvalues.csv'), [], [], ["str", "int", "wis", "dex", "con", "cha", "com"]
-    for row in csv.reader(maxxp):  # calls the relevant xp row from xpvalues.csv
+    for row in csv.reader(maxxp):               # calls the relevant xp row from xpvalues.csv
         if cha_class == row[0]:
-            xps.append(row[0:28])
-            xps = xps[0]
+            xps = row[0:28]
     for a in range(7):
-        m = xps[1].find(attnames[a])  # searches for each attribute name in the primary att field ("str16", etc)
+        m = xps[1].find(attnames[a])            # searches for attribute name in primary att field ("str16", etc)
         if m == -1:
-            final.append(m)  # if attribute isn't there, sets min to -1 (to be replaced with racial minimum)
+            final.append(m)                     # if not found, sets min to -1 (to be replaced with racial minimum)
         else:
-            final.append(int(xps[1][m+3:m+5]))  # if attribute is there, sets min equal to the next two character (16)
+            final.append(int(xps[1][m+3:m+5]))  # if found, sets min equal to the next two character (16 or whatever)
     if sum(final) == -7:
         final = []
         for a in range(7):
-            final.append(26)  # if the class has no primary attribute then the minimums are all set to 26
+            final.append(26)                    # if no primary attribute then minimums are all set at 26
     return final
 
 
@@ -182,20 +177,7 @@ def impending_mean_xp(xp):                                      # returns the ne
             return a
 
 
-################## not in use ##################
-def display_attributes(final):  # displays labels attributes in the terminal
-    if final['attributes'][0] == 18 and final['attributes'][7] > 0:
-        displaystr = str(final['attributes'][0])+'/'+str(final['attributes'][7]).zfill(2)
-    else:
-        displaystr = str(final['attributes'][0])
-    print(str(display_level(final['levels']))+' '+str(final['race'])+' '+str(final['display_classes'])+' --- hp: ' +
-        str(flatten(final['hp']))+' | hgt: '+str(final['size'][0]/12)[0:1]+"'"+str(final['size'][0] % 12)+'"  wgt: ' +
-        str(final['size'][1])+' lbs  age: ' + str(final['age'][0])+' ('+final['age'][1]+') --- str: '+displaystr +
-        ', int: '+str(final['attributes'][1]) + ', wis: '+str(final['attributes'][2]) + ', dex: '
-        + str(final['attributes'][3])+', con: '+str(final['attributes'][4])+', cha: ' + str(final['attributes'][5]))
-
-
-################## not in use ##################
+# not in use
 # character_dict = {'Race': [], 'Class': [], 'hp': [], 'Str': [], 'Int': [], 'Wis': [], 'Dex': [], 'Con': [], 'Cha': [],
 #                   'Com': []}
 

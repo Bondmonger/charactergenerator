@@ -234,7 +234,7 @@ def random_class(race_is):
                 final = string_to_list(key, '/')
                 rand_value -= single_dict[key]
     else:
-        final = string_to_list(random.choice(multi_class),'/')
+        final = string_to_list(random.choice(multi_class), '/')
     return final
 
 

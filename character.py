@@ -14,6 +14,7 @@ def roll(b):  # rolls a single die of "b" sides
 
 class Character:
     def __init__(self, level=1):
+        self.character_name = ''
         self.gender = selectclass.random_gender()
         self.race = selectclass.random_race()
         self.classes = selectclass.random_class(self.race)
@@ -44,11 +45,13 @@ class Character:
         return displaystr
 
     def display_attributes(self):                                   # displays attributes in terminal
-        print("{} {} {} {} --- hp: {} | hgt: {}'{}” wgt: {} lbs  age: {} ({}) --- str: {}, int {}, wis {}, dex {}, con "
-            "{}, cha {}".format(generatecharacter.display_level(self.level), self.gender, self.race, self.display_class,
-            str(self.hp), str(self.size[0] / 12)[0:1], str(self.size[0] % 12), str(self.size[1]), str(self.age[0]),
-            self.age[1], self.display_strength(), str(self.attributes['Int']), str(self.attributes['Wis']),
-            str(self.attributes['Dex']), str(self.attributes['Con']), str(self.attributes['Cha'])))
+        print("{} {} {} {} --- hp: {} | hgt: {}'{}” wgt: {} lbs  age: {} ({}) --- str: {}, int {}, wis {}, dex {}, "
+              "con {}, cha {}".format(generatecharacter.display_level(self.level), self.gender, self.race,
+                                      self.display_class, str(self.hp), str(self.size[0] / 12)[0:1],
+                                      str(self.size[0] % 12), str(self.size[1]), str(self.age[0]), self.age[1],
+                                      self.display_strength(), str(self.attributes['Int']), str(self.attributes['Wis']),
+                                      str(self.attributes['Dex']), str(self.attributes['Con']),
+                                      str(self.attributes['Cha'])))
         return
 
     def modify_str(self, adjustment):
@@ -114,13 +117,13 @@ class Character:
                 adjustment += 1
             if adjustment == 0:
                 return
-        if attr == 'Str':
+        if attr == 'Str':                           # because of exceptional strength
             self.modify_str(adjustment)
-        if attr == 'Con':
+        if attr == 'Con':                           # because it may trigger an hp adjustment
             self.modify_con(adjustment)
-        if attr == 'Wis':
+        if attr == 'Wis':                           # because it is uncapped (unlike the other stats)
             self.modify_wis(adjustment)
-        if attr in ['Int', 'Dex', 'Cha', 'Com']:
+        if attr in ['Int', 'Dex', 'Cha', 'Com']:    # no special considerations
             self.modify_other_att(adjustment, attr)
         self.calculate_level()
         self.next_level = generatecharacter.generate_level(self.attributes, self.classes, self.race, self.xp,
@@ -170,7 +173,7 @@ class Character:
             upper_thr = max(generatecharacter.next_xp(self.classes, self.level, self.attributes, adj))
             ind_pos = generatecharacter.next_xp(self.classes, self.level, self.attributes, adj).index(upper_thr)
             lower_threshold = generatecharacter.next_xp(self.classes, self.level, self.attributes, adj - 1)[ind_pos]
-            self.xp = int((lower_threshold + upper_thr) / 2)         # ...sets xp to midpoint of destination level
+            self.xp = int((lower_threshold + upper_thr) / 2)    # ...sets xp to midpoint of destination level
         if current_xp_floor <= self.xp < current_xp_ceiling:
             return
         hp_calcs, number_of_classes = [], len(self.level)
@@ -183,13 +186,13 @@ class Character:
         if self.xp < current_xp_floor:                          # if xp are lower than the current floor...
             for ch_cl in range(number_of_classes):              # ...trims off hp
                 self.hp_history[ch_cl] = self.hp_history[ch_cl][0:self.level[ch_cl]]
-                message = '{} has lost one level!'.format(self.display_class)
+                message = '{} lost one level!'.format(self.character_name)
         if self.xp >= current_xp_ceiling:                       # if xp are greater than the current ceiling...
             for ch_cl in range(number_of_classes):              # ...calculates additional hp
                 hitpoints.hp_compute_mid(hp_calcs[ch_cl], self.hp_history[ch_cl], self.level[ch_cl],
                                          len(self.hp_history[ch_cl]))
                 hitpoints.hp_compute_top(hp_calcs[ch_cl], self.hp_history[ch_cl], self.level[ch_cl])
-                message = '{} has leveled up!'.format(self.display_class)
+                message = '{} leveled up!'.format(self.character_name)
         self.hp_history = self.hp_history[0:number_of_classes]  # recalculates con bonus from scratch
         hitpoints.con_bonus(self.hp_history, hp_calcs, self.attributes['Con'])
         if "Ninja" in self.classes:                             # ninjas require a special exception for con bonus
@@ -230,7 +233,7 @@ class Character:
                     if self.classes[a] == row[0]:
                         result.append(int(row[48]))
         for a in result:                                    # calculates a product of the dex multipliers
-            final = final * a                               # monks are 0, barbarians are 2, all others are 1
+            final = final * a                               # monks are 0x, barbarians are 2x, all others are 1x
         return final
 
     def str_multiplier(self):
@@ -240,8 +243,8 @@ class Character:
                 for a in range(len(self.classes)):
                     if self.classes[a] == row[0]:
                         result.append(int(row[49]))
-        for a in result:                                    # calculates a product of the dex multipliers
-            final = final * a                               # monks are 0, barbarians are 2, all others are 1
+        for a in result:                                    # calculates a product of the str multipliers
+            final = final * a                               # monks are 0x, all others are 1x
         return final
 
     def class_ac(self):                                     # calculates AC bonuses for non-armored characters
@@ -260,10 +263,10 @@ class Character:
 
     def class_thaco(self):                                  # calculates thac0
         result, final = [], []
-        for a in range(len(self.classes)):                  # first it returns a 'transposition' value by archetype
+        for archetype in range(len(self.classes)):          # first it returns a 'transposition' value by archetype
             with open('xpvalues.csv') as th_trans:
                 for row in csv.reader(th_trans):            # 0 for F, 1 for C, 2 for T and 3 for M
-                    if self.classes[a] == row[0]:
+                    if self.classes[archetype] == row[0]:
                         result.append(int(row[51]))
         for b in range(len(self.classes)):                  # then it compares those values...
             with open('levelvalues.csv') as thaco_mod:
@@ -272,15 +275,37 @@ class Character:
                         final.append(int(row_lvl[5+result[b]]))
         return max(final)
 
+    def class_movement(self):                               # calculates movement for non-armored characters
+        result, final = [[], []], []
+        with open('attributemins.csv') as movement_rates:   # generates a modifier list, [[12, 12], [0]]
+            for row in csv.reader(movement_rates):
+                if self.race == row[0]:
+                    for male_female in range(2):            # ...populates racial movement [12, 12], for [male, female]
+                        result[0].append(int(row[77+male_female]))
+                for char_class in range(len(self.classes)):
+                    if self.classes[char_class] == row[0]:  # ...populates class transp. mods (1 for monk, 2 for barb)
+                        result[1].append(int(row[79]))
+        for b in range(len(self.classes)):                  # then it compares those values...
+            with open('levelvalues.csv') as move_mods:
+                for row_lvl in csv.reader(move_mods):
+                    if self.level[b] == int(row_lvl[0]):    # ...against class level to calculate movement
+                        final.append(int(row_lvl[10+result[1][b]]))
+        mv_rate = int(0.5 + (result[0][self.gender == 'female'] * max(final) / 12))
+        return mv_rate                                      # returned value is rounddown(race * class / 12)
 
-# ident = {}
-#
-# for a in range(300):
+    def assign_name(self, str_input):
+        self.character_name = str_input
+
+
+ident = {}
+
+# for a in range(10):
 #     temp = 'p' + str(a+1).zfill(2)
 #     ident[temp] = temp
 #     ident[temp] = Character(7)
 #     # ident[temp].modify_age(5)
 #     ident[temp].display_attributes()
+#     ident[temp].class_movement()
     # print(ident[temp].calculate_ac())
     # if ident[temp][]
     # print(ident[temp].__dict__, "\n")

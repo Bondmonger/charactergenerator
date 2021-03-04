@@ -236,7 +236,7 @@ def _minimum_sum(ch_class):  # returns the minimum attribute SUM for a single ch
 
 
 def _maxindex(listofvalues):  # flags the index position of the largest value in a list
-    maximum = 0
+    maximum, max_location = 0, 0
     for a, value in enumerate(listofvalues):
         if value > maximum:
             maximum, max_location = value, a
