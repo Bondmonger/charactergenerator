@@ -32,7 +32,7 @@ def hp_compute_mid(hpcalcs, hp, level, incoming_level=1):  # calculates mid-leve
 
 
 def hp_compute_top(hpcalcs, hp, level):  # calculates name-level hit points and adds them to list hp
-    for a in range(hpcalcs[4], level):
+    for a in range(hpcalcs[4], level+1):
         if a > len(hp):
             hp.append(hpcalcs[5])
 

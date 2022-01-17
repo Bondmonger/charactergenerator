@@ -1,6 +1,5 @@
 import random
 import csv
-import selectclass
 
 
 def _roll(a):  # rolls a single die of "a" sides
@@ -32,7 +31,7 @@ def string_to_list(string, stringpartition):
     return separated_elements
 
 
-def _racial_bonus(race, temp):  # racial modifier - temp is the list of attributes
+def racial_bonus(race, temp):  # racial modifier - temp is the list of attributes
     with open('attrbonuses.csv') as bonuses:
         for row in csv.reader(bonuses):
             if race == row[0]:
@@ -106,6 +105,7 @@ def compute_exstr(attrs, race, excess):     # computes an exceptional strength r
         attrs[0] -= 1
         excess[0] += 1
     attrs[7] += excess[0] * 10              # increases percentile points by excess (1 point = +10)
+    excess[0] = 0
     if attrs[7] > max_racial_str:           # if percentile is greater than racial max...
         excess[0] = 0
         while attrs[7] > max_racial_str:
@@ -118,10 +118,6 @@ def compute_exstr(attrs, race, excess):     # computes an exceptional strength r
             attrs[7] -= 10
         attrs[7] = 100
 
-
-# attsss, exc = [23, 9, 11, 14, 12, 5, 3], [2, 0, 0, 0, 0, 0, 0]
-# compute_exstr(attsss, "Human", exc)
-# print(attsss, exc)
 
 def _ua_attr(ch_class):                     # returns a list of method V die counts for called class
     v_values = []
@@ -137,7 +133,7 @@ def _sequencer(ch_class, race):             # sequences a 3d6-to-9d6 for single-
     temp, seq = [], _ua_attr(ch_class)
     for a in range(7):
         temp.insert(a, _dice(seq[a], 6))
-    _racial_bonus(race, temp)
+    racial_bonus(race, temp)
     return temp
 
 
@@ -160,22 +156,22 @@ def _multi_sequencer(race, *ch_class):                          # sequences 7 at
             summed_attrs[summed_attrs.index(max(summed_attrs))] = ordered_list[a]
         for a in range(7):                                      # rolls up via newly sequenced method V values
             final.append(_dice(summed_attrs[a], 6))
-        _racial_bonus(race, final)
+        racial_bonus(race, final)
         return final
 
 
-def _prioritize(raw_attr, sequence_attr, race):  # _prioritizes raw_attr via sequence_attr
+def _prioritize(raw_attr, sequence_attr, race):     # _prioritizes raw_attr via sequence_attr
     raw_attr.sort(reverse=True)
     sequence_attr = list(map(_cruncher, sequence_attr))
     for a in range(26, 33):
         sequence_attr[sequence_attr.index(min(sequence_attr))] = a
     for a in range(7):
         sequence_attr[sequence_attr.index(max(sequence_attr))] = raw_attr[a]
-    _racial_bonus(race, sequence_attr)
+    racial_bonus(race, sequence_attr)
     return sequence_attr
 
 
-def _min_merger(_minimums):  # merges any number of minimum attribute lists
+def _min_merger(_minimums):                         # merges any number of minimum attribute lists
     final = []
     for a in range(7):
         temp = []
@@ -185,21 +181,21 @@ def _min_merger(_minimums):  # merges any number of minimum attribute lists
     return final
 
 
-def _deficit(mins, attrs):  # returns current attributes minus the minimums
+def _deficit(mins, attrs):                          # returns current attributes minus the minimums
     diff = []
     for a in range(7):
         diff.append(attrs[a] - mins[a])
     return diff
 
 
-def _positives(diffs):  # negative differences become 0s, randomly reduces surplus values without driving them negative
+def _positives(diffs):                              # diffs<0 become 0, randomly reduces surplus without going negative
     neg, temp = 0, []
     for ind, att in enumerate(diffs):
         if att > 0:
-            temp.append(ind)  # assembles a list of index values for ONLY the positive diffs and...
+            temp.append(ind)                        # assembles list of index values for positive diffs, then...
         else:
-            neg, diffs[ind] = neg + diffs[ind], 0  # ...sums up negative values
-    for values in range(neg, 0):  # then deducts randomly from the positions in temp until 'neg' is back up to 0
+            neg, diffs[ind] = neg + diffs[ind], 0   # ...sums the negative ones, then...
+    for values in range(neg, 0):                    # ...deducts -1s randomly from temp until neg = 0
         index_a = random.choice(temp)
         diffs[index_a] -= 1
         if diffs[index_a] == 0:
@@ -211,14 +207,14 @@ def _positives(diffs):  # negative differences become 0s, randomly reduces surpl
 # _positives(test_pos)
 # print(test_pos)
 
-def _re_combine(mins, diffs):               # sums minimums and "differences," returning combined attributes
+def _re_combine(mins, diffs):                       # sums minimums and "differences," returning combined attributes
     temp = []
     for a in range(7):
         temp.append(mins[a] + diffs[a])
     return temp
 
 
-def _demote_class(cha_class):  # drops a class one tier, potentially returning "0-level"
+def _demote_class(cha_class):                       # drops a class one tier, potentially returning "0-level"
     with open('xpvalues.csv') as characterclasses:
         for row in csv.reader(characterclasses):
             if cha_class == row[0]:
@@ -294,118 +290,59 @@ def _attr_listdict(attr):
 # print(_attr_listdict(temp1))
 
 
-def place_atts(attributes):
-    final = {}
-    for a in range(6):
-        if attributes[a-1] == attributes[a]:
-            n = input("Where would you like the next " + str(attributes[a]) + "? ")
-        else:
-            n = input("Where would you like the " + str(attributes[a]) + "? ")
-        final[n] = attributes[a]
-    return final
+def methodi():  # 4d6, keep the top three dice, user chooses order except for COM (which is locked)
+    rawatts = _d6_attributes(4)
+    return rawatts
 
 
-def methodi():  # 4d6, keep the top three dice, user chooses order
-    rawatts, final = _d6_attributes(4), {}
-    comeliness = rawatts.pop(6)
-    print("You rolled the following values: " + str(rawatts))
-    rawatts.sort(reverse=True)
-    final = place_atts(rawatts)
-    final["Com"] = comeliness
-    selectclass.eligibility(final)
-    return final
-
-# test1 = methodi()
-# print("method I: "+str(test1))
-
-
-def methodii():  # 3d6 12 times, keep the top six values totals, user chooses order
+def methodii():  # 3d6 12 times, keep the top seven values totals, user chooses order except for COM (which is locked)
     rawatts = []
-    comeliness = _dice(3, 6)
     for a in range(12):
         rawatts.append(_dice(3, 6))
     rawatts.sort(reverse=True)
-    rawatts = rawatts[0:6]
-    print("You rolled the following values: " + str(rawatts))
-    final = place_atts(rawatts)
-    final["Com"] = comeliness
-    selectclass.eligibility(final)
-    return final
-
-# test2 = methodii()
-# print("method II: "+str(test2))
+    rawatts = rawatts[0:7]
+    random.shuffle(rawatts)
+    return rawatts
 
 
 def methodiii():  # 3d6 6 times for each attribute, order is locked
-    rawatts, final = [], {}
-    for a in range(42):
+    rawatts, final = [], []
+    for a in range(42):                             # generates a list of 42 3d6 values
         rawatts.append(_dice(3, 6))
-    final["Str"] = max(rawatts[0:6])
-    final["Int"] = max(rawatts[6:12])
-    final["Wis"] = max(rawatts[12:18])
-    final["Dex"] = max(rawatts[18:24])
-    final["Con"] = max(rawatts[24:30])
-    final["Cha"] = max(rawatts[30:36])
-    final["Com"] = max(rawatts[36:])
-    selectclass.eligibility(final)
+    for x in range(7):                              # collects the max from each six-unit chain
+        final.append(max(rawatts[x*6:(x+1)*6]))
     return final
-
-# test3 = methodiii()
-# print("method III: "+str(test3))
 
 
 def methodiv():  # 3d6 locked, creating 12 full characters, user selects character to keep
-    orderedatts = {'char': [], 'Str': [], 'Int': [], 'Wis': [], 'Dex': [], 'Con': [], 'Cha': [], 'Com': []}
-    final, i, n = {}, 0, 0
+    attribs = [[], [], [], [], [], [], [], [], [], [], [], []]
     for a in range(12):
-        orderedatts["char"].append(a)
-        orderedatts["Str"].append(_dice(3, 6))
-        orderedatts["Int"].append(_dice(3, 6))
-        orderedatts["Wis"].append(_dice(3, 6))
-        orderedatts["Dex"].append(_dice(3, 6))
-        orderedatts["Con"].append(_dice(3, 6))
-        orderedatts["Cha"].append(_dice(3, 6))
-        orderedatts["Com"].append(_dice(3, 6))
-        # note the +1 in the first print argument below; it's just to make them 1-12 rather than 0-11...
-        print("Character #"+str(a+1)+" - Str: "+str(orderedatts["Str"][a])+" Int: "+str(orderedatts["Int"][a]) +
-              " Wis: "+str(orderedatts["Wis"][a])+" Dex: "+str(orderedatts["Dex"][a])+" Con: " +
-              str(orderedatts["Con"][a])+" Cha: "+str(orderedatts["Cha"][a])+" Com: "+str(orderedatts["Com"][a]))
-        print("   attribute sum: "+str(orderedatts["Str"][a]+orderedatts["Int"][a]+orderedatts["Wis"][a] +
-                                       orderedatts["Dex"][a]+orderedatts["Con"][a]+orderedatts["Cha"][a]))
-    n = int(input("Which character would you like to select? ")) - 1  # ...and here we correct the incrementer
-    final["Str"] = orderedatts["Str"][n]
-    final["Int"] = orderedatts["Int"][n]
-    final["Wis"] = orderedatts["Wis"][n]
-    final["Dex"] = orderedatts["Dex"][n]
-    final["Con"] = orderedatts["Con"][n]
-    final["Cha"] = orderedatts["Cha"][n]
-    final["Com"] = orderedatts["Com"][n]
-    selectclass.eligibility(final)
-    return final
-
-# test4 = methodiv()
-# print("method IV: "+str(test4))
+        for b in range(7):
+            attribs[a].append(_dice(3, 6))
+    return attribs
 
 
-def methodv(charclass):  # weighted, class-specific range, retaining top 3 values (from 3d6 to 9d6) for each attribute
+def methodv(charclass):  # char class is a string, such as "Fighter/Thief"
     attr_names, tempx = ['Str', 'Int', 'Wis', 'Dex', 'Con', 'Cha', 'Com'], string_to_list(charclass, "/")
-    tempx, ninedsix = list(map(_ua_attr, tempx)), [*range(3, 10, 1)]
-    combolist, values = tempx[0], [_dice(x, 6) for x in ninedsix]
-    for b in range(1, len(tempx)):
+    tempx, ninedsix = list(map(_ua_attr, tempx)), [*range(3, 10, 1)]    # 9d6 = [3, 4, 5, ... 9]
+    combolist, values = tempx[0], [_dice(x, 6) for x in ninedsix]       # tempx = [[9, 3, 4, 7, 8, 6, 5]] if "Fighter"
+    for b in range(1, len(tempx)):                                      # triggers only when needed (multi-class)
         for a in range(0, len(tempx[0])):
             combolist[a] = combolist[a] + int(tempx[b][a])
     combolist = list(map(_cruncher, combolist))
     temp_dict = dict(zip(attr_names, combolist))
     temp_dict = {k: v for k, v in sorted(temp_dict.items(), key=lambda item: item[1], reverse=True)}
-    orderedatts = temp_dict.keys()
-    values.reverse()
-    final = dict(zip(orderedatts, values))
-    selectclass.eligible_races(final, charclass)
-    return final
+    orderedatts, ripped_list = temp_dict.keys(), []                     # ripped_list winds up as an ordered list
+    values.reverse()                                                    # reverse, not sort (since they're RESULTS)
+    final = dict(zip(orderedatts, values))                              # final is the dict version
+    for c in attr_names:
+        ripped_list.append(final[c])
+    return ripped_list
 
-# characterclass = 'Bushi'
+
+# characterclass = 'Paladin'
 # test5 = methodv(characterclass)
-# print("method V: "+str(test5))
+# print("method V: ", test5)
 
 
 def methodvi(race, ch_classes):  # returns modified attributes and an 'excess' list
@@ -435,3 +372,47 @@ def methodvi(race, ch_classes):  # returns modified attributes and an 'excess' l
 # test6 = methodvi("Hengeyokai: Crab", test1classes)
 # print(test6)
 # print(test1classes)
+
+
+def apply_race_modifiers(race, attribs):  # returns modified attributes and an 'excess' list
+    attr_names = ['Str', 'Int', 'Wis', 'Dex', 'Con', 'Cha', 'Com', 'Exc']
+    modded_attribs = racial_bonus(race, attribs)
+    excess = clip_surplus(race, modded_attribs)
+    compute_exstr(modded_attribs, race, excess)
+    _comeliness_bonus(modded_attribs)
+    attr_dict = dict(zip(attr_names, modded_attribs))
+    excess_dict = dict(zip(attr_names, excess))
+    final = [attr_dict, excess_dict]
+    return final
+
+
+# not in use
+def display_racial_bonuses_i(highlighted_race):         # "High Elf" returns ['', '', '', '+1', '-1', '', '+2']
+    list_of_zeroes = [0, 0, 0, 0, 0, 0, 0]
+    r_bonuses = racial_bonus(highlighted_race, list_of_zeroes)
+    for a in range(len(r_bonuses)):
+        if r_bonuses[a] == 0:
+            r_bonuses[a] = ""
+        else:
+            r_bonuses[a] = '{0:+d}'.format(r_bonuses[a])
+    return r_bonuses
+
+
+# not in use
+def display_racial_bonuses_ii(highlighted_race):        # "High Elf" returns {'Dex': 1, 'Con': -1, 'Com': 2}
+    list_of_zeroes, display_list = [0, 0, 0, 0, 0, 0, 0], []
+    att_names = ["Str", "Int", "Wis", "Dex", "Con", "Cha", "Com"]
+    r_bonuses = racial_bonus(highlighted_race, list_of_zeroes)
+    r_bondict = dict(zip(att_names, r_bonuses))
+    final = {k: v for k, v in r_bondict.items() if v != 0}
+    return final
+
+
+test_display = "High Elf"
+
+print(racial_bonus(test_display, [0, 0, 0, 0, 0, 0, 0]))
+display_racial_bonuses_i(test_display)
+display_racial_bonuses_ii(test_display)
+
+# test7 = apply_race_modifiers("Grugach", [20, 12, 12, 12, 12, 12, 12])
+# print(test7)

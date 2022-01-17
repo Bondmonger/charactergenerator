@@ -13,6 +13,13 @@ def _rollreps(rolls, die):  # repeatedly calls _roll and sums the results
     return result
 
 
+def random_gender():
+    roll, gender = random.randrange(1, 6), "male"
+    if roll == 5:
+        gender = "female"
+    return gender
+
+
 def size(race, gender):
     racialsum = []
     with open('attrbonuses.csv') as sizevalues:

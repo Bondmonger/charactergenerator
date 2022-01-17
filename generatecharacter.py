@@ -24,35 +24,57 @@ def display_level(levels):  # converts the list of levels into a displayable str
     return displayed_level
 
 
-# TO DO LIST
-
-# 1) still need a mechanism to prevent 0-hp leveling events with negative constitution
-#       except do we though? I kinda like this mechanic the way it is
-#       also Barbarian max wis isn't coded in anywhere (unnecessary?)
-# 2) standardize output for methods I through V
-#       add some toggle-able randomizer code for methods I through V (for bulk testing without user entry)
-# 	    break selectclass.eligibility and selectclass.eligible_races into smaller functions to reduce redundancy
-# 	    do we need an eligible_classes counterpart to eligible_races / can it be made reversible?
-# 	    switch race/class selection routines into tkinter with buttons
-#       strict 'level-5-fighter' gen
-##################################################################
-# INTERFACE
-#   create level/race/class selection fields for method VI (including random options for all three)
-#   fold in the other character attribute methods (I through V)
-#       dovetail those into the character class (or maybe create a separate class definition for each method?)
-#   OUTSTANDING: alignment, equipment, proficiencies, spells, race/class abilities, languages
-##################################################################
+# regarding attributes.py, here are some improvements we could make down the road
+#   a) get csv checks in attributes.py going at a higher level so in-memory version can be preserved during bulk events
+#   b) switch the csv calls to pickle calls (perhaps a & b could be solved with a pickle conversion right at startup)
+#   c) we could flatten out a lot of these nested conditionals via zip re-ordering
+#   d) we could use a better RNG
+#
+# 1) need a mechanism to prevent 0-hp leveling events with negative constitution, except do we though? I kinda like it
+#       Barbarian max wis isn't coded in anywhere (necessary?)
+# 2) strict by-level character generation
+# 3) INTERFACE
+#   COMPLETE [attribute methods III, IV & V]
+#   COMPLETE [universal path to main menu]
+#   COMPLETE [path to method screen from character sheet]
+#   COMPLETE [character sheet ADD button made context sensitive]
+#   COMPLETE [all-purpose re-roll button]
+#   COMPLETE [add racial bonus info to the header]
+#   COMPLETE [collapse frame/label names in header routines]
+#   COMPLETE [need level/gender dropdowns for all methods]
+#   COMPLETE [bug: name-level hps aren't removed (or awarded?) on the first level lost]
+#   COMPLETE [replace FOR loops with comprehensions]
+#   g)	view party in methods screen
+#   1.  display selected class in method V (everywhere?)
+#   j)	bulk generation method VI
+#           level/race/class/gender sliders
+#           result fields (average, etc)
+#   p)  char_sheet hotkeys only active when char_sheet is active
+#   f)	up/down arrow hotkeys for race/class selection
+#   o)  confirmation screen on quit / escape_function()
+#   n)	do we need an archetype mechanism? (example: treating illusionist as MU for single-class gnomes)
+#       •	archetypes are stored in a separate csv (xpvalues rather than attributemins)
+#       •	we already have a 1:1 archetype FUNCTION in attributes.py titled archetype(ch_class)
+#       •	would need to funnel character class selection through archetypes, then select class
+#       •	this means not only returning eligible archetypes, but updating the list as classes are added/removed
+#       •	the alternative is to simply select race & class unweighted (maybe this is best)
+#       •	but even then, the problem of bad class ratios remains - example: gnomes are single class 75% of the time,
+#       yet ~86% of gnome illusionists are multi- - if we pass the selection process through archetypes then 51% of
+#       gnome illusionists would be multi-
 # 4) figure out storage/equipment fields
-#       csv all the armor and weapons
-#       weapon proficiencies
-#       multi-attack
+#   a)	csv all the armor and weapons
+#   b)	weapon proficiencies
+#   c)	multi-attack
 # 5) dual-classing and bards
 # 6) stat up 0-level humans, demi-humans & wights
-# 7) add in special abilities/special ability fields
-#       spells per level
-#       thief-like abilities
-#       psionics
-#       miscellaneous ability/resistance definitions
+# 7) special abilities
+#   a)	spells per level
+#   b)	race/class abilities
+#   c)	thief-like abilities
+#   d)	psionics
+#   e)	nonlethal melee
+#   f)	miscellaneous ability/resistance definitions
+#   g)	languages
 
 
 def clip_surplus_dict(race, attrs, excess):  # nips the tops off attributes above racial maximum

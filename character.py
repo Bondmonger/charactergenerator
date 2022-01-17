@@ -13,18 +13,39 @@ def roll(b):  # rolls a single die of "b" sides
 
 
 class Character:
-    def __init__(self, level=1):
+    def __init__(self, level=1, race='', gender='random', classes=(), attrib_list=()):
         self.character_name = ''
-        self.gender = selectclass.random_gender()
-        self.race = selectclass.random_race()
-        self.classes = selectclass.random_class(self.race)
-        self.xp = generatecharacter.pc_xp(level)
-        self.attributes = attributes.methodvi(self.race, self.classes)
-        self.excess, self.attributes = self.attributes.pop(1), self.attributes[0]
+
+        if len(race) == 0:
+            self.race = selectclass.random_race()                                   # 'Gray Elf'
+        else:
+            self.race = race
+
+        if len(classes) == 0:
+            self.classes = selectclass.random_class(self.race)                      # ['Fighter', 'Thief']
+        else:
+            self.classes = classes
+
+        if len(attrib_list) == 0:
+            self.attributes = attributes.methodvi(self.race, self.classes)          # [{'Str': 14, 'Int': 13, ...
+        else:
+            self.attributes = attrib_list
+
+        self.excess, self.attributes = self.attributes.pop(1), self.attributes[0]   # excess = same format as attributes
+
+        if gender == "random":
+            self.gender = heightweight.random_gender()                              # 'female'
+        else:
+            self.gender = gender
+
+        # attribs zipper: attributes.apply_race_modifiers('Grugach', [20, 12, 12, 12, 12, 12, 12])
+        #                  ^^^ applies racial modifier and returns an excess dict
+        # class_string converter: selectclass.string_to_list('Fighter/Thief', '/')
         self.age = agevalues.generate_age(self.race, self.classes, level)
         for k, v in self.attributes.items():
             self.attributes[k] = self.attributes[k] + self.age[3][k]
         self.display_class = generatecharacter.display_classes(self.classes)
+        self.xp = generatecharacter.pc_xp(level)                                    # generates xp from mean
         self.level = generatecharacter.generate_level(self.attributes, self.classes, self.race, self.xp, self.excess)
         self.level, self.next_level = self.level['level'], self.level.pop('next_level')
         self.display_level = generatecharacter.display_level(self.level)
@@ -44,6 +65,7 @@ class Character:
             displaystr = str(self.attributes['Str'])
         return displaystr
 
+    # not currently in use, previously included in update_charsheet via self.selected_character.display_attributes()
     def display_attributes(self):                                   # displays attributes in terminal
         print("{} {} {} {} --- hp: {} | hgt: {}'{}” wgt: {} lbs  age: {} ({}) --- str: {}, int {}, wis {}, dex {}, "
               "con {}, cha {}".format(generatecharacter.display_level(self.level), self.gender, self.race,
@@ -297,8 +319,13 @@ class Character:
         self.character_name = str_input
 
 
-ident = {}
+# some_dude = Character(level=5, race="Halfling", classes=['Fighter', 'Thief'],
+#                       attrib_list=[{'Str': 14, 'Int': 13, 'Wis': 9, 'Dex': 15, 'Con': 18, 'Cha': 11, 'Com': 4},
+#                                    {'Str': 0, 'Int': 0, 'Wis': 0, 'Dex': 0, 'Con': 0, 'Cha': 0, 'Com': 0}])
+# print(some_dude.__dict__)
 
+
+# ident = {}
 # for a in range(10):
 #     temp = 'p' + str(a+1).zfill(2)
 #     ident[temp] = temp
