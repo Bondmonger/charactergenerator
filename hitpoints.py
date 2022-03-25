@@ -58,23 +58,23 @@ def con_bonus(hitpoints, hpcalcs, con):  # grabs con bonus info from attributeva
     pass
 
 
-def generate_hp(ch_class, levels, con):  # generates new character hp of level "levels", returns nested lists
-    number_of_classes, hpcalcs, hp, final = len(ch_class), [], [], []
-    for a in range(number_of_classes):
-        hpcalcs.append(call_hp(ch_class[a]))
-    for a in range(number_of_classes):
-        hp.append(hp_compute_first(hpcalcs[a]))
+def generate_hp(ch_class, levels, con):     # generates hp for character of level "levels", returns nested lists
+    hpcalcs, hp, final = [], [], []
+    for character_class in ch_class:
+        hpcalcs.append(call_hp(character_class))
+    for a, csv_data in enumerate(hpcalcs):
+        hp.append(hp_compute_first(csv_data))
         if levels[a] > 1:
-            hp_compute_mid(hpcalcs[a], hp, levels[a])
-        if levels[a] > hpcalcs[a][4]:
-            hp_compute_top(hpcalcs[a], hp, levels[a])
+            hp_compute_mid(csv_data, hp, levels[a])
+        if levels[a] > csv_data[4]:
+            hp_compute_top(csv_data, hp, levels[a])
         final.append(hp)
         hp = []
     con_bonus(final, hpcalcs, con)
-    if "Ninja" in ch_class:  # ninjas don't get a con bonus but receive double con bonus for their alternative class
-        for a in range(number_of_classes):
-            final[number_of_classes][a] *= 2
-    return final  # [[fig1, fig2, fig3], [mu1, mu2], [th1, th2, th3, th4], [figcon, mucon, thcon]]
+    if "Ninja" in ch_class:             # ninjas don't receive con bonus but get x2 con bonus for their primary class
+        for a, character_class in enumerate(ch_class):
+            final[-1][a] *= 2
+    return final                        # [[fig1, fig2, fig3], [mu1, mu2], [th1, th2, th3, th4], [figcon, mucon, thcon]]
 
 
 # test = generate_hp(["Barbarian", "Monk"], [5, 5], 17)

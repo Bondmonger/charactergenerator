@@ -10,16 +10,16 @@ def roll(a):  # rolls a single die of "a" sides
 def display_classes(ch_classes):  # sorts classes and converts list to a slash-separated string
     displayed_class = ""
     ch_classes.sort()
-    for a in range(len(ch_classes)):
-        displayed_class = displayed_class + ch_classes[a] + '/'
+    for ch_class in ch_classes:
+        displayed_class = displayed_class + ch_class + '/'
     displayed_class = displayed_class.rstrip('/')
     return displayed_class
 
 
 def display_level(levels):  # converts the list of levels into a displayable string
     displayed_level = ""
-    for a in range(len(levels)):
-        displayed_level = displayed_level + str(levels[a]) + '/'
+    for level in levels:
+        displayed_level = displayed_level + str(level) + '/'
     displayed_level = displayed_level.rstrip('/')
     return displayed_level
 
@@ -42,16 +42,20 @@ def display_level(levels):  # converts the list of levels into a displayable str
 #   COMPLETE [add racial bonus info to the header]
 #   COMPLETE [collapse frame/label names in header routines]
 #   COMPLETE [need level/gender dropdowns for all methods]
-#   COMPLETE [bug: name-level hps aren't removed (or awarded?) on the first level lost]
+#   COMPLETE [bug: name-level hps aren't removed (or awarded?) on the first level lost/gained]
 #   COMPLETE [replace FOR loops with comprehensions]
-#   g)	view party in methods screen
-#   1.  display selected class in method V (everywhere?)
-#   j)	bulk generation method VI
-#           level/race/class/gender sliders
-#           result fields (average, etc)
-#   p)  char_sheet hotkeys only active when char_sheet is active
-#   f)	up/down arrow hotkeys for race/class selection
-#   o)  confirmation screen on quit / escape_function()
+#   COMPLETE [view party in methods screen]
+#   COMPLETE [convert character sheet party names to buttons]
+#   COMPLETE [add a level button in method V]
+#   COMPLETE [separate name() and add() methods]
+#   COMPLETE [the party member buttons made inactive during name() and order() events]
+#   COMPLETE [char_sheet hotkeys only active when char_sheet is active]
+#   2.	bulk generation method VI
+#       result fields (average, etc)
+#   3.  display selected class in method V
+#       display method (I-VI) in all six methods
+#       up/down arrow hotkeys for race/class selection
+#       confirmation window on quit / escape_function()
 #   n)	do we need an archetype mechanism? (example: treating illusionist as MU for single-class gnomes)
 #       •	archetypes are stored in a separate csv (xpvalues rather than attributemins)
 #       •	we already have a 1:1 archetype FUNCTION in attributes.py titled archetype(ch_class)
@@ -61,6 +65,9 @@ def display_level(levels):  # converts the list of levels into a displayable str
 #       •	but even then, the problem of bad class ratios remains - example: gnomes are single class 75% of the time,
 #       yet ~86% of gnome illusionists are multi- - if we pass the selection process through archetypes then 51% of
 #       gnome illusionists would be multi-
+#   KNOWN ISSUES
+#       - no controls on level range (throws bugs on both 0-level and 17+ level events)
+#       - hotkeys won't work with capslock on
 # 4) figure out storage/equipment fields
 #   a)	csv all the armor and weapons
 #   b)	weapon proficiencies

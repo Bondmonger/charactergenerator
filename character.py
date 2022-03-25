@@ -57,8 +57,8 @@ class Character:
 
     def display_strength(self):                                     # calculates a displayable strength
         archetypes = []
-        for obj in range(len(self.classes)):
-            archetypes.append(attributes.archetype(self.classes[obj]))
+        for character_class in self.classes:
+            archetypes.append(attributes.archetype(character_class))
         if self.attributes['Str'] == 18 and self.attributes['Exc'] > 0 and "Fighter" in archetypes:
             displaystr = str(self.attributes['Str']) + '/' + str(self.attributes['Exc'])[-2:].zfill(2)
         else:
@@ -104,7 +104,7 @@ class Character:
     def modify_con(self, adjustment):
         max_constitution = attributes.racial_maximums(self.race)[4]
         self.attributes['Con'] += self.excess['Con'] + adjustment
-        self.excess['Con'] = 0  # tares excess to zero
+        self.excess['Con'] = 0                                                          # tares excess to zero
         if self.attributes['Con'] > max_constitution:
             self.excess['Con'] += self.attributes['Con'] - max_constitution
             self.attributes['Con'] = max_constitution
@@ -116,7 +116,7 @@ class Character:
     def modify_wis(self, adjustment):
         max_wisdom = 25                                                                 # removes Wis max in all cases
         self.attributes['Wis'] += self.excess['Wis'] + adjustment
-        self.excess['Wis'] = 0  # tares excess to zero
+        self.excess['Wis'] = 0                                                          # tares excess to zero
         if self.attributes['Wis'] > max_wisdom:
             self.excess['Wis'] += self.attributes['Wis'] - max_wisdom
             self.attributes['Wis'] = max_wisdom
@@ -246,6 +246,20 @@ class Character:
                         str_th = int(line[1]) * self.str_multiplier()
         final = -(int(str_th) + self.class_thaco())
         return final
+
+    def str_damage_bonus(self):                                # calculates damage bonus from str
+        str_dmg = 0
+        if len(self.display_strength()) > 2:                   # first checks for exceptional str
+            with open('excstr.csv') as excbonus:
+                for row in csv.reader(excbonus):
+                    if self.attributes['Exc'] > int(row[0]):
+                        str_dmg = (row[2]) * self.str_multiplier()
+        else:                                                   # ...then calculates for non-exceptional str
+            with open('attributevalues.csv') as strbonus:
+                for line in csv.reader(strbonus):
+                    if self.attributes['Str'] == int(line[0]):
+                        str_dmg = int(line[2]) * self.str_multiplier()
+        return str_dmg
 
     def dex_multiplier(self):
         result, final = [], 1

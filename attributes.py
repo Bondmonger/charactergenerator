@@ -386,7 +386,6 @@ def apply_race_modifiers(race, attribs):  # returns modified attributes and an '
     return final
 
 
-# not in use
 def display_racial_bonuses_i(highlighted_race):         # "High Elf" returns ['', '', '', '+1', '-1', '', '+2']
     list_of_zeroes = [0, 0, 0, 0, 0, 0, 0]
     r_bonuses = racial_bonus(highlighted_race, list_of_zeroes)
