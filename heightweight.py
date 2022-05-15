@@ -1,5 +1,6 @@
 import random
 import csv
+import datalocus
 
 
 def _roll(a):  # rolls a single die of "a" sides
@@ -21,12 +22,7 @@ def random_gender():
 
 
 def size(race, gender):
-    racialsum = []
-    with open('attrbonuses.csv') as sizevalues:
-        for row in csv.reader(sizevalues):
-            if race == row[0]:  # populates racialsum list with the racial height/weight values for the provided race
-                for a in range(26):
-                    racialsum.append(int(row[a + 18]))
+    racialsum = datalocus.call_height_weight(race)
     temp, i, gender = _roll(600), 0, 8 * int(gender == "female")  # in other words, "transpose by 8 if female"
     while temp >= racialsum[i]:  # increments through the 5 height tiers for the respective race
         i += 1

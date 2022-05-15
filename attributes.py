@@ -1,5 +1,5 @@
 import random
-import csv
+import datalocus
 
 
 def _roll(a):  # rolls a single die of "a" sides
@@ -31,37 +31,13 @@ def string_to_list(string, stringpartition):
     return separated_elements
 
 
-def racial_bonus(race, temp):  # racial modifier - temp is the list of attributes
-    with open('attrbonuses.csv') as bonuses:
-        for row in csv.reader(bonuses):
-            if race == row[0]:
-                for a in range(7):
-                    temp[a] += int(row[a+1])
-    return temp
-
-
-def _minimums(cla_rac):  # returns minimum attribute values by either race or class
-    final = []
-    with open('attributemins.csv') as mins:
-        for row in csv.reader(mins):
-            if cla_rac == row[0]:
-                for a in range(1, 8):
-                    final.append(int(row[a]))
-    return final
-
-
-def racial_maximums(race):  # returns maximum attribute values by race
-    final = []
-    with open('attributemax.csv') as maxs:
-        for row in csv.reader(maxs):
-            if row[0] == race:
-                for a in range(1, 8):
-                    final.append(int(row[a]))
-    return final
+def racial_bonus(race, attribs):            # applies racial modifier
+    sum_list = [a + b for a, b in zip(attribs, datalocus.racial_attribute_bonus(race))]
+    return sum_list
 
 
 def clip_surplus(race, attrs):                  # nips the tops off attributes higher than racial maximum
-    rac_max, surplus = racial_maximums(race), []
+    rac_max, surplus = datalocus.racial_maximums(race), []
     for a in range(7):
         if attrs[a] <= rac_max[a]:              # if attribute is under the max, place a zero in the surplus list...
             surplus.append(0)
@@ -71,36 +47,9 @@ def clip_surplus(race, attrs):                  # nips the tops off attributes h
     return surplus
 
 
-def _comeliness_bonus(attrs):  # applies charisma bonus to comeliness
-    with open('attributevalues.csv') as bonuses:
-        for row in csv.reader(bonuses):
-            if row[0] == str(attrs[5]):
-                attrs[6] += int(row[41])
-                pass
-
-
-def exceptional_str(race):  # returns max percentile strength by race
-    with open('attrbonuses.csv') as bonuses:
-        for row in csv.reader(bonuses):
-            if race == row[0]:
-                maximum_exceptional_strength = int(row[8])
-    return maximum_exceptional_strength
-
-
-def archetype(ch_class):  # returns ch_class's archetype
-    with open('xpvalues.csv') as archetypes:
-        for row in csv.reader(archetypes):
-            if ch_class == row[0]:
-                class_archetype = row[38]
-    return class_archetype
-
-
 def compute_exstr(attrs, race, excess):     # computes an exceptional strength regardless of class
-    archetypes, max_racial_str = [], exceptional_str(race)
-    if max_racial_str > 0:                  # rolls an attrs[8] less than or equal to max racial str
-        attrs.append(_roll(max_racial_str))
-    else:                                   # prevents index error if racial max is a flat 18
-        attrs.append(0)
+    archetypes, max_racial_str = [], datalocus.exceptional_str(race)
+    attrs.append(_roll(max_racial_str)) if max_racial_str > 0 else attrs.append(0)
     while attrs[0] > 18:                    # converts strength values above 18 into excess points
         attrs[0] -= 1
         excess[0] += 1
@@ -119,20 +68,10 @@ def compute_exstr(attrs, race, excess):     # computes an exceptional strength r
         attrs[7] = 100
 
 
-def _ua_attr(ch_class):                     # returns a list of method V die counts for called class
-    v_values = []
-    with open('xpvalues.csv') as ua_dice:
-        for row in csv.reader(ua_dice):
-            if ch_class == row[0]:
-                for a in range(7):
-                    v_values.append(int(row[a + 29]))
-    return v_values
-
-
 def _sequencer(ch_class, race):             # sequences a 3d6-to-9d6 for single-class characters
-    temp, seq = [], _ua_attr(ch_class)
-    for a in range(7):
-        temp.insert(a, _dice(seq[a], 6))
+    temp, seq = [], datalocus.ua_attr(ch_class)
+    for ua_value in seq:
+        temp.append(_dice(ua_value, 6))
     racial_bonus(race, temp)
     return temp
 
@@ -143,7 +82,7 @@ def _multi_sequencer(race, *ch_class):                          # sequences 7 at
     else:
         ninedsix, summed_attrs, final, ordered_list = [], [], [], [*range(3, 10, 1)]
         for a in range(len(ch_class[0])):                       # nests method V values [[9, 3, 5, 7, 8, 6, 4], ...etc]
-            ninedsix.append(_ua_attr(ch_class[0][a]))
+            ninedsix.append(datalocus.ua_attr(ch_class[0][a]))
         for a in range(7):                                      # sums method V values by attribute ([9,7], then [3,4])
             grouped_attrs = []
             for b in range(len(ch_class[0])):
@@ -171,12 +110,12 @@ def _prioritize(raw_attr, sequence_attr, race):     # _prioritizes raw_attr via 
     return sequence_attr
 
 
-def _min_merger(_minimums):                         # merges any number of minimum attribute lists
+def _min_merger(minimums):                         # merges any number of minimum attribute lists
     final = []
-    for a in range(7):
+    for position in range(7):
         temp = []
-        for b in range(len(_minimums)):
-            temp.append(_minimums[b][a])
+        for attrib in minimums:
+            temp.append(attrib[position])
         final.append(max(temp))
     return final
 
@@ -188,8 +127,8 @@ def _deficit(mins, attrs):                          # returns current attributes
     return diff
 
 
-def _positives(diffs):                              # diffs<0 become 0, randomly reduces surplus without going negative
-    neg, temp = 0, []
+def _positives(race, diffs):                        # diffs<0 become 0, randomly reduces surplus without going negative
+    neg, temp, diffs = 0, [], racial_bonus(race, diffs)
     for ind, att in enumerate(diffs):
         if att > 0:
             temp.append(ind)                        # assembles list of index values for positive diffs, then...
@@ -200,7 +139,7 @@ def _positives(diffs):                              # diffs<0 become 0, randomly
         diffs[index_a] -= 1
         if diffs[index_a] == 0:
             temp.remove(index_a)
-    pass
+    return diffs
 
 
 # test_pos = [4, 0, 2, -2, 1, 0, 3]
@@ -215,79 +154,41 @@ def _re_combine(mins, diffs):                       # sums minimums and "differe
 
 
 def _demote_class(cha_class):                       # drops a class one tier, potentially returning "0-level"
-    with open('xpvalues.csv') as characterclasses:
-        for row in csv.reader(characterclasses):
-            if cha_class == row[0]:
-                result = row[37]
+    result = datalocus.demote_class(cha_class)
     return result
 
 
-def _minimum_sum(ch_class):  # returns the minimum attribute SUM for a single character class
-    classminimums, tempsum = open('attributemins.csv'), 0
-    for row in csv.reader(classminimums):
-        if ch_class == row[0]:
-            for a in range(1, 9):
-                tempsum += int(row[a])
-    return tempsum
-
-
-def _maxindex(listofvalues):  # flags the index position of the largest value in a list
-    maximum, max_location = 0, 0
-    for a, value in enumerate(listofvalues):
-        if value > maximum:
-            maximum, max_location = value, a
-    return max_location
-
-
 def _demotion(race, ch_classes, raw_atts, merged_mins):  # demotes characters with insufficient attribute points
-    racialsum = 0
-    with open('attrbonuses.csv') as racial_bonuses:
-        for row in csv.reader(racial_bonuses):
-            if race == row[0]:
-                for a in range(1, 8):
-                    racialsum += int(row[a])
-    while sum(raw_atts) + racialsum < sum(merged_mins):  # ninja is always the first cut
+    racialsum = datalocus.racialsum(race)
+    while sum(raw_atts) + racialsum < sum(merged_mins) and ch_classes != ['0-level']:
+        # print('demotion candidate:', race, ch_classes, 'with', raw_atts, 'needing', merged_mins, '(', sum(raw_atts),
+        #       '+', racialsum, ') /', sum(merged_mins))
         minsum = []
-        for a in range(len(ch_classes)):
-            minsum.append(_cruncher(_minimum_sum((ch_classes[a]))))  # cruncher breaks ties on per-class minimum sums
-        # _maxindex(minsum) is the index position of the class with the highest attribute threshold
-        newclass = _demote_class(ch_classes[_maxindex(minsum)])  # also removes 0-level results from multi-class chars
-        if len(ch_classes) > 1:
-            ch_classes.remove(ch_classes[_maxindex(minsum)])
-            if newclass == '0-level':
-                pass
-            else:
-                ch_classes.append(newclass)
-                ch_classes.sort()
-                pass
-        else:  # ...otherwise simply demote them to 0-level
-            ch_classes.append(newclass)
-            ch_classes.remove(ch_classes[0])
-            if newclass == '0-level':
-                pass
-        minlist = list(map(_minimums, ch_classes))  # recalculates the mins and tries again
-        minlist.append(_minimums(race))
-        newmins, k = _min_merger(minlist), 0
-        for a in range(7):
-            merged_mins.append(newmins[a])
-        del merged_mins[0:7]
-    pass
-
-# testclass = ["Ninja", "Bushi"]
-# test1 = _demotion('Bamboo Spirit Folk', testclass, [12, 10, 6, 13, 6, 15, 3], [11, 15, 3, 15, 6, 16, 3])
-# print(testclass)
+        for ch_class in ch_classes:
+            minsum.append(_cruncher(datalocus.minimum_sum(ch_class)))  # cruncher breaks ties on per-class minimum sums
+        newclass = _demote_class(ch_classes[minsum.index(max(minsum))])
+        ch_classes.pop(minsum.index(max(minsum)))                       # removes the class with the highest minimums
+        ch_classes.append(newclass)                                     # replaces that class with the demoted version
+        ch_classes.sort()                                               # sorts the class list
+        if len(ch_classes) > 1 and ch_classes.count('0-level') > 0:
+            ch_classes.remove('0-level')                                # removes any extraneous '0-level'
+        min_ca = list(map(datalocus.minimums, ch_classes))              # updates merged_mins for subsequent WHILE loop
+        min_ca.append(datalocus.minimums(race))
+        merged_mins = _min_merger(min_ca)
+        # print('while loop term:', race, ch_classes, 'now at (', sum(raw_atts), '+', racialsum, ') /',
+        # sum(merged_mins))
+    if len(ch_classes) == 0:                                            # ...and if ch_classes emerges empty
+        ch_classes.append('0-level')
+    return merged_mins
 
 
-def _attr_listdict(attr):
-    temp = {'str': attr[0], 'int': attr[1], 'wis': attr[2], 'dex': attr[3], 'con': attr[4], 'cha': attr[5],
-            'com': attr[6]}
-    if len(attr) > 7:
-        temp['exc'] = attr[7]
-    print(temp)
-    return temp
-
-# temp1 = [14, 15, 12, 15, 12, 16, 5]
-# print(_attr_listdict(temp1))
+# testclass = ["Yakuza", "Ninja"]
+# min_c = list(map(datalocus.minimums, testclass))
+# min_c.append(datalocus.minimums('Hengeyokai: Raccoon Dog'))
+# merged_m = _min_merger(min_c)
+# print('starting merged_m:', merged_m)
+# _demotion('Hengeyokai: Raccoon Dog', testclass, [11, 15, 3, 15, 6, 16, 3], merged_m)
+# print('exit class:', testclass)
 
 
 def methodi():  # 4d6, keep the top three dice, user chooses order except for COM (which is locked)
@@ -324,7 +225,7 @@ def methodiv():  # 3d6 locked, creating 12 full characters, user selects charact
 
 def methodv(charclass):  # char class is a string, such as "Fighter/Thief"
     attr_names, tempx = ['Str', 'Int', 'Wis', 'Dex', 'Con', 'Cha', 'Com'], string_to_list(charclass, "/")
-    tempx, ninedsix = list(map(_ua_attr, tempx)), [*range(3, 10, 1)]    # 9d6 = [3, 4, 5, ... 9]
+    tempx, ninedsix = list(map(datalocus.ua_attr, tempx)), [*range(3, 10, 1)]    # 9d6 = [3, 4, 5, ... 9]
     combolist, values = tempx[0], [_dice(x, 6) for x in ninedsix]       # tempx = [[9, 3, 4, 7, 8, 6, 5]] if "Fighter"
     for b in range(1, len(tempx)):                                      # triggers only when needed (multi-class)
         for a in range(0, len(tempx[0])):
@@ -346,30 +247,32 @@ def methodv(charclass):  # char class is a string, such as "Fighter/Thief"
 
 
 def methodvi(race, ch_classes):  # returns modified attributes and an 'excess' list
-    raw_atts, mincom = _d6_attributes(4), list(map(_minimums, ch_classes))
+    raw_atts, mincom = _d6_attributes(4), list(map(datalocus.minimums, ch_classes))
     attr_names = ['Str', 'Int', 'Wis', 'Dex', 'Con', 'Cha', 'Com', 'Exc']
-    mincom.append(_minimums(race))  # mincon is lists [[classmins1], [classmins2]..., [racemins]]
+    mincom.append(datalocus.minimums(race))  # mincon is lists [[classmins1], [classmins2]..., [racemins]]
     merged_mins = _min_merger(mincom)
-    _demotion(race, ch_classes, raw_atts, merged_mins)
+    merged_mins = _demotion(race, ch_classes, raw_atts, merged_mins)    # _demotion loops until satisfied
     if ch_classes[0] == "0-level":
-        scrub = [raw_atts, [0, 0, 0, 0, 0, 0, 0]]
-        return scrub
-    nine_d_six = _multi_sequencer(race, ch_classes)  # rolls up a Method V character and applies racial mods
-    ordered_atts = _prioritize(raw_atts, nine_d_six, race)  # substitutes in the 4d6 values and applies racial mods
-    surplus_atts = _deficit(merged_mins, ordered_atts)  # flags attributes below race/class minimum(s)
-    _positives(surplus_atts)  # redistributes surplus attribute points to negative values
-    re_attached = _re_combine(merged_mins, surplus_atts)  # recombines redist. points with merged minimums
-    excess = clip_surplus(race, re_attached)  # creates the excess list and nips off attributes over racial caps
-    compute_exstr(re_attached, race, excess)
-    _comeliness_bonus(re_attached)
+        re_attached = _min_merger([[9, 9, 9, 9, 9, 9, 9], datalocus.minimums(race)])    # I suppose this is unnecessary
+        re_attached.append(1)
+        excess = [0, 0, 0, 0, 0, 0, 0]
+    else:
+        nine_d_six = _multi_sequencer(race, ch_classes)         # rolls Method V character and applies racial mods
+        ordered_atts = _prioritize(raw_atts, nine_d_six, race)  # substitutes 4d6 values and applies racial mods
+        surplus_atts = _deficit(merged_mins, ordered_atts)      # sums surplus attribute points (vs race/class mins)
+        surplus_atts = _positives(race, surplus_atts)           # randomly redistributes surplus to negative attributes
+        re_attached = _re_combine(merged_mins, surplus_atts)    # recombines attributes
+        excess = clip_surplus(race, re_attached)                # nips off attributes over racial caps
+        compute_exstr(re_attached, race, excess)
+        re_attached[6] += datalocus.comeliness_bonus(re_attached[5])
     attr_dict = dict(zip(attr_names, re_attached))
     excess_dict = dict(zip(attr_names, excess))
     final = [attr_dict, excess_dict]
     return final
 
 
-# test1classes = ["Ninja", "Yakuza"]
-# test6 = methodvi("Hengeyokai: Crab", test1classes)
+# test1classes = ["Ninja", "Yakuza", "Paladin"]
+# test6 = methodvi("Human", test1classes)
 # print(test6)
 # print(test1classes)
 
@@ -379,7 +282,7 @@ def apply_race_modifiers(race, attribs):  # returns modified attributes and an '
     modded_attribs = racial_bonus(race, attribs)
     excess = clip_surplus(race, modded_attribs)
     compute_exstr(modded_attribs, race, excess)
-    _comeliness_bonus(modded_attribs)
+    modded_attribs[6] += datalocus.comeliness_bonus(modded_attribs[5])
     attr_dict = dict(zip(attr_names, modded_attribs))
     excess_dict = dict(zip(attr_names, excess))
     final = [attr_dict, excess_dict]
@@ -407,11 +310,11 @@ def display_racial_bonuses_ii(highlighted_race):        # "High Elf" returns {'D
     return final
 
 
-test_display = "High Elf"
-
-print(racial_bonus(test_display, [0, 0, 0, 0, 0, 0, 0]))
-display_racial_bonuses_i(test_display)
-display_racial_bonuses_ii(test_display)
+# USEFUL - THIS IS A DEMONSTRATION OF THE TWO BONUS DISPLAY FUNCTIONS ABOVE
+# test_display = "High Elf"
+# print(racial_bonus(test_display, [0, 0, 0, 0, 0, 0, 0]))
+# display_racial_bonuses_i(test_display)
+# display_racial_bonuses_ii(test_display)
 
 # test7 = apply_race_modifiers("Grugach", [20, 12, 12, 12, 12, 12, 12])
 # print(test7)

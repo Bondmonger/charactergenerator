@@ -330,14 +330,14 @@ class CharacterInterface:
         self.selected_character.modify_attribute(attr_list[attr], adj)
         self.update_charsheet()
 
-    def stacked_attrs(self):                  # generates text for display_label
+    def stacked_attrs(self):                    # generates text for display_label
         temp, other_atts = "", ["Int", "Wis", "Dex", "Con", "Cha", "Com"]
         temp = "Str: {}\n".format(self.selected_character.display_strength())
         for a in other_atts:
             temp = temp + "{}: {}\n".format(a, self.selected_character.attributes[a])
         return temp
 
-    def remove_party_member(self):  # removes current character from party
+    def remove_party_member(self):              # removes current character from party
         if len(self.party_list) > 0 and self.selected_character in self.party_list:
             self.master.unbind(len(self.party_list))
             self.party_list.remove(self.selected_character)
@@ -346,18 +346,18 @@ class CharacterInterface:
             self.display_text[0] = "{} has been removed from the party".format(temp_name)
             self.update_charsheet()
 
-    def add_party_member(self):                                                     # adds current character to party
+    def add_party_member(self):                 # adds current character to party
         if len(self.party_list) < 8 and self.selected_character not in self.party_list:
             self.party_list.append(self.selected_character)
             self.select_name(add_member=True)
 
-    def bind_member(self, party_index):  # binds a number key to the current character's location in the party (1 to 8)
+    def bind_member(self, party_index):          # binds a number key to current character's
         self.master.bind(party_index, lambda event: self.refresh(self.party_list[party_index-1]))
 
     def select_name(self, add_member=False):                # CREATES THE FIELD FOR ASSIGNING CHARACTER NAME
-        if add_member and len(self.selected_character.character_name) > 0:
+        if add_member and len(self.selected_character.character_name) > 0:      # (1/4) named non-member (ADD=True)
             self.display_text[0] = "{} has been added to the party".format(self.selected_character.character_name)
-            self.update_charsheet()                             # (1/4) non-member with name (ADD=True)
+            self.update_charsheet()
             self.member_buttons()
         else:
             self.update_party_frame(buttons=False)          # blanks out party buttons
@@ -372,22 +372,21 @@ class CharacterInterface:
             self.name_slot.pack(side='left')                # packs input field
             self.set_name.pack(side='left')                 # packs 'Enter' button (<Return> key bound below)
             self.name_slot.focus_set()                      # places cursor in input field
-            self.master.bind('<Return>', lambda event: self.name_character())
+            self.master.bind('<Return>', lambda event: self.name_character(add_member))
 
-    def name_character(self):                           # names character
-        temp_n = self.name_slot.get()                   # captures name text...
-        if len(self.selected_character.character_name) == 0:      # (3/4) unnamed non-member (ADD=False)
+    def name_character(self, add_member=False):             # names character
+        temp_n = self.name_slot.get()                       # captures name text...
+        if add_member and len(self.selected_character.character_name) == 0:     # (2/4) unnamed non-member (ADD=True)
+            self.display_text[0] = "{} has been added to the party".format(temp_n)
+        elif len(self.selected_character.character_name) == 0:                  # (3/4) unnamed non-member (ADD=False)
             self.display_text[0] = "{}'s name has been assigned".format(temp_n)
-        else:                                                     # (4/4) named member or non-member (ADD=False)
+        else:                                                                   # (4/4) update name (ADD=False)
             self.display_text[0] = "{} is now {}".format(self.selected_character.character_name, temp_n)
         self.selected_character.assign_name(temp_n)
         self.method_label.destroy()                     # manual rem. of temp label (update_party_frame(buttons=False))
         self.main_menu_bn.configure(state='normal')     # restoration of main menu button
         self.update_charsheet()                         # update_charsheet()
-        if self.selected_character in self.party_list:
-            self.member_buttons()
-        else:
-            self.nonmember_buttons()
+        self.member_buttons() if self.selected_character in self.party_list else self.nonmember_buttons()
         for i, member in enumerate(self.party_list, 1):
             self.bind_member(i)                         # re-binds party hotkeys
         self.master.unbind('<Return>')                  # releases <Return> key
@@ -749,6 +748,7 @@ class CharacterInterface:
         self.char_frame.lift()
         self.member_frame.lift()
         self.contdisp_frame.lift()
+        print('test', self.selected_character.__dict__)
 
     def header_controls(self, rr=True):  # don't fully understand level_dropdown arg pass
         self.header_control_frame = tk.Frame(master=self.hcontrol_fr, bg='#000000', borderwidth=0)
@@ -808,10 +808,11 @@ class CharacterInterface:
     def expanded_party_display(self):
         self.member_frame, final_list = tk.Frame(self.master, bg='#000000'), []
         self.member_frame.grid(row=1, column=0, rowspan=3, columnspan=6, sticky="nsew")
-        for a, value in enumerate([3, 3, 3, 1, 1, 1, 1, 1]):
+        for a, value in enumerate([3, 3, 1, 3, 1, 1, 1, 1, 1]):
             self.member_frame.grid_columnconfigure(a, weight=value, uniform=1)
-        display_name, display_class, display_hp, display_th, display_race, display_move, display_dmg, display_acs = \
-            ['\n    Member\n'], ['\nClass\n'], ['\nHP\n'], ['\nTH\n'], ['\nRace\n'], ['\nMV\n'], ['\nDmg\n'], ['\nAC\n']
+        display_name, display_class, display_hp, display_th = ['\n    Member\n'], ['\nClass\n'], ['\nHP\n'], ['\nTH\n']
+        display_race, display_move, display_dmg, display_acs = ['\nRace\n'], ['\nMV\n'], ['\nDmg\n'], ['\nAC\n']
+        levels_d = ['\nLevel\n']
         for a, member in enumerate(self.party_list, 1):
             display_name.append('\n  {} {}'.format(str(a), member.character_name))
             display_hp.append('\n{}'.format(member.hp))
@@ -822,10 +823,11 @@ class CharacterInterface:
             display_move.append('\n{}"'.format(member.class_movement()))
             damage_bon = int(member.str_damage_bonus())
             display_dmg.append('\n{0:{1}}'.format(damage_bon, '+' if damage_bon else ''))   # ...-1, 0, +1, etc...
+            levels_d.append('\n{}'.format(member.display_level))
         for b in range(len(self.party_list) + 1, 9):                        # numbers empty portion of display
             display_name.append('\n  {} '.format(b))
-        display_list = [display_name, display_race, display_class, display_hp, display_acs, display_th, display_dmg,
-                        display_move]
+        display_list = [display_name, display_race, levels_d, display_class, display_hp, display_acs, display_th,
+                        display_dmg, display_move]
         for c in display_list:
             final_list.append("".join(c))                                   # joins each vertical string
         for n, str_val in enumerate(final_list):

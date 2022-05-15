@@ -1,6 +1,6 @@
 import random
 import csv
-import attributes
+import datalocus
 
 
 def roll(a):  # rolls a single die of "a" sides
@@ -58,7 +58,7 @@ def display_level(levels):  # converts the list of levels into a displayable str
 #       confirmation window on quit / escape_function()
 #   n)	do we need an archetype mechanism? (example: treating illusionist as MU for single-class gnomes)
 #       •	archetypes are stored in a separate csv (xpvalues rather than attributemins)
-#       •	we already have a 1:1 archetype FUNCTION in attributes.py titled archetype(ch_class)
+#       •	we already have a 1:1 archetype FUNCTION in datalocus titled archetype(ch_class)
 #       •	would need to funnel character class selection through archetypes, then select class
 #       •	this means not only returning eligible archetypes, but updating the list as classes are added/removed
 #       •	the alternative is to simply select race & class unweighted (maybe this is best)
@@ -68,6 +68,11 @@ def display_level(levels):  # converts the list of levels into a displayable str
 #   KNOWN ISSUES
 #       - no controls on level range (throws bugs on both 0-level and 17+ level events)
 #       - hotkeys won't work with capslock on
+#   WISHLIST
+#       - have the demi-human specialist classes be bumped up to archetype frequency
+#       - have some form of weightedness in the multi-class determination
+#       - get selectclass.py to run faster
+#       - make the race > class determination reversible (class > race)
 # 4) figure out storage/equipment fields
 #   a)	csv all the armor and weapons
 #   b)	weapon proficiencies
@@ -85,7 +90,7 @@ def display_level(levels):  # converts the list of levels into a displayable str
 
 
 def clip_surplus_dict(race, attrs, excess):  # nips the tops off attributes above racial maximum
-    ord_attrs, rac_max = ['Str', 'Int', 'Wis', 'Dex', 'Con', 'Cha', 'Com'], attributes.racial_maximums(race)
+    ord_attrs, rac_max = ['Str', 'Int', 'Wis', 'Dex', 'Con', 'Cha', 'Com'], datalocus.racial_maximums(race)
     temp_excess = dict(zip(ord_attrs, rac_max))
     temp_excess['Wis'] = 25
     for k, v in temp_excess.items():
@@ -97,21 +102,8 @@ def clip_surplus_dict(race, attrs, excess):  # nips the tops off attributes abov
     return
 
 
-def primary_att(cha_class):                     # returns minimum attributes for the 10% xp bonus
-    maxxp, xps, final, attnames = open('xpvalues.csv'), [], [], ["str", "int", "wis", "dex", "con", "cha", "com"]
-    for row in csv.reader(maxxp):               # calls the relevant xp row from xpvalues.csv
-        if cha_class == row[0]:
-            xps = row[0:28]
-    for a in range(7):
-        m = xps[1].find(attnames[a])            # searches for attribute name in primary att field ("str16", etc)
-        if m == -1:
-            final.append(m)                     # if not found, sets min to -1 (to be replaced with racial minimum)
-        else:
-            final.append(int(xps[1][m+3:m+5]))  # if found, sets min equal to the next two character (16 or whatever)
-    if sum(final) == -7:
-        final = []
-        for a in range(7):
-            final.append(26)                    # if no primary attribute then minimums are all set at 26
+def primary_att(cha_class):                         # returns minimum attributes required for the 10% xp bonus
+    final = datalocus.xp_bonus_check(cha_class)
     return final
 
 
@@ -124,11 +116,8 @@ def bonus_check(cha_class, atts):  # checks eligibility for 10% xp boost
 
 
 def return_xp(ch_class):  # returns the complete list of xp thresholds for the input character class
-    xpindex, xpvalues = open('xpvalues.csv'), []
-    for row in csv.reader(xpindex):
-        if ch_class == row[0]:
-            xpvalues.append(row)
-            return xpvalues[0][2:28]  # ['0', '1500', '3000', ...]
+    xpvalues = datalocus.return_xp(ch_class)
+    return xpvalues[0][2:28]  # ['0', '1500', '3000', ...]
 
 
 def next_xp(classes, levels, attrs, diff=0):                                            # returns impending thresholds
@@ -182,24 +171,14 @@ def generate_level(attrs, ch_classes, race, xp, excess):        # creates and up
 
 
 def pc_xp(level):                                               # returns a randomized xp value for a given level
-    base, increments, value = [], [], 0
-    with open('xpvalues.csv') as currentxp:
-        for row in csv.reader(currentxp):
-            if "MeanSum" == row[0]:
-                base.append(row)
-            if "MeanDif" == row[0]:
-                increments.append(row)
+    base, increments = datalocus.return_xp("MeanSum"), datalocus.return_xp("MeanDif")
     base, increments = base[0][1:28], increments[0][2:28]       # note the differing start points
     value = int(base[level]) + roll(int(increments[level]))     # this is to turn increments[level + 1] to [level]
     return value
 
 
-def impending_mean_xp(xp):                                      # returns the next mean xp threshold (an integer)
-    base = []
-    with open('xpvalues.csv') as currentxp:
-        for row in csv.reader(currentxp):
-            if "MeanSum" == row[0]:
-                base.append(row)
+def impending_mean_xp(xp):                                      # returns the subsequent mean xp threshold (an integer)
+    base = datalocus.return_xp("MeanSum")                       # these values are used to increment age in character.py
     base = base[0][2:28]
     for a in base:
         if xp < int(a):
