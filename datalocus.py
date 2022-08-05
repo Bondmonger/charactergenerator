@@ -43,7 +43,6 @@ def age_thresholds(race):                                       # accepts ('High
 
 @lru_cache(maxsize=100)
 def racialsum(race):                                            # accepts ('High Elf')
-    # print(race)
     modifiersum = 0                                             # returns (2)
     with open('attrbonuses.csv') as racial_bonuses:             # ie, high elf atts are +2 (net) vs a human's
         for row in csv.reader(racial_bonuses):

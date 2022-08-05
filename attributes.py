@@ -246,12 +246,12 @@ def methodv(charclass):  # char class is a string, such as "Fighter/Thief"
 # print("method V: ", test5)
 
 
-def methodvi(race, ch_classes):  # returns modified attributes and an 'excess' list
+def methodvi(race, ch_classes):
     raw_atts, mincom = _d6_attributes(4), list(map(datalocus.minimums, ch_classes))
-    attr_names = ['Str', 'Int', 'Wis', 'Dex', 'Con', 'Cha', 'Com', 'Exc']
+    attr_names = ['Str', 'Int', 'Wis', 'Dex', 'Con', 'Cha', 'Com', 'Exc']       # returns modified att and 'excess'
     mincom.append(datalocus.minimums(race))  # mincon is lists [[classmins1], [classmins2]..., [racemins]]
     merged_mins = _min_merger(mincom)
-    merged_mins = _demotion(race, ch_classes, raw_atts, merged_mins)    # _demotion loops until satisfied
+    merged_mins = _demotion(race, ch_classes, raw_atts, merged_mins)            # _demotion loops until satisfied
     if ch_classes[0] == "0-level":
         re_attached = _min_merger([[9, 9, 9, 9, 9, 9, 9], datalocus.minimums(race)])    # I suppose this is unnecessary
         re_attached.append(1)

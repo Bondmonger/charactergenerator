@@ -1,5 +1,4 @@
 import random
-import csv
 import datalocus
 
 
@@ -25,7 +24,6 @@ def display_level(levels):  # converts the list of levels into a displayable str
 
 
 # regarding attributes.py, here are some improvements we could make down the road
-#   a) get csv checks in attributes.py going at a higher level so in-memory version can be preserved during bulk events
 #   b) switch the csv calls to pickle calls (perhaps a & b could be solved with a pickle conversion right at startup)
 #   c) we could flatten out a lot of these nested conditionals via zip re-ordering
 #   d) we could use a better RNG
@@ -50,6 +48,10 @@ def display_level(levels):  # converts the list of levels into a displayable str
 #   COMPLETE [separate name() and add() methods]
 #   COMPLETE [the party member buttons made inactive during name() and order() events]
 #   COMPLETE [char_sheet hotkeys only active when char_sheet is active]
+#   COMPLETE [have some form of weightedness in the multi-class determination]
+#   COMPLETE [get selectclass.py to run faster]
+#   COMPLETE [make the race > class determination reversible (class > race)]
+#   COMPLETE [get csv checks in going at a higher level so in-memory version can be preserved during bulk events}
 #   2.	bulk generation method VI
 #       result fields (average, etc)
 #   3.  display selected class in method V
@@ -69,10 +71,7 @@ def display_level(levels):  # converts the list of levels into a displayable str
 #       - no controls on level range (throws bugs on both 0-level and 17+ level events)
 #       - hotkeys won't work with capslock on
 #   WISHLIST
-#       - have the demi-human specialist classes be bumped up to archetype frequency
-#       - have some form of weightedness in the multi-class determination
-#       - get selectclass.py to run faster
-#       - make the race > class determination reversible (class > race)
+#       None!
 # 4) figure out storage/equipment fields
 #   a)	csv all the armor and weapons
 #   b)	weapon proficiencies
@@ -103,8 +102,7 @@ def clip_surplus_dict(race, attrs, excess):  # nips the tops off attributes abov
 
 
 def primary_att(cha_class):                         # returns minimum attributes required for the 10% xp bonus
-    final = datalocus.xp_bonus_check(cha_class)
-    return final
+    return datalocus.xp_bonus_check(cha_class)
 
 
 def bonus_check(cha_class, atts):  # checks eligibility for 10% xp boost
@@ -148,12 +146,12 @@ def increment_xp(classes, levels, xp, atts):                    # increments lev
     return nextxp_class                                         # ...and returns the impending level threshold
 
 
-def flatten(x):                                                 # adds up the elements in nested HP list(s)
-    temp = []
-    for a in range(len(x)):
-        for b in range(len(x[a])):
-            temp.append(x[a][b])
-    return round(sum(temp)/(len(x)-1))
+def flatten(hp_batches):                                        # adds up the elements in nested HP list(s)
+    temp = 0
+    for hp_batch in hp_batches:
+        for value in hp_batch:
+            temp += value
+    return round(temp/(len(hp_batches)-1))
 
 
 def generate_level(attrs, ch_classes, race, xp, excess):        # creates and updates levels and xp thresholds

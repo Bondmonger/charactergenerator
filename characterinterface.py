@@ -143,7 +143,7 @@ class CharacterInterface:
         self.master.bind('<Escape>', lambda event: self.escape_function())
 
         self.member_frame = tk.Frame()              # generate_party_frame() PARTY DISPLAY parent
-        self.party_label = tk.Label()               # generate_party_frame() PARTY DISPLAY child
+        self.party_frame = tk.Frame()               # generate_party_frame() PARTY DISPLAY child
         self.acs_label = tk.Label()                 # generate_party_frame() PARTY DISPLAY child
         self.hps_label = tk.Label()                 # generate_party_frame() PARTY DISPLAY child
         self.th_label = tk.Label()                  # generate_party_frame() PARTY DISPLAY child
@@ -156,6 +156,7 @@ class CharacterInterface:
         self.temp_frame = tk.Frame()                # party_frame_popup() POPUP parent
         self.close_popup_frame = tk.Frame()         # party_frame_popup() POPUP child
         self.temp_control_frame = tk.Frame()        # party_frame_popup() POPUP sub-child
+        self.expanded_party_label = tk.Label()
         self.method_label = tk.Label()              # all-purpose temp label
         self.methodiv_label = tk.Label()            # needed in order to reset the header when race is set to "human"
 
@@ -182,28 +183,29 @@ class CharacterInterface:
         for a, value in enumerate([5, 1, 1, 1]):
             self.member_frame.grid_columnconfigure(a, weight=value, uniform=1)
         self.member_frame.grid_rowconfigure(0, weight=1, uniform=1)
-        self.party_label = tk.Frame(master=self.member_frame, relief=tk.FLAT, borderwidth=4, bg='#000077')
+        self.party_frame = tk.Frame(master=self.member_frame, relief=tk.FLAT, borderwidth=4, bg='#000077')
         self.acs_label = tk.Label(master=self.member_frame, relief=tk.FLAT, borderwidth=4, fg="#FFFFFF", bg='#000000',
                                   font=('Courier', 12), justify="left", anchor='nw')
         self.hps_label = tk.Label(master=self.member_frame, relief=tk.FLAT, borderwidth=4, fg="#FFFFFF", bg='#000000',
                                   font=('Courier', 12), justify="left", anchor='nw')
         self.th_label = tk.Label(master=self.member_frame, relief=tk.FLAT, borderwidth=4, fg="#FFFFFF", bg='#000000',
                                  font=('Courier', 12), justify="left", anchor='nw')
-        self.party_label.grid(row=0, column=0, rowspan=2, sticky='nsew')
+        self.party_frame.grid(row=0, column=0, rowspan=2, sticky='nsew')
         self.hps_label.grid(row=0, column=1, rowspan=2, sticky='nsew')
         self.acs_label.grid(row=0, column=2, rowspan=2, sticky='nsew')
         self.th_label.grid(row=0, column=3, rowspan=2, sticky='nsew')
 
     def update_party_frame(self, buttons=True):                     # updates the party frame
-        self.party_label.destroy()                                  # resets party label frame
-        self.party_label = tk.Frame(master=self.member_frame, relief=tk.FLAT, bg='#000000')
-        self.party_label.grid(row=0, column=0, rowspan=2, sticky='nsew')
+        self.member_frame.lift()                                    # undoes the lower() from clear_party_popup()
+        self.party_frame.destroy()                                  # resets party label frame
+        self.party_frame = tk.Frame(master=self.member_frame, relief=tk.FLAT, bg='#000000')
+        self.party_frame.grid(row=0, column=0, rowspan=2, sticky='nsew')
         display_acs, display_hps, display_th = 'AC', 'HP', 'TH'
-        display_names = tk.Label(master=self.party_label, fg="#FFFFFF", bg='#000000', font=('Courier', 12), anchor='w',
+        display_names = tk.Label(master=self.party_frame, fg="#FFFFFF", bg='#000000', font=('Courier', 12), anchor='w',
                                  relief=tk.FLAT, justify="left", text='   Members')
         display_names.place(x=5, y=4, height=20, relwidth=1.0)
         for a, member in enumerate(self.party_list, 1):             # constructs member buttons
-            display_names = tk.Button(self.party_label, text='\u0332{}  {}'.format(str(a), member.character_name),
+            display_names = tk.Button(self.party_frame, text='\u0332{}  {}'.format(str(a), member.character_name),
                                       bg='#000000', fg="#FFFFFF", font=('Courier', 12), relief=tk.FLAT, justify="left",
                                       command=lambda pos=a: self.refresh(self.party_list[pos - 1]), anchor='w')
             display_names.place(x=3, y=5 + 18 * a, height=18, relwidth=1.0)
@@ -211,11 +213,11 @@ class CharacterInterface:
             display_acs += '\n{}'.format(10 + member.calculate_ac())
             display_th += '\n{}'.format(20 + member.calculate_thaco())
         for b in range(len(self.party_list) + 1, 9):                # constructs placeholders for empty member slots
-            display_names = tk.Label(self.party_label, text=str(b), bg='#000000', fg="#FFFFFF", font=('Courier', 12),
+            display_names = tk.Label(self.party_frame, text=str(b), bg='#000000', fg="#FFFFFF", font=('Courier', 12),
                                      relief=tk.FLAT, justify="left", anchor='w')
             display_names.place(x=5, y=5 + 18 * b, height=18, relwidth=1)
-        if not buttons:                                             # temporarily overwrites self.party_label
-            self.method_label = tk.Label(master=self.party_label, relief=tk.FLAT, borderwidth=4, fg="#FFFFFF",
+        if not buttons:                                             # temporarily overwrites self.party_frame
+            self.method_label = tk.Label(master=self.party_frame, relief=tk.FLAT, borderwidth=4, fg="#FFFFFF",
                                          bg='#000000', font=('Courier', 12), justify="left", anchor='nw', padx=4)
             nonbutton_names = '   Members'
             for a, member in enumerate(self.party_list, 1):
@@ -283,7 +285,7 @@ class CharacterInterface:
         self.master.bind('<Escape>', lambda event: self.escape_function())
 
     def nonmember_buttons(self):                    # updates control panel
-        for key in self.master.bind():                     # unbinds all hotkeys
+        for key in self.master.bind():              # unbinds all hotkeys
             self.master.unbind(key)
         control_panel_buttons = self.control_label.pack_slaves()
         for y in control_panel_buttons:
@@ -354,7 +356,7 @@ class CharacterInterface:
     def bind_member(self, party_index):          # binds a number key to current character's
         self.master.bind(party_index, lambda event: self.refresh(self.party_list[party_index-1]))
 
-    def select_name(self, add_member=False):                # CREATES THE FIELD FOR ASSIGNING CHARACTER NAME
+    def select_name(self, add_member=False):                # CREATES FIELD FOR ASSIGNING CHARACTER NAME
         if add_member and len(self.selected_character.character_name) > 0:      # (1/4) named non-member (ADD=True)
             self.display_text[0] = "{} has been added to the party".format(self.selected_character.character_name)
             self.update_charsheet()
@@ -434,7 +436,7 @@ class CharacterInterface:
 
     def startframe_close(self):
         self.start_frame.lower()                    # formerly forget() but we don't want to de-grid this frame
-        self.update_newchar_button(self.reroll)     # restores make_another_character() to reroll()
+        self.update_newchar_button(self.reroll)     # sets make_another_character() to reroll()
         self.make_another_character()
 
     def common_header_elements(self):
@@ -589,8 +591,20 @@ class CharacterInterface:
                 self.method_label['text'] = value
         self.selectionframe_methodv(charclass, attribs)
 
+    def methodvi_header(self):
+        # so what do we want in here: a) the 15-attr baseline, b) the per-level comparison, c) pass onto single char
+        # ...generation, d) pass onto 8-person party generated (locking only level?)
+        self.update_newchar_button(self.reroll)
+        self.common_header_elements()
+        # we need a headerdefaults()-ish method with self.header_controls(rr=False) in it
+        for i, width in enumerate([5, 1, 1, 1, 1, 1, 1, 1, 1]):     # column widths
+            self.attribs_fr.grid_columnconfigure(i, weight=width, uniform=1)
+        for j in range(3):
+            self.attribs_fr.grid_rowconfigure(j, weight=1, uniform=1)
+        pass
+
     def selectionframe_open(self, attribs):                 # attribs is an ordered list of the SIX primary attributes
-        self.racial_modifiers('blank')                      # blanks out the racial modifier field
+        self.racial_modifiers('Human')                      # blanks out the racial modifier field
         eligibility_object = selectclass.IsEligible()       # creates an IsEligible object using attribs
         eligibility_object.eligible(attribs)
         eligible_races = eligibility_object.eligible_races
@@ -617,7 +631,7 @@ class CharacterInterface:
                                                command=lambda: self.clbutt())
         self.close_selection_frame.pack(side='bottom')      # places return_to_main_menu button
 
-    def selectionframe_suspension(self, attribs, elig_object, all_races, all_classes, is_race_selected, selection):
+    def selectionframe_suspension(self, attribs, elig_object, all_races, all_classes, race_is_selected, selection):
         self.racial_modifiers(selection)
         elig_object.filtered_eligibility(attribs, selection)
         remaining_races = elig_object.eligible_races
@@ -625,7 +639,7 @@ class CharacterInterface:
         self.selection_frame.destroy()
         self.selection_frame = tk.Frame(master=self.master, relief=tk.RIDGE, borderwidth=4, bg='#000000')
         self.selection_frame.grid(row=1, column=0, rowspan=3, columnspan=6, sticky="nsew", ipadx=5, ipady=5)
-        if is_race_selected:
+        if race_is_selected:
             for y, race in enumerate(all_races):
                 if race in remaining_races:
                     self.rc_opts = tk.Button(self.selection_frame, text=race, bg='#FFFFFF', fg="#000000",
@@ -638,7 +652,7 @@ class CharacterInterface:
                                              command=lambda r=race: self.selectionframe_suspension(attribs, elig_object,
                                                                                                    all_races,
                                                                                                    all_classes,
-                                                                                                   is_race_selected, r))
+                                                                                                   race_is_selected, r))
                     self.rc_opts.place(height=20, width=254, x=10 + 254 * int(y / 23), y=10 + 20 * (y % 23))
             for z, ch_cl in enumerate(all_classes):
                 if ch_cl in remaining_classes:
@@ -674,7 +688,7 @@ class CharacterInterface:
                                                                                                     elig_object,
                                                                                                     all_races,
                                                                                                     all_classes,
-                                                                                                    is_race_selected,
+                                                                                                    race_is_selected,
                                                                                                     c))
                     self.rc_opts.place(height=20, width=254, x=640 + 254 * int((z / 23)), y=10 + 20 * (z % 23))
         self.close_selection_frame = tk.Button(self.selection_frame, text="return to main menu", bg='#000000',
@@ -684,6 +698,42 @@ class CharacterInterface:
 
     def selectionframe_methodv(self, charclass, attribs):      # charclass initially = None
         eligibility_object = selectclass.IsEligible()
+        eligibility_object.eligible(attribs)
+        self.selection_frame.destroy()
+        self.selection_frame = tk.Label(master=self.master, relief=tk.RIDGE, borderwidth=4, fg="#FFFFFF", bg='#000000',
+                                        font=('Courier', 12), justify="center")
+        self.selection_frame.grid(row=1, column=0, rowspan=3, columnspan=6, sticky="nsew", ipadx=5, ipady=5)
+        self.close_selection_frame = tk.Button(self.selection_frame, text="return to main menu", bg='#000000',
+                                               fg="#FFFFFF", font=('Courier', 12), relief=tk.FLAT, anchor='w',
+                                               command=lambda: self.clbutt())
+        if charclass is None:
+            eligible_classes = eligibility_object.eligible_classes
+            self.header_controls(rr=False)  # creates control panel without a reroll button
+            for z, ch_cl in enumerate(eligible_classes):
+                self.rc_opts = tk.Button(self.selection_frame, text=ch_cl, bg='#000000', anchor='w',
+                                         fg="#FFFFFF", font=('Courier', 12), relief=tk.FLAT,
+                                         command=lambda c=ch_cl: self.methodv_header(charclass=c,
+                                                                                     attribs=attributes.methodv(c)))
+                self.rc_opts.place(height=20, width=274, x=320 + 404 * int((z / 23)), y=10 + 20 * (z % 23))
+        else:
+            eligibility_object.filtered_eligibility(attribs, charclass)
+            charraces = eligibility_object.eligible_races
+            self.header_controls()          # creates reroll button, then immediately re-defines the lambda
+            self.reroll_header.config(command=lambda: self.methodv_header(charclass=charclass,
+                                                                          attribs=attributes.methodv(charclass)))
+            if len(charraces) == 0:         # if there are zero eligible races...
+                self.selection_frame['text'] = "Attributes do not meet class minimum"
+            else:
+                for z, race in enumerate(charraces):
+                    self.rc_opts = tk.Button(self.selection_frame, text=race, bg='#000000', anchor='w',
+                                             fg="#FFFFFF", font=('Courier', 12), relief=tk.FLAT,
+                                             command=lambda r=race: self.charsheet_transition(r, charclass, attribs))
+                    self.rc_opts.place(height=20, width=274, x=320 + 404 * int((z / 23)), y=10 + 20 * (z % 23))
+        self.close_selection_frame.pack(side='bottom')
+
+    # this is just a copy of methodv
+    def selectionframe_methodvi(self, charclass, attribs):      # charclass initially = None
+        eligibility_object = selectclass.IsEligible()           # we probably use this for the selection drop downs
         eligibility_object.eligible(attribs)
         self.selection_frame.destroy()
         self.selection_frame = tk.Label(master=self.master, relief=tk.RIDGE, borderwidth=4, fg="#FFFFFF", bg='#000000',
@@ -748,7 +798,7 @@ class CharacterInterface:
         self.char_frame.lift()
         self.member_frame.lift()
         self.contdisp_frame.lift()
-        print('test', self.selected_character.__dict__)
+        # print('test', self.selected_character.__dict__)
 
     def header_controls(self, rr=True):  # don't fully understand level_dropdown arg pass
         self.header_control_frame = tk.Frame(master=self.hcontrol_fr, bg='#000000', borderwidth=0)
@@ -831,9 +881,10 @@ class CharacterInterface:
         for c in display_list:
             final_list.append("".join(c))                                   # joins each vertical string
         for n, str_val in enumerate(final_list):
-            self.party_label = tk.Label(master=self.member_frame, borderwidth=4, fg="#FFFFFF", font=('Courier', 12),
-                                        bg='#000000', relief=tk.FLAT, justify="left", anchor='nw', text=str_val)
-            self.party_label.grid(row=0, column=n, rowspan=1, sticky='nsew')
+            self.expanded_party_label = tk.Label(master=self.member_frame, borderwidth=4, fg="#FFFFFF",
+                                                 font=('Courier', 12), bg='#000000', relief=tk.FLAT, justify="left",
+                                                 anchor='nw', text=str_val)
+            self.expanded_party_label.grid(row=0, column=n, rowspan=1, sticky='nsew')
 
     def partypopup_controls(self):
         self.temp_control_frame = tk.Frame(master=self.close_popup_frame, bg='#000000', borderwidth=0)

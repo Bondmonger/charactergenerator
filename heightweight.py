@@ -1,5 +1,4 @@
 import random
-import csv
 import datalocus
 
 

@@ -148,7 +148,7 @@ class Character:
             self.modify_str(adjustment)
         if attr == 'Con':                           # because it may trigger an hp adjustment
             self.modify_con(adjustment)
-        if attr == 'Wis':                           # because it is uncapped (unlike the other stats)
+        if attr == 'Wis':                           # because it is uncapped (unlike other attributes)
             self.modify_wis(adjustment)
         if attr == 'Cha':                           # because it may trigger a comeliness adjustment
             self.modify_cha(adjustment)

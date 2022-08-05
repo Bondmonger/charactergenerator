@@ -16,12 +16,8 @@ def min_merger(_minimums):                                      # used by combin
     return final
 
 
-# a, b, c = [10, 14, 10, 16, 8, 8], [7, 7, 13, 13, 7, 7], [12, 12, 12, 12, 12, 12]
-# print(min_merger([a, b, c]))
-
 def string_to_list(string, stringpartition):    # accepts a single string and converts it to a list
-    li = list(string.split(stringpartition))
-    return li
+    return list(string.split(stringpartition))
 
 
 def list_to_string(list_of_classes):            # accepts a list of lists, like [[Fighter, Thief], [Cleric], ...]
@@ -35,11 +31,7 @@ def list_to_string(list_of_classes):            # accepts a list of lists, like 
     return string_version
 
 
-# sample_list = [['Aquatic Elf', 'Fighter'], ['Aquatic Elf', 'Thief'], ['Aquatic Elf', 'Fighter', 'Thief']]
-# print('test list_to_string', list_to_string(sample_list))
-
-
-@lru_cache(maxsize=1000)
+@lru_cache(maxsize=5)
 def combinator():
     races_and_classes, final, output = [], [], []
     with open('attributemins.csv') as mins:
@@ -65,14 +57,7 @@ def combinator():
     return output
 
 
-# start = time.time()
-# for a in range(10):
-#     combinator()
-# end = time.time()
-# print("combinator runtime:", end - start)
-
-
-@lru_cache(maxsize=1000)
+@lru_cache(maxsize=5)
 def other_combinator():
     races_and_classes, final, output = [], [], []
     source_list, frequency_list, multifreq_list, class_dict = [], [], [], {}
@@ -112,14 +97,6 @@ def other_combinator():
     output.append(perm_source)                              # [['PH', 'PH'], ['PH', 'PH'], ['PH', 'PH', 'PH'],
     output.append(perm_prob)                                # [['1', '84'], ['1', '26'], ['1', '84', '26'], ['18',
     return output
-
-
-# start = time.time()
-# # print(other_combinator())
-# for a in range(100):
-#     other_combinator()
-# end = time.time()
-# print("other combinator runtime:", end - start)
 
 
 class IsEligible:
@@ -207,16 +184,142 @@ class IsEligible:
             return self.eligible_races_classes[rand_index]
 
 
-# something = IsEligible()
-# attribies = [15, 5, 3, 16, 5, 5]
-# something.eligible(attribies)
-# ajawndong = something.eligible_races
-# print('unfiltered eligibility: ', something.__dict__['eligible_races_classes'])  # 10, 10, 10,...
-# something.filtered_eligibility(attribies, 'Human')
-# print('eligible_classes:         ', something.__dict__['eligible_classes'], '\n')
+# test_chump = list_o_classes()
+# print('test chump: ', test_chump)
 
 
-# NOT IN USE (generates a list of all permissible race/class combos
+# DATAFRAME BASICS
+#
+# LOAD DATA INTO DATAFRAME:
+# some_df = pd.read_csv("filename.csv")
+#
+# PARE DOWN TO SELECTED COLUMNS (BY COLUMN NUMBER):
+# desired_columns = [0, 1, 2, 3, 4, 5, 6, 10, 26, 27, 28, 29, 30, 31, 32, 70, 71, 73, 74]
+# pared_df = some_df[some_df.columns[desired_columns]]
+#
+# PARE DOWN TO SELECTED COLUMNS (BY COLUMN NAME):
+# desired_columns = ['charclass', 'weightedprob', 'source']
+# pared_df = some_df[desired_columns]                   # NOTE - THAT LIST IS INSIDE TWO SETS OF SQUARE BRACKETS HERE
+#
+# ADD A (DUPLICATE) COLUMN
+# some_df['new_column'] = some_df['original_column']
+#
+# CONDITIONALLY MODIFY A COLUMN
+# mask = some_df['conditional_column'] == 'trigger_value'
+# some_df.loc[mask, 'replaced_value'] = min_df['replacement_value'] * 39
+#
+# PARE DOWN TO SELECTED ROWS (BY CELL VALUE):
+# sliced_df = some_df[some_df['header_value'] == "-"]
+#       OR
+# sliced_df = some_df[some_df['header_value'] < 10]
+#
+# PLUCK A SINGLE VALUE FROM A DATAFRAME
+# checked_value = corresponding_value_argument          # TERM (R0W) BEING SEARCHED FOR
+# single_value = some_df.set_index('checked_column').loc[checked_value, 'result_column']
+#
+# CONVERT SELECTED COLUMN ELEMENTS INTO A LIST
+# column_list = list(some_df.loc[some_df['checked_column'] == "-"]['column_grabbed'])
+#
+# CONVERT TWO COLUMNS INTO A DICT
+# column_dict = dict(zip(some_df.column_header_1, race_df.column_header_2))
+#
+
+@lru_cache(maxsize=10)
+def race_class_data():
+    min_df = pd.read_csv("attributemins.csv")           # loads the csv data into memory
+    min_cols = [0, 1, 2, 3, 4, 5, 6, 10, 26, 27, 28, 29, 30, 31, 32, 70, 71, 73, 74]
+    min_df = min_df[min_df.columns[min_cols]]           # creates a dataframe using only the specified columns
+    min_df['modifiedfreq'] = min_df['weightedprob']     # creates a new column, 'modifiedfreq'
+    mask = min_df['source'] != 'OA'
+    min_df.loc[mask, 'modifiedfreq'] = min_df['weightedprob'] * 39
+    return min_df
+
+
+@lru_cache(maxsize=10)
+def race_only_data():
+    min_df = race_class_data()
+    return min_df[min_df['hum_base'] == "-"]  # creates a dataframe slice of races only
+
+
+def random_race():                                                          # returns a random race from weighted array
+    race_df = race_only_data()
+    attributes_dict = race_df.to_dict(orient='records')
+    race_dict = {}                                                          # converts race dataframe into a dictionary
+    for race_class in attributes_dict:                                      # walks through the race dict...
+        race_dict[race_class['charclass']] = race_class['modifiedfreq']     # generates weighted dict
+    return random.choices(list(race_dict.keys()), weights=race_dict.values(), k=1)[0]
+
+
+@lru_cache(maxsize=30)              # accepts "Fighter/Magic User/Thief"
+def weighted_multi(multiclass):     # returns 1,820.0 (which is mean probability * 39)
+    min_df, multiclass, temp_list = race_class_data(), string_to_list(multiclass, "/"), []
+    for ch_class in multiclass:
+        temp_list.append(min_df.set_index('charclass').loc[ch_class, 'modifiedfreq'])
+    return sum(temp_list)/len(temp_list)
+
+
+@lru_cache(maxsize=150)             # accepts 'High Elf'
+def multiclass_prob(race):          # returns 0.85
+    min_df = race_class_data()
+    return min_df.set_index('charclass').loc[race, 'multiprob']
+
+
+@lru_cache(maxsize=150)             # accepts 'High Elf'
+def weighted_class(race):           # returns {'single': {'Acrobat': 78.0, 'Assassin': 78.0, ...}, ...
+    min_df = race_class_data()      # ... 'multiclass': {'Fighter/Magic User': 2223.0, ...}, 'multiclass_prob': 0.85}
+    classlist = list(min_df.loc[min_df['charclass'] == race]['classes'])
+    classlist, multi_class, single_class = string_to_list(classlist[0], ', '), [], []
+    for a in classlist:
+        multi_class.append(a) if "/" in a else single_class.append(a)
+    multi_prob, single_dict, temp_df = min_df.set_index('charclass').loc[race, 'multiprob'], {}, min_df.copy()
+    temp_df = temp_df[temp_df['hum_base'] != "-"]   # OTHERWISE IT INEXPLICABLY ADDS HENGEYOKAI: MONKEY AS CLASS OPTION
+    temp_df['eligible'] = temp_df['charclass'].apply(lambda x: any([k in x for k in single_class]))     # boolean elig.
+    temp_df = temp_df.loc[temp_df['eligible'], ['charclass', 'modifiedfreq']]
+    single_dict, multi_dict = dict(temp_df.values), {}
+    for multiclass in multi_class:
+        multi_dict[multiclass] = weighted_multi(multiclass)
+    return {"single": single_dict, "multiclass": multi_dict, "multiclass_prob": multi_prob}
+
+
+def random_class(race_is):                              # accepts 'High Elf', returns ['Fighter', 'Magic User']
+    multi_rand, proportions = random.uniform(0, 1), weighted_class(race_is)
+    if multi_rand > proportions["multiclass_prob"]:     # if single-class, select from the proportional dictionary
+        return random.choices(list(proportions["single"].keys()), weights=proportions["single"].values(), k=1)
+    else:                                               # otherwise select from the proportional multi-dict
+        final = random.choices(list(proportions["multiclass"].keys()), weights=proportions["multiclass"].values(), k=1)
+        return string_to_list(final[0], "/")
+
+
+@lru_cache(maxsize=150)
+def class_denominators(race_is):                            # accepts 'Half-elf'
+    proportions = weighted_class(race_is)                   # returns {'single': 7566.0, 'multi': 16009.5}
+    return {'single': sum(proportions['single'].values()), 'multi': sum(proportions['multiclass'].values())}
+
+
+@lru_cache(maxsize=150)
+def return_eligible_races(ch_class):                        # accepts 'Illusionist'
+    eligibility_object = IsEligible()                       # returns ['Gnome', 'Human']
+    eligibility_object.filtered_eligibility((18, 18, 18, 18, 18, 18, 18), ch_class)
+    return eligibility_object.eligible_races                # ...eligible_classes will return classes with a race input
+
+
+@lru_cache(maxsize=150)
+def weighted_race(ch_class):                                # accepts 'Illusionist'
+    race_list, race_df, multi = return_eligible_races(ch_class), race_only_data(), "/" in ch_class
+    race_dict = dict(zip(race_df.charclass, race_df.modifiedfreq))
+    final_dict = {k: race_dict[k]
+                  * (multiclass_prob(k) if multi else 1 - multiclass_prob(k))
+                  / (class_denominators(k)['multi'] if multi else class_denominators(k)['single'])
+                  for k in race_list}
+    return final_dict                                       # returns {'Gnome': 0.12, 'Human': 1.6875001300578034}
+
+
+def race_from_class(ch_class):                              # accepts 'Illusionist', returns 'Gnome'
+    multi_rand, prop = random.uniform(0, 1), weighted_race(ch_class)
+    return random.choices(list(prop.keys()), weights=prop.values(), k=1)[0]
+
+
+# NOT IN USE (generates a list of all permissible race/class combinations)
 def list_o_classes():
     races_and_classes = []
     with open('attributemins.csv') as mins:
@@ -231,42 +334,7 @@ def list_o_classes():
     return races_and_classes                                    # [['Aquatic Elf', 'Fighter'], ['Aquatic Elf', Thief'],.
 
 
-# test_chump = list_o_classes()
-# print('test chump: ', test_chump)
-
-
-@lru_cache(maxsize=10)
-def race_class_data():
-    min_df = pd.read_csv("attributemins.csv")  # loads the csv data into memory
-    min_cols = [0, 1, 2, 3, 4, 5, 6, 10, 26, 27, 28, 29, 30, 31, 32, 70, 71, 73, 74]
-    # 70 - source (PH, UA or OA)
-    # 71 - permissible classes string (including multi-classes, races-only, classes get a placeholder '-')
-    # 73 - frequency (an integer from 1 (drow, aquatic elf, bard, grugach) to 360 (human)
-    # 74 - multiclass proportion (races-only, a fraction from 0 to 0.85, classes are left blank '')
-    min_df = min_df[min_df.columns[min_cols]]  # creates a dataframe using only the specified columns
-    min_df['modifiedfreq'] = min_df['weightedprob']
-    mask = min_df['source'] != 'OA'
-    min_df.loc[mask, 'modifiedfreq'] = min_df['weightedprob'] * 39
-    return min_df
-
-
-@lru_cache(maxsize=10)
-def race_only_data():
-    min_df = race_class_data()
-    race_df = min_df[min_df['hum_base'] == "-"]  # creates a dataframe slice of races only
-    return race_df
-
-
-def random_race():  # returns a random race from the weighted array
-    race_df = race_only_data()
-    attributes_dict = race_df.to_dict(orient='records')
-    race_dict = {}  # converts race dataframe into a dictionary
-    for race_class in attributes_dict:  # walks through the race dict...
-        race_dict[race_class['charclass']] = race_class['modifiedfreq']  # generates weighted dict
-    return random.choices(list(race_dict.keys()), weights=race_dict.values(), k=1)[0]
-
-
-# not in use
+# NOT IN USE (this is the original version of weighted_class())
 @lru_cache(maxsize=150)         # min_df has 19 fields: charclass, hum_base, source, classes, weightedprob & multiprob
 def single_class_dicts(race):   # charclass is race and class, hum_base separates r/c, classes is pre-race eligible...
     min_df = race_class_data()  # ...wp = human: 360, mp = elf: 0.85 (plus rac/cla minimums and racial bonuses
@@ -274,38 +342,9 @@ def single_class_dicts(race):   # charclass is race and class, hum_base separate
     classlist, multi_class, single_class = string_to_list(classlist[0], ', '), [], []   # converts cs string to list
     for a in classlist:
         multi_class.append(a) if "/" in a else single_class.append(a)       # parses classes into multi- and single-
-    multiclass_prob, single_dict = min_df.set_index('charclass').loc[race, 'multiprob'], {}
+    multi_prob, single_dict, multi_dict = min_df.set_index('charclass').loc[race, 'multiprob'], {}, {}
     for ch_class in single_class:
         single_dict[ch_class] = min_df.set_index('charclass').loc[ch_class, 'modifiedfreq']
-    final = {"single": single_dict, "multiclass": multi_class, "multiclass_prob": multiclass_prob}
-    return final
-
-
-@lru_cache(maxsize=150)
-def temp_class_dicts(race):    # charclass is race and class, hum_base separates r/c, classes is pre-race eligible...
-    min_df = race_class_data()  # ...wp = human: 360, mp = elf: 0.85 (plus rac/cla minimums and racial bonuses
-    classlist = list(min_df.loc[min_df['charclass'] == race]['classes'])    # grabs cs 'classes' field for current race
-    classlist, multi_class, single_class = string_to_list(classlist[0], ', '), [], []   # converts cs string to list
-    for a in classlist:
-        multi_class.append(a) if "/" in a else single_class.append(a)       # parses classes into multi- and single-
-    multiclass_prob, single_dict, temp_df = min_df.set_index('charclass').loc[race, 'multiprob'], {}, min_df.copy()
-    temp_df = temp_df[temp_df['hum_base'] != "-"]   # otherwise it inexplicably adds Hengeyokai: Monkey as class option
-    temp_df['eligible'] = temp_df['charclass'].apply(lambda x: any([k in x for k in single_class]))     # boolean elig.
-    temp_df = temp_df.loc[temp_df['eligible'], ['charclass', 'modifiedfreq']]
-    single_dict = dict(temp_df.values)
-    final = {"single": single_dict, "multiclass": multi_class, "multiclass_prob": multiclass_prob}
-    return final    # no faster than single_class_dicts()
-
-
-def random_class(race_is):              # accepts 'High Elf', returns ['Ranger']
-    multi_rand, proportions = random.uniform(0, 1), temp_class_dicts(race_is)
-    if multi_rand > proportions["multiclass_prob"]:     # if single-class, select from the proportional dictionary
-        return random.choices(list(proportions["single"].keys()), weights=proportions["single"].values(), k=1)
-        # probability_sum, proportional_sum = sum(proportions["single_dict"].values()), 0
-        # rand_value = random.randrange(0, probability_sum)
-        # for key in proportions["single_dict"]:
-        #     proportional_sum += proportions["single_dict"][key]
-        #     if proportional_sum >= rand_value:
-        #         return string_to_list(key, '/')
-    else:                                               # otherwise pick at random from the multi-class list
-        return string_to_list(random.choice(proportions["multiclass"]), '/')
+    for mu_class in multi_class:
+        multi_dict[mu_class] = weighted_multi(mu_class)
+    return {"single": single_dict, "multiclass": multi_dict, "multiclass_prob": multi_prob}
