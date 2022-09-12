@@ -48,7 +48,7 @@ def clip_surplus(race, attrs):                  # nips the tops off attributes h
 
 
 def compute_exstr(attrs, race, excess):     # computes an exceptional strength regardless of class
-    archetypes, max_racial_str = [], datalocus.exceptional_str(race)
+    max_racial_str = datalocus.exceptional_str(race)
     attrs.append(_roll(max_racial_str)) if max_racial_str > 0 else attrs.append(0)
     while attrs[0] > 18:                    # converts strength values above 18 into excess points
         attrs[0] -= 1
@@ -76,17 +76,17 @@ def _sequencer(ch_class, race):             # sequences a 3d6-to-9d6 for single-
     return temp
 
 
-def _multi_sequencer(race, *ch_class):                          # sequences 7 attributes via method V (3d6-to-9d6)
-    if len(ch_class[0]) == 1:
-        return _sequencer(ch_class[0][0], race)                 # _sequencer() handles single-class characters
+def _multi_sequencer(race, *ch_classes):                        # sequences 7 attributes via method V (3d6-to-9d6)
+    if len(ch_classes[0]) == 1:
+        return _sequencer(ch_classes[0][0], race)               # _sequencer() handles single-class characters
     else:
         ninedsix, summed_attrs, final, ordered_list = [], [], [], [*range(3, 10, 1)]
-        for a in range(len(ch_class[0])):                       # nests method V values [[9, 3, 5, 7, 8, 6, 4], ...etc]
-            ninedsix.append(datalocus.ua_attr(ch_class[0][a]))
+        for ch_class in ch_classes[0]:                          # nests method V values [[9, 3, 5, 7, 8, 6, 4], ...etc]
+            ninedsix.append(datalocus.ua_attr(ch_class))
         for a in range(7):                                      # sums method V values by attribute ([9,7], then [3,4])
             grouped_attrs = []
-            for b in range(len(ch_class[0])):
-                grouped_attrs.append(ninedsix[b][a])
+            for method_value in ninedsix:
+                grouped_attrs.append(method_value[a])
             grouped_attrs.sort(reverse=True)                    # sorts subgroups for tiebreakers ( 9 + 7 > 8 + 8 )
             summed_attrs.append(sum(grouped_attrs) + 0.1 * grouped_attrs[0] + 0.01 * grouped_attrs[1])
             summed_attrs[a] = _cruncher(summed_attrs[a]) + 10   # applies cruncher to break ties
@@ -192,8 +192,7 @@ def _demotion(race, ch_classes, raw_atts, merged_mins):  # demotes characters wi
 
 
 def methodi():  # 4d6, keep the top three dice, user chooses order except for COM (which is locked)
-    rawatts = _d6_attributes(4)
-    return rawatts
+    return _d6_attributes(4)
 
 
 def methodii():  # 3d6 12 times, keep the top seven values totals, user chooses order except for COM (which is locked)
@@ -202,7 +201,7 @@ def methodii():  # 3d6 12 times, keep the top seven values totals, user chooses 
         rawatts.append(_dice(3, 6))
     rawatts.sort(reverse=True)
     rawatts = rawatts[0:7]
-    random.shuffle(rawatts)
+    random.shuffle(rawatts)                         # this cannot be the return value, it doesn't return anything
     return rawatts
 
 

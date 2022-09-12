@@ -48,30 +48,26 @@ def display_level(levels):  # converts the list of levels into a displayable str
 #   COMPLETE [separate name() and add() methods]
 #   COMPLETE [the party member buttons made inactive during name() and order() events]
 #   COMPLETE [char_sheet hotkeys only active when char_sheet is active]
-#   COMPLETE [have some form of weightedness in the multi-class determination]
+#   COMPLETE [add weightedness to the multi-class determination]
 #   COMPLETE [get selectclass.py to run faster]
 #   COMPLETE [make the race > class determination reversible (class > race)]
-#   COMPLETE [get csv checks in going at a higher level so in-memory version can be preserved during bulk events}
+#   COMPLETE [get csv checks going at a higher level so in-memory version can be preserved during bulk events}
+#   COMPLETE [level range routines for full party & bulk generation]
+#   COMPLETE [determine primary display method for full party generation]
 #   2.	bulk generation method VI
+#           need to pack the frame and label(s)
 #       result fields (average, etc)
-#   3.  display selected class in method V
+#   WISHLIST
+#       display selected class in method V
 #       display method (I-VI) in all six methods
+#       expanded party display toggle in view-character screen
+#       a re-order/refresh button in the expanded party display
 #       up/down arrow hotkeys for race/class selection
 #       confirmation window on quit / escape_function()
-#   n)	do we need an archetype mechanism? (example: treating illusionist as MU for single-class gnomes)
-#       •	archetypes are stored in a separate csv (xpvalues rather than attributemins)
-#       •	we already have a 1:1 archetype FUNCTION in datalocus titled archetype(ch_class)
-#       •	would need to funnel character class selection through archetypes, then select class
-#       •	this means not only returning eligible archetypes, but updating the list as classes are added/removed
-#       •	the alternative is to simply select race & class unweighted (maybe this is best)
-#       •	but even then, the problem of bad class ratios remains - example: gnomes are single class 75% of the time,
-#       yet ~86% of gnome illusionists are multi- - if we pass the selection process through archetypes then 51% of
-#       gnome illusionists would be multi-
-#   KNOWN ISSUES
-#       - no controls on level range (throws bugs on both 0-level and 17+ level events)
-#       - hotkeys won't work with capslock on
-#   WISHLIST
-#       None!
+#       remove case sensitivity from hotkeys
+#       pop out the legend in the party comp pie chart (to make the fonts match)?
+#       selection options in method VI's generate_individual_character?
+#           level, yes... but for race/class/gender we're talking about big changes to self.reroll
 # 4) figure out storage/equipment fields
 #   a)	csv all the armor and weapons
 #   b)	weapon proficiencies
@@ -102,7 +98,7 @@ def clip_surplus_dict(race, attrs, excess):  # nips the tops off attributes abov
 
 
 def primary_att(cha_class):                         # returns minimum attributes required for the 10% xp bonus
-    return datalocus.xp_bonus_check(cha_class)
+    return datalocus.xp_bonus_check(cha_class)      # [-1, -1, 16, -1, -1, -1, -1]
 
 
 def bonus_check(cha_class, atts):  # checks eligibility for 10% xp boost
@@ -113,9 +109,9 @@ def bonus_check(cha_class, atts):  # checks eligibility for 10% xp boost
     return True
 
 
-def return_xp(ch_class):  # returns the complete list of xp thresholds for the input character class
+def return_xp(ch_class):            # returns the complete list of xp thresholds for the input character class
     xpvalues = datalocus.return_xp(ch_class)
-    return xpvalues[0][2:28]  # ['0', '1500', '3000', ...]
+    return xpvalues[0][2:28]        # ['0', '1500', '3000', ...]
 
 
 def next_xp(classes, levels, attrs, diff=0):                                            # returns impending thresholds

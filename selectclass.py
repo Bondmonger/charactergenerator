@@ -108,19 +108,19 @@ class IsEligible:
         self.eligible_races, self.eligible_classes, self.eligible_races_classes = [], [], []
         return
 
-    def check_eligibility(self, subject):               # subject is an ordered LIST of attrs [8, 14, 8, 11, 15, 9]
+    def check_eligibility(self, attribs):               # attribs is an ordered LIST of attrs [8, 14, 8, 11, 15, 9]
         eligibility_check = []
         for a, min_attribs in enumerate(self.minimums):
             for b in range(6):
-                if subject[b] < min_attribs[b]:
+                if attribs[b] < min_attribs[b]:
                     eligibility_check.append(False)     # assigns FALSE if a minimum is not met
                     break
                 if b == 5:
                     eligibility_check.append(True)      # assigns TRUE if all minimums are met
         self.combined_eligibility = eligibility_check   # adds eligibility check to the IsEligible object
 
-    def eligible(self, attributes):
-        self.check_eligibility(attributes)
+    def eligible(self, attribs):                        # attribs is an ordered LIST of attrs [8, 14, 8, 11, 15, 9]
+        self.check_eligibility(attribs)
         temp_output, clashes, rashes = [], [], []
         for a, bool_value in enumerate(self.combined_eligibility):
             if bool_value:
@@ -141,8 +141,8 @@ class IsEligible:
         self.eligible_classes = class_output
         self.eligible_races_classes = temp_output
 
-    def filtered_eligibility(self, attributes, race_class_input):
-        self.check_eligibility(attributes)
+    def filtered_eligibility(self, attribs, race_class_input):
+        self.check_eligibility(attribs)
         temp_bool_insert = self.combined_eligibility[:]
         stringed_race_class = []
         for a in self.complete_race_class_list:

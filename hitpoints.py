@@ -6,11 +6,6 @@ def roll(a):  # rolls a single die of "a" sides
     return random.randrange(1, a + 1)
 
 
-def hp_calcs(ch_class):  # returns hpcalc data for a single class ("Fighter") in order to generate_hp()
-    result = datalocus.call_hp(ch_class)
-    return result  # [1HD, 1#rolls, 1bon, midLevelHD, midCap, maxIncrs, max_con_bonus, bonus_multiplier, fixed_bonus]
-
-
 def hp_compute_first(hpcalcs):  # calculates starter hit points: roundup(maximum_hp/3)
     hitpoints = 0
     for a in range(hpcalcs[1]):
@@ -45,7 +40,7 @@ def con_bonus(hitpoints, hpcalcs, con):  # grabs con bonus info from attributeva
 def generate_hp(ch_class, levels, con):     # generates hp for character of level "levels", returns nested lists
     hpcalcs, hp, final = [], [], []
     for character_class in ch_class:
-        hpcalcs.append(hp_calcs(character_class))
+        hpcalcs.append(datalocus.call_hp(character_class))
     for a, csv_data in enumerate(hpcalcs):
         hp.append(hp_compute_first(csv_data))
         if levels[a] > 1:
