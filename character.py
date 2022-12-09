@@ -17,8 +17,8 @@ class Character:
     def __init__(self, level=1, race='', gender='random', classes=(), attrib_list=()):
         # start = time.time()
         self.character_name = ''
-
-        self.race = selectclass.random_race() if len(race) == 0 else race                       # 'Gray Elf'
+        # print("classes: ", classes)
+        self.race = selectclass.race_from_class(classes) if len(race) == 0 else race            # 'Gray Elf'
         self.classes = selectclass.random_class(self.race) if len(classes) == 0 else classes    # ['Fighter', 'Thief']
         # end = time.time()
         # print('character generation duration:', end - start)
@@ -31,7 +31,7 @@ class Character:
         # class_string converter: selectclass.string_to_list('Fighter/Thief', '/')
         if self.classes[0] == '0-level':    # these units throw an error when AC/THAC0/movement are calculated
             self.age = agevalues.generate_age(self.race, classes, level)
-            self.display_class, self.xp, self.level, self.hp = '0-level', 0, 0, 5
+            self.display_class, self.xp, self.level, self.hp = '0-level', 0, [0], 5
             self.size = heightweight.size(self.race, self.gender)
             return
         self.age = agevalues.generate_age(self.race, self.classes, level)
@@ -271,9 +271,26 @@ class Character:
 
 
 # some_dude = Character(level=5, race="Halfling", classes=['Fighter', 'Thief'],
-#                       attrib_list=[{'Str': 14, 'Int': 13, 'Wis': 9, 'Dex': 15, 'Con': 18, 'Cha': 11, 'Com': 4},
+#                       attrib_list=[{'Str': 1, 'Int': 13, 'Wis': 9, 'Dex': 15, 'Con': 18, 'Cha': 11, 'Com': 4},
 #                                    {'Str': 0, 'Int': 0, 'Wis': 0, 'Dex': 0, 'Con': 0, 'Cha': 0, 'Com': 0}])
 # print(some_dude.__dict__)
+#   output fields as of 11/6/22
+#                   'character_name':   '',
+#                   'race':             'Halfling',
+#                   'classes':          ['Fighter', 'Thief']
+#                   'display_class':    'display_class': 'Fighter/Thief',
+#                   'attributes':       {'Str': 15, 'Int': 13, 'Wis': 9, 'Dex': 15, 'Con': 19, 'Cha': 11, 'Com': 4},
+#                   'excess':           {'Str': 0, 'Int': 0, 'Wis': 0, 'Dex': 0, 'Con': 0, 'Cha': 0, 'Com': 0},
+#                   'gender':           'male'
+#                   'age':              [54, 'mature', '68', {'Str': 1, 'Int': 0, 'Wis': 0, 'Dex': 0, 'Con': 1, \
+#                                       'Cha': 0, 'Com': 0, 'Exc': 0}, 143],
+#                   'xp':               20135,
+#                   'level':            [4, 5],
+#                   'display_level':    '4/5',
+#                   'next_level':       [36000, 'Fighter'],
+#                   'hp':               36
+#                   'hp_history':       [[10, 6, 2, 1], [5, 1, 4, 6, 6], [20, 10]],
+#                   'size':             [33, 59]
 
 
 # ident = {}

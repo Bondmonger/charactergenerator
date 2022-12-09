@@ -314,10 +314,17 @@ def weighted_race(ch_class):                                # accepts 'Illusioni
     return final_dict                                       # returns {'Gnome': 0.12, 'Human': 1.6875001300578034}
 
 
-def race_from_class(ch_class):                              # accepts 'Illusionist', returns 'Gnome'
-    multi_rand, prop = random.uniform(0, 1), weighted_race(ch_class)
-    return random.choices(list(prop.keys()), weights=prop.values(), k=1)[0]
+def race_from_class(ch_class=''):                           # accepts 'Fighter/Illusionist', returns 'Gnome'
+    display_class = list_to_string([ch_class])
+    if len(ch_class) == 0:
+        return random_race()
+    else:
+        multi_rand, prop = random.uniform(0, 1), weighted_race(display_class[0][0])
+        return random.choices(list(prop.keys()), weights=prop.values(), k=1)[0]
 
+
+# char_classes = ()
+# print(race_from_class(char_classes))
 
 # NOT IN USE (generates a list of all permissible race/class combinations)
 def list_o_classes():

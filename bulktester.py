@@ -3,8 +3,20 @@ import time
 import random
 import datalocus
 
+import numpy as np
+import operator
+
+
+def element_count(element_list):
+    element_proportions = {}
+    distinct_classes = np.unique(np.array(element_list))
+    for str_class in distinct_classes:
+        element_proportions[str_class] = element_list.count(str_class)
+    return dict(sorted(element_proportions.items(), key=operator.itemgetter(1), reverse=True))
+
+
 character_list = []
-some_number = 0
+total_hp = 0
 ac_number = 0
 strength = 0
 intelligence = 0
@@ -34,15 +46,15 @@ start = time.time()
 # for element in range(1000):
 #     print(random_prop(prop_dict))
 
-for element in range(8):
-    # test_char = character.Character(1)
-    rara = random.randrange(3, 5+1)
-    test_char = character.Character(rara)
+for element in range(5000):
+    test_char = character.Character(1, classes=['Thief', 'Cleric'])
+    # rara = random.randrange(3, 5+1)
+    # print("rara", rara)
+    # test_char = character.Character(rara)
     # test_char = character.Character(5, race='Hengeyokai: Raccoon Dog', classes=['Kensai'])
     # test_char = character.Character(8, race='Human', classes=['Ninja', 'Wu-jen'])
     # test_char.display_attributes()
     character_list.append(test_char)
-    print("rara", rara)
 char_lev, arch_list, arch_dict = [], [], {"Cleric": 0, "Fighter": 0, "Magic User": 0, "Thief": 0}
 for aaa in character_list:
     for sub_class in aaa.classes:
@@ -51,7 +63,7 @@ for aaa in character_list:
     char_lev.append(aaa.display_level)
     maxhp = aaa.hp if aaa.hp > maxhp else maxhp
     minhp = aaa.hp if aaa.hp < minhp else minhp
-    some_number += aaa.hp
+    total_hp += aaa.hp
     ac_number += aaa.calculate_ac()
     strength += aaa.attributes["Str"]
     intelligence += aaa.attributes["Int"]
@@ -60,10 +72,10 @@ for aaa in character_list:
     constitution += aaa.attributes["Con"]
     charisma += aaa.attributes["Cha"]
     comeliness += aaa.attributes["Com"]
-print("levels:", char_lev)
-print("arch_list:", arch_list)
-print("arch_dict:", arch_dict)
-print("min / average hp / max: ", minhp, "/", some_number/len(character_list), "/", maxhp)
+# print("levels:", char_lev)
+# print("arch_list:", arch_list)
+# print("arch_dict:", arch_dict)
+print("min / average hp / max: ", minhp, "/", total_hp/len(character_list), "/", maxhp)
 print("average ac: ", 10+ac_number/len(character_list))
 print("average str: ", strength/len(character_list))
 print("average int: ", intelligence/len(character_list))
@@ -86,3 +98,5 @@ print('time', end-start)
 
 # class BulkCharManager:
 #     def __init__(self):
+
+

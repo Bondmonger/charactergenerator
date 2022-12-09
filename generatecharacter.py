@@ -24,12 +24,13 @@ def display_level(levels):  # converts the list of levels into a displayable str
 
 
 # regarding attributes.py, here are some improvements we could make down the road
-#   b) switch the csv calls to pickle calls (perhaps a & b could be solved with a pickle conversion right at startup)
-#   c) we could flatten out a lot of these nested conditionals via zip re-ordering
-#   d) we could use a better RNG
+#   a) switch the csv calls to serialized calls (pickle or json)
+#   b) we could flatten out a lot of these nested conditionals via zip re-ordering
+#   c) upgrade the RNG
+#   d) a longitudinal analysis tool (hit points per level per class, for instance)
 #
 # 1) need a mechanism to prevent 0-hp leveling events with negative constitution, except do we though? I kinda like it
-#       Barbarian max wis isn't coded in anywhere (necessary?)
+#       Barbarian max wis isn't coded in anywhere (unnecessary?)
 # 2) strict by-level character generation
 # 3) INTERFACE
 #   COMPLETE [attribute methods III, IV & V]
@@ -54,20 +55,32 @@ def display_level(levels):  # converts the list of levels into a displayable str
 #   COMPLETE [get csv checks going at a higher level so in-memory version can be preserved during bulk events}
 #   COMPLETE [level range routines for full party & bulk generation]
 #   COMPLETE [determine primary display method for full party generation]
-#   2.	bulk generation method VI
-#           need to pack the frame and label(s)
-#       result fields (average, etc)
+#   COMPLETE [deal with 0-level units (currently throwing an error on level checks)]
+#   COMPLETE [bulk generation method VI]
+#   COMPLETE [need to pack bulk frame and label(s)]
+#   COMPLETE [result fields (means, medians, etc)]
+#   COMPLETE [right align and background colors in results fields]
+#   COMPLETE [rounding in results field]
+#   COMPLETE [create a method for generating vulgar fractions]
+#   COMPLETE [class & race breakouts, cluster min results]
+#   COMPLETE [for hp, age, height and weight, let's have it cluster values at the top and bottom (< 3, > 16)]
+#   COMPLETE [void out the two blank buttons in bulk_buttons()]
+#   COMPLETE [need to refresh bulk_outcome on result button clicks]
+#   COMPLETE [fixed high elf median weight value / bad rstrip on round numbers]
 #   WISHLIST
+#       add a save/load function
+#       add an auto-reorder button to the view party screen in bulk party gen
 #       display selected class in method V
-#       display method (I-VI) in all six methods
+#       display method (I through VI) in all six methods
 #       expanded party display toggle in view-character screen
-#       a re-order/refresh button in the expanded party display
 #       up/down arrow hotkeys for race/class selection
 #       confirmation window on quit / escape_function()
 #       remove case sensitivity from hotkeys
-#       pop out the legend in the party comp pie chart (to make the fonts match)?
+#       pop out the legend in the party comp pie chart to make the fonts match
 #       selection options in method VI's generate_individual_character?
 #           level, yes... but for race/class/gender we're talking about big changes to self.reroll
+#       should 0-level characters have a standardized per-race attribute blocks?
+#           also they're coming back with bad ages (under 10 y/o)
 # 4) figure out storage/equipment fields
 #   a)	csv all the armor and weapons
 #   b)	weapon proficiencies

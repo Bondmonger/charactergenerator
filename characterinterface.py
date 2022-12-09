@@ -1,7 +1,12 @@
 import tkinter as tk
-import random           # only in make_party()
+import random           # only used in make_party()
+import time
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from matplotlib.figure import Figure
+import numpy as np
+import operator
+import re               # using this in lieu of rstrip in block_analysis() and a few other places, but it's not working
+# import pickle
 
 import character
 import datalocus
@@ -14,7 +19,9 @@ class CharacterInterface:
         self.party_list = []
         self.display_text = ['']
         self.level = level
-        self.minmaxlevel = {"min": level, "max": level}       # only used during bulk party gen
+        self.minmaxlevel = {"min": level, "max": level}       # only used during full party gen
+        self.bulk_attributes = {"level": 1, "charclass": "ANY", "race": "ANY", "gender": "ANY",
+                                "samplesize": 1000}
         self.master = master
         self.selected_character = character.Character(self.level)
         self.master.attributes('-fullscreen', True)
@@ -40,8 +47,8 @@ class CharacterInterface:
         self.start_frame.grid_rowconfigure(0, weight=2, uniform=1)
         for i in range(1, 7):
             self.start_frame.grid_rowconfigure(i, weight=1, uniform=1)
-        self.start_label = tk.Label(master=self.start_frame, relief=tk.FLAT, fg="#FFFFFF",
-                                    bg='#000000', font=('Courier', 12), justify="center")
+        self.start_label = tk.Label(master=self.start_frame, relief=tk.FLAT, fg="#FFFFFF", bg='#000000',
+                                    font=('Courier', 12), justify="center")
         self.start_label.grid(row=0, column=0, sticky='nsew')
         self.start_label['text'] = "***WELCOME TO NATHAN'S 1E AD&D CHARACTER GENERATOR***\n\n\nWHICH METHOD WOULD YOU" \
                                    " LIKE TO USE?\n\n\n--------------------"
@@ -159,12 +166,16 @@ class CharacterInterface:
         self.header_control_frame = tk.Frame()      # header_controls() ATTRIBUTES sub-child
         self.selection_frame = tk.Frame()           # selection_frame_open() RACE/CLASS OPTIONS parent
         self.selection_body = tk.Frame()            # selection_frame() child: methodvi -> full party POPUP
+        self.sub_frame = tk.Frame()                 # selection_frame() sub-child: output frame in bulk party interface
+        self.dub_frame = tk.Frame()                 # selection_frame() sub-child: output frame in bulk party interface
+        self.zoom_frame = tk.Frame()                # selection_frame() child: display for selection_body input
         self.temp_frame = tk.Frame()                # party_frame_popup() POPUP parent
         self.close_popup_frame = tk.Frame()         # party_frame_popup() POPUP child
         self.temp_control_frame = tk.Frame()        # party_frame_popup() POPUP sub-child
         self.expanded_party_label = tk.Label()      # party_frame_popup() DISPLAY child
         self.inner_frame = tk.Frame()               # party_frame_popup() POPUP sub-child
         self.frame = tk.Frame()                     # all-purpose temp frame
+        self.label = tk.Label()                     # all-purpose temp label
         self.method_frame = tk.Frame()              # all-purpose temp frame
         self.method_label = tk.Label()              # all-purpose temp label
         self.methodiv_label = tk.Label()            # needed in order to reset the header when race is set to "human"
@@ -606,14 +617,7 @@ class CharacterInterface:
         self.selectionframe_methodv(charclass, attribs)
 
     def methodvi_header(self):
-        # what we need to do in here:
-        # DONE  a) pass onto single char generation
-        # DONE  b) pass onto 8-person party generated (locking only level?)
-        # c) race selection dropdown
-        # d) class selection dropdown
-        # e) sample size dropdown/text box
-        # f) the 15-attr baseline
-        # g) the per-level / per class comparisons (primarily hp, but also thaco)
+        # do we want the per-level / per class comparisons (primarily hp, but also thaco)
         self.update_newchar_button(self.reroll)
         self.common_header_elements()
         # self.header_controls(rr=False)            # controls will live in selectionframe
@@ -629,6 +633,10 @@ class CharacterInterface:
                                 fg="#FFFFFF", font=('Courier', 12), anchor='center',
                                 command=lambda: self.party_maker())
         self.button.grid(row=0, column=1, rowspan=3, sticky='nsew')
+        self.button = tk.Button(self.attribs_fr, text="BULK\nTEST", bg='#000000', relief=tk.FLAT,
+                                fg="#FFFFFF", font=('Courier', 12), anchor='center',
+                                command=lambda: self.bulk_maker())
+        self.button.grid(row=0, column=2, rowspan=3, sticky='nsew')
         self.selectionframe_methodvi()
 
     def return_to_main_menu(self):      # only for MethodVI - the other methods just pack it at the bottom
@@ -648,6 +656,258 @@ class CharacterInterface:
         self.selection_frame.grid_columnconfigure(0, weight=1, uniform=1)
         self.selection_frame.grid_rowconfigure(0, weight=9, uniform=1)
         self.selection_frame.grid_rowconfigure(1, weight=1, uniform=1)
+        self.return_to_main_menu()
+
+    def bulk_maker(self):
+        self.selection_body.destroy()
+        self.selection_body = tk.Frame(master=self.selection_frame, relief=tk.FLAT, bg='#000000')
+        self.selection_body.grid(row=0, column=0, sticky="nsew")
+        self.frame = tk.Frame(master=self.selection_body, relief=tk.FLAT, bg='#000000')
+        self.frame.grid(row=0, column=2, rowspan=12, columnspan=7, sticky='nsew')
+        self.frame.grid_propagate(False)                            # this is the panel frame containing the dropdowns
+        for i in range(20):
+            self.selection_body.grid_columnconfigure(i, weight=1, uniform=1)
+        for i in range(12):
+            self.selection_body.grid_rowconfigure(i, weight=1, uniform=1)
+            self.frame.grid_rowconfigure(i, weight=1, uniform=1)    # this matches self.frame's partitions to self.s_b
+        for location, text in enumerate(["Level:", "Race:", "Character Class:", "Gender:", "Sample Size:"], 1):
+            self.method_label = tk.Label(master=self.selection_body, relief=tk.FLAT, fg="#FFFFFF", bg='#000000',
+                                         font=('Courier', 12), justify="left", text=text)
+            self.method_label.grid(row=location * 2, column=0, columnspan=2, sticky='nse')
+        option_levels = list(range(1, 17))                          # we begin populating the 5 dropdown arrays
+        eligibility_object = selectclass.IsEligible()
+        eligibility_object.eligible([18, 18, 18, 18, 18, 18])
+        if self.bulk_attributes["charclass"] == "ANY":
+            option_races = ["ANY"] + eligibility_object.eligible_races
+        else:
+            eligibility_object.filtered_eligibility([18, 18, 18, 18, 18, 18], self.bulk_attributes["charclass"])
+            option_races = ["ANY"] + eligibility_object.eligible_races
+        eligibility_object = selectclass.IsEligible()
+        eligibility_object.eligible([18, 18, 18, 18, 18, 18])
+        if self.bulk_attributes["race"] == "ANY":
+            option_classes = ["ANY"] + eligibility_object.eligible_classes
+        else:
+            eligibility_object.filtered_eligibility([18, 18, 18, 18, 18, 18], self.bulk_attributes["race"])
+            option_classes = ["ANY"] + eligibility_object.eligible_classes
+        option_samplesizes = [125, 250, 500, 1000, 2000, 4000, 8000, 16000]
+        option_genders = ["ANY", "male", "female"]                  # we create the labels and dropdowns
+        dropdown_values = [option_levels, option_races, option_classes, option_genders, option_samplesizes]
+        label_values = ["level", "race", "charclass", "gender", "samplesize"]
+        command_values = [self.bulklevelset, self.bulkraceset, self.bulkclassset, self.bulkgenderset, self.bulksample]
+        for order, (dropdown, label, command) in enumerate(zip(dropdown_values, label_values, command_values), 1):
+            self.tk_variable = tk.IntVar(self.frame, self.bulk_attributes[label])
+            class_dropdown = tk.OptionMenu(self.frame, self.tk_variable, *dropdown, command=command)
+            class_dropdown.config(bg='#000000', fg='#FFFFFF', font=('Courier', 12), activebackground='#000000',
+                                  activeforeground='#FFFFFF', width=24)
+            class_dropdown["menu"].config(bg='#000000', fg='#FFFFFF', font=('Courier', 12))
+            class_dropdown.grid(row=order*2, column=0)
+        self.button = tk.Button(self.selection_body, text="GENERATE UNITS", bg='#000000', relief=tk.FLAT, fg="#FFFFFF",
+                                font=('Courier', 12), anchor='center', command=lambda: self.bulk_outcome())
+        self.button.grid(row=5, column=13, columnspan=2, sticky='nsew')
+        self.return_to_main_menu()
+
+    def bulklevelset(self, level):
+        self.bulk_attributes["level"] = level
+        self.bulk_maker()
+
+    def bulkraceset(self, race):
+        self.bulk_attributes["race"] = race
+        self.bulk_maker()
+
+    def bulkclassset(self, charclass):
+        self.bulk_attributes["charclass"] = charclass
+        self.bulk_maker()
+
+    def bulkgenderset(self, gender):
+        self.bulk_attributes["gender"] = gender
+        self.bulk_maker()
+
+    def bulksample(self, samplesize):
+        self.bulk_attributes["samplesize"] = samplesize
+        self.bulk_maker()
+
+    def element_count(self, elem_list, result_sort=True, is_levels=False):
+        element_proportions, sorted_proportions, label_text, result_text = {}, {}, '', ''
+        distinct_elements = np.unique(np.array(elem_list))
+        for str_class in distinct_elements:
+            element_proportions[str_class] = elem_list.count(str_class)
+        if result_sort:
+            sorted_proportions = dict(sorted(element_proportions.items(), key=operator.itemgetter(1), reverse=True))
+        else:
+            sorted_proportions = dict(sorted(element_proportions.items()))
+        if len(sorted_proportions) > 22:
+            min_sum, max_sum, keys, values = 0, 0, list(sorted_proportions.keys()), list(sorted_proportions.values())
+            if result_sort:             # if ordered by values (races / classes / gender)
+                temp_dict = {"OTHER": 0}
+                for j, (key, value) in enumerate(zip(keys, values)):
+                    if j < 21:
+                        temp_dict[key] = value
+                    else:
+                        min_sum += value
+                sorted_proportions = dict(sorted(temp_dict.items(), key=operator.itemgetter(1), reverse=True))
+                sorted_proportions["OTHER"] = min_sum
+            else:                       # if ordered by keys (attributes / age / height / weight)
+                start_point, end_point, temp_dict = int(len(keys)/2)-11, int(len(keys)/2)+10, {}
+                for j, (key, value) in enumerate(zip(keys, values)):
+                    if len(sorted_proportions) > 23:
+                        if j <= start_point:
+                            min_sum += value
+                        temp_dict["FEWER THAN {}".format(keys[start_point] + 1)] = min_sum
+                    if start_point < j < end_point:
+                        temp_dict[key] = value
+                    if j >= end_point:
+                        max_sum += value
+                sorted_proportions = temp_dict
+                sorted_proportions["GREATER THAN {}".format(keys[end_point] - 1)] = max_sum
+        if is_levels:                   # replaces key names with vulgar fractions if key is character levels
+            temp_dict = {}
+            for key in sorted_proportions:
+                temp_dict[self.vulfrac(key)] = sorted_proportions[key]
+            sorted_proportions = temp_dict
+        for key, value in sorted_proportions.items():
+            label_text += str(key) + "\n"
+            result_text += "{:.1f}".format(100 * value / len(elem_list)) + "%\n"
+        #     print("   ", str(key) + ":", str(f'{value:,}') + ", or", str(f'{100 * value / len(elem_list):.2f}') + "%")
+        return [result_text, label_text]
+
+    @staticmethod
+    def vulfrac(value):
+        excess, final = value % 1, ""
+        if excess > 0:
+            if excess < 0.4:
+                final = str(int(value)) + "⅓"
+            else:
+                final = str(int(value)) + "½" if excess < 0.6 else str(int(value)) + "⅔"
+        else:
+            final = str(int(value))
+        return "0" if final == "0" else final.lstrip("0")
+
+    @staticmethod
+    def block_analysis(data_block):
+        if data_block == "" or isinstance(data_block[0], str):  # second statement deals with the three blank outputs
+            return ["", "", "", ""]
+        else:
+            medio, minio, maxio = np.median(data_block), min(data_block), max(data_block)
+            return ["{:.3f}".format(np.mean(data_block)),
+                    str(int(medio)) if medio % 1 == 0 else re.sub('.00', '', "{:.2f}".format(medio)),
+                    str(int(minio)) if minio % 1 == 0 else re.sub('.00', '', "{:.2f}".format(minio)),
+                    str(int(maxio)) if maxio % 1 == 0 else re.sub('.00', '', "{:.2f}".format(maxio))]
+
+    def bulk_buttons(self, element_list, button_label, result_sort):   # proportional breakout display
+        self.zoom_frame.destroy()
+        self.zoom_frame = tk.Frame(master=self.selection_body, relief=tk.FLAT, bg='#000000')
+        self.zoom_frame.grid(row=0, column=1, sticky='nsew')
+        for a, weight in enumerate([1, 9]):     # at [1, 8] this will blank out the bulk_outcome frame at 1080p
+            self.zoom_frame.rowconfigure(a, weight=weight, uniform=1)
+        for a, weight in enumerate([2, 5]):
+            self.zoom_frame.columnconfigure(a, weight=weight, uniform=1)
+        self.method_label = tk.Label(master=self.zoom_frame, relief=tk.FLAT, fg="#FFFFFF", bg='#000000',
+                                     text=re.sub(':', '', button_label), font=('Courier', 12))
+        self.method_label.grid(row=0, column=0, sticky='se')
+        label_text = self.element_count(element_list, result_sort=result_sort, is_levels=button_label == "level:")
+        for b, (text, pad, side, anchor) in enumerate(zip(label_text, [0, 10], ['right', 'left'], ['ne', 'nw'])):
+            self.frame = tk.Frame(master=self.zoom_frame, relief=tk.FLAT, bg='#000000')
+            self.frame.grid(row=1, column=b, sticky='nsew')
+            self.frame.grid_propagate(False)
+            self.label = tk.Label(master=self.frame, relief=tk.FLAT, fg="#FFFFFF", bg='#000000', text=text, padx=pad,
+                                  anchor=anchor, font=('Courier', 12), justify=side)
+            self.label.pack(side=side, fill="y", expand=False)
+
+    def bulk_outcome(self):
+        self.selection_body.destroy()
+        self.selection_body = tk.Frame(master=self.selection_frame, relief=tk.FLAT, bg='#000000')
+        self.selection_body.grid(row=0, column=0, rowspan=4, columnspan=6, sticky="nsew")
+        for i, width in enumerate([1, 1]):
+            self.selection_body.grid_columnconfigure(i, weight=width, uniform=1)
+        self.selection_body.grid_rowconfigure(0, weight=1, uniform=1)
+        self.frame = tk.Frame(master=self.selection_body, relief=tk.FLAT, bg='#000000')
+        self.frame.grid(row=0, column=0, sticky='nsew')
+        self.frame.grid_propagate(False)
+        for i in range(12):
+            self.frame.grid_rowconfigure(i, weight=1, uniform=1)
+        for i in range(8):
+            self.frame.grid_columnconfigure(i, weight=1, uniform=1)
+        # generates character_list and properties lists (which are later
+        race = '' if self.bulk_attributes["race"] == "ANY" else self.bulk_attributes["race"]
+        gender = "random" if self.bulk_attributes["gender"] == "ANY" else self.bulk_attributes["gender"]
+        charclass = [] if self.bulk_attributes["charclass"] == "ANY" else \
+            selectclass.string_to_list(self.bulk_attributes["charclass"], "/")
+        character_list, class_list, race_list, levels, hp_values, armor_class, thac0 = [], [], [], [], [], [], []
+        strength, intelligence, wisdom, dexterity, constitution, charisma, comeliness = [], [], [], [], [], [], []
+        movement, age, height, weight, gender_count, start = [], [], [], [], [], time.time()
+        for element in range(self.bulk_attributes["samplesize"]):   # generates units...
+            classes = charclass.copy()                              # [copy() prevents downgrade-subsequent-units bug]
+            test_char = character.Character(self.bulk_attributes["level"], race=race, gender=gender, classes=classes)
+            character_list.append(test_char)                        # ...and appends them to character_list
+        # filename = 'characters'
+        # outfile = open(filename, 'wb')
+        # pickle.dump(character_list, outfile)
+        # outfile.close()
+        for aaa in character_list:                                  # generates object property slices
+            # print(aaa.__dict__)
+            levels.append(np.average(aaa.level)), class_list.append(aaa.display_class), race_list.append(aaa.race)
+            hp_values.append(aaa.hp), movement.append(aaa.class_movement()), armor_class.append(10 + aaa.calculate_ac())
+            thac0.append(20 + aaa.calculate_thaco()), strength.append(aaa.attributes["Str"])
+            intelligence.append(aaa.attributes["Int"]), wisdom.append(aaa.attributes["Wis"])
+            dexterity.append(aaa.attributes["Dex"]), constitution.append(aaa.attributes["Con"])
+            charisma.append(aaa.attributes["Cha"]), comeliness.append(aaa.attributes["Com"]), height.append(aaa.size[0])
+            weight.append(aaa.size[1]), age.append(aaa.age[0]), gender_count.append(aaa.gender)
+        # generates output column headers
+        self.sub_frame = tk.Frame(master=self.frame, relief=tk.FLAT, bg='#000000')
+        self.sub_frame.grid(row=1, column=3, columnspan=5, sticky='nsew')
+        self.sub_frame.grid_propagate(False)
+        self.sub_frame.grid_rowconfigure(0, weight=1, uniform=1)
+        for i, text_value in enumerate(["MEAN", "MEDIAN", "MINIMUM", "MAXIMUM"]):
+            self.sub_frame.grid_columnconfigure(i, weight=1, uniform=1)
+            self.label = tk.Label(master=self.sub_frame, relief=tk.FLAT, fg="#FFFFFF", bg='#000000', text=text_value,
+                                  font=('Courier', 12), anchor="s")
+            self.label.grid(row=0, column=i, sticky='nsew')
+        # generates output buttons, labels and values
+        self.sub_frame = tk.Frame(master=self.frame, relief=tk.FLAT, bg='#000000')
+        self.sub_frame.grid(row=2, column=1, rowspan=8, columnspan=2, sticky='nsew')
+        self.sub_frame.grid_propagate(False)
+        self.sub_frame.grid_columnconfigure(0, weight=1, uniform=1)
+        outputs = [levels, hp_values, armor_class, thac0, movement, age, height, weight, "", strength, intelligence,
+                   wisdom, dexterity, constitution, charisma, comeliness, "", class_list, race_list, gender_count]
+        button_labels = ["level:", "hitpoints:", "armor class:", "thac0:", "movement rate:", "age:", "height:",
+                         "weight:", "", "strength:", "intelligence:", "wisdom:", "dexterity:", "constitution:",
+                         "charisma:", "comeliness:", "", "class breakout", "race breakout", "gender breakout"]
+        data_bools = [False, False, False, False, False, False, False, False, False, False, False, False, False, False,
+                      False, False, False, True, True, True]
+        fin_output, out_units = [], ["", "", "", "", '"', "", '"', "", "", "", "", "", "", "", "", "", "", "", "", ""]
+        for h in outputs:
+            fin_output.append(self.block_analysis(h))
+        self.dub_frame = tk.Frame(master=self.frame, relief=tk.FLAT, bg='#000000')
+        self.dub_frame.grid(row=2, column=3, rowspan=8, columnspan=5, sticky='nsew')
+        self.dub_frame.grid_propagate(False)
+        self.dub_frame.grid_columnconfigure(0, weight=1, uniform=1)
+        for i in range(4):
+            self.dub_frame.grid_columnconfigure(i, weight=1, uniform=1)
+        for j, (label, out_data, units) in enumerate(zip(button_labels, fin_output, out_units)):
+            self.sub_frame.grid_rowconfigure(j, weight=1, uniform=1)
+            self.dub_frame.grid_rowconfigure(j, weight=1, uniform=1)
+            if label == "":                 # if it's going to generate an empty button, make it a label
+                self.button = tk.Label(master=self.sub_frame, relief=tk.FLAT, fg="#FFFFFF", bg='#000000', anchor='e',
+                                       font=('Courier', 12), text=label)
+            else:                           # otherwise, button
+                self.button = tk.Button(master=self.sub_frame, relief=tk.FLAT, fg="#FFFFFF", bg='#000000', anchor='e',
+                                        font=('Courier', 12), text=label, justify='right',
+                                        command=lambda b=j: self.bulk_buttons(outputs[b], button_labels[b],
+                                                                              data_bools[b]))
+            self.button.grid(row=j, column=0, sticky='nsew')
+            for k in range(4):
+                self.label = tk.Label(master=self.dub_frame, relief=tk.FLAT, fg="#FFFFFF", bg='#000000',
+                                      anchor='center', font=('Courier', 12), text=out_data[k]+units)
+                self.label.grid(row=j, column=k, sticky='nsew')
+        # current query values, displayed in upper left corner of frame
+        user_val = str(len(character_list)) + " units   level: " + str(self.bulk_attributes["level"]) + "   race: " + \
+            self.bulk_attributes["race"] + "   class: " + self.bulk_attributes["charclass"] + "\nruntime:  " + \
+            "{:.0f}".format(1000 * (time.time() - start)) + " ms"
+        self.label = tk.Label(master=self.frame, relief=tk.FLAT, borderwidth=4, fg="#AAAAAA", bg='#000000',
+                              font=('Courier', 8), text=user_val, justify='left')
+        self.label.grid(row=0, column=0, columnspan=5, sticky='nw')
+        self.bulk_buttons(levels, "level:", False)              # this generates a splash value for the zoom_frame
+        # self.bulk_buttons(race_list, "race breakout", True)
         self.return_to_main_menu()
 
     def party_maker(self):          # this generates the "Full Party" control frame
@@ -708,10 +968,10 @@ class CharacterInterface:
             for sub_class in char.classes:
                 arch_list.append(datalocus.archetype(sub_class))
                 arch_dict[datalocus.archetype(sub_class)] += 1 / len(char.classes)
-        fig = Figure(facecolor='#000000')       # creates a black matplotlib frame
-        ax = fig.add_subplot(2, 6, (1, 10))     # creates a 2x6 grid within fig and places the chart from 1,1 to 2,4
+        fig = Figure(facecolor='#000000')       # creates black matplotlib frame
+        ax = fig.add_subplot(2, 6, (1, 10))     # creates 2x6 grid within fig and places the chart from 1,1 to 2,4
         ax.pie(list(arch_dict.values()), radius=1.4, labels=list(arch_dict.keys()), shadow=True, labeldistance=None,
-               colors=["#5B9BD5", "#FFC000", "#C00000", "#70AD47"])     # labeldistance passes key values to legend
+               colors=["#5B9BD5", "#FFC000", "#C00000", "#70AD47"])     # label distance passes key values to legend
         ax.legend(loc=1, bbox_to_anchor=(1.5, 0., 0.5, 1.), fontsize=12, frameon=False, labelcolor='#FFFFFF',
                   prop='monospace')
         chart1 = FigureCanvasTkAgg(fig, self.frame)
@@ -784,8 +1044,8 @@ class CharacterInterface:
                     self.rc_opts.place(height=20, width=254, x=10 + 254 * int(y / 23), y=10 + 20 * (y % 23))
             for z, ch_cl in enumerate(all_classes):
                 if ch_cl in remaining_classes:
-                    self.rc_opts = tk.Button(self.selection_frame, text=ch_cl, bg='#000000',
-                                             fg="#FFFFFF", font=('Courier', 12), relief=tk.FLAT, anchor='w',
+                    self.rc_opts = tk.Button(self.selection_frame, text=ch_cl, bg='#000000', fg="#FFFFFF",
+                                             font=('Courier', 12), relief=tk.FLAT, anchor='w',
                                              command=lambda c=ch_cl: self.charsheet_transition(selection, c, attribs))
                     self.rc_opts.place(height=20, width=254, x=640 + 254 * int((z / 23)), y=10 + 20 * (z % 23))
                 else:
@@ -880,9 +1140,11 @@ class CharacterInterface:
     def charsheet_transition(self, charrace, charclass, attribs):
         self.display_text[0] = ''
         formatted_atts = attributes.apply_race_modifiers(charrace, attribs)     # applies racial modifier and formats
+        # print("charsheet_transition pre-list format: ", charclass)
         class_list = selectclass.string_to_list(charclass, '/')
         self.selected_character = character.Character(level=self.level, race=charrace, classes=class_list,
                                                       attrib_list=formatted_atts, gender=self.gender)
+        # print("charsheet_transition class format: ", class_list)
         self.selection_frame.destroy()
         self.attributes_frame.destroy()
         self.nonmember_buttons()                                                # activates character sheet hotkeys
@@ -1006,7 +1268,7 @@ class CharacterInterface:
             self.method_label.grid(row=n, column=0, columnspan=2, sticky='nsew')
         self.button = tk.Button(master=self.temp_control_frame, relief=tk.RIDGE, fg="#FFFFFF", bg='#000000',
                                 font=('Courier', 12), justify="left", anchor='center', width=14,
-                                text="close", command=lambda: self.clear_party_popup(), borderwidth=4)
+                                text="CLOSE", command=lambda: self.clear_party_popup(), borderwidth=4)
         self.button.grid(row=3, column=0, columnspan=2, sticky='nsew')
 
     def select_gender(self):        # temporarily replaces header_control_frame with the gender select menu
