@@ -179,6 +179,8 @@ class CharacterInterface:
         self.method_frame = tk.Frame()              # all-purpose temp frame
         self.method_label = tk.Label()              # all-purpose temp label
         self.methodiv_label = tk.Label()            # needed in order to reset the header when race is set to "human"
+        self.frameleft = tk.Frame()                 # left frame of bulk generation report
+        self.frameright = tk.Frame()                # right frame of bulk generation report
 
         self.button = tk.Button()
         self.rc_opts = tk.Button()
@@ -675,19 +677,19 @@ class CharacterInterface:
                                          font=('Courier', 12), justify="left", text=text)
             self.method_label.grid(row=location * 2, column=0, columnspan=2, sticky='nse')
         option_levels = list(range(1, 17))                          # we begin populating the 5 dropdown arrays
-        eligibility_object = selectclass.IsEligible()
-        eligibility_object.eligible([18, 18, 18, 18, 18, 18])
+        eligibility_object, maximums = selectclass.IsEligible(), [18, 18, 18, 18, 18, 18]
+        eligibility_object.eligible(maximums)
         if self.bulk_attributes["charclass"] == "ANY":
             option_races = ["ANY"] + eligibility_object.eligible_races
         else:
-            eligibility_object.filtered_eligibility([18, 18, 18, 18, 18, 18], self.bulk_attributes["charclass"])
+            eligibility_object.filtered_eligibility(maximums, self.bulk_attributes["charclass"])
             option_races = ["ANY"] + eligibility_object.eligible_races
         eligibility_object = selectclass.IsEligible()
-        eligibility_object.eligible([18, 18, 18, 18, 18, 18])
+        eligibility_object.eligible(maximums)
         if self.bulk_attributes["race"] == "ANY":
             option_classes = ["ANY"] + eligibility_object.eligible_classes
         else:
-            eligibility_object.filtered_eligibility([18, 18, 18, 18, 18, 18], self.bulk_attributes["race"])
+            eligibility_object.filtered_eligibility(maximums, self.bulk_attributes["race"])
             option_classes = ["ANY"] + eligibility_object.eligible_classes
         option_samplesizes = [125, 250, 500, 1000, 2000, 4000, 8000, 16000]
         option_genders = ["ANY", "male", "female"]                  # we create the labels and dropdowns
@@ -726,52 +728,47 @@ class CharacterInterface:
         self.bulk_attributes["samplesize"] = samplesize
         self.bulk_maker()
 
-    def element_count(self, elem_list, result_sort=True, is_levels=False):
-        element_proportions, sorted_proportions, label_text, result_text = {}, {}, '', ''
-        distinct_elements = np.unique(np.array(elem_list))
-        for str_class in distinct_elements:
-            element_proportions[str_class] = elem_list.count(str_class)
-        if result_sort:
+    def multi_sort(self, sorted_proportions, start_end, default, proportional):
+        min_sum, max_sum, keys, temp_dict, count = 0, 0, list(sorted_proportions.keys()), {}, len(sorted_proportions)
+        if default == "default" and proportional:
+            start_end = self.start_end_assigner(1, count, 0)
+        result, display_start, display_end = {}, start_end[0] - 1, start_end[1]
+        for j, key in enumerate(sorted_proportions):
+            if j <= display_start + 1:                      # remember how we offset/overwrite the button? hence +1
+                min_sum += sorted_proportions[key]
+            if display_start <= j < display_end:
+                temp_dict[key] = sorted_proportions[key]
+            if j >= display_end:
+                max_sum += sorted_proportions[key]
+        if proportional:                                    # if sorted proportionally (race, class, gender)
+            result["DisplayValues"] = dict(sorted(temp_dict.items(), key=operator.itemgetter(1), reverse=True))
+            result["ListTop"] = ("OTHER".format(keys[display_start + 1]), min_sum)
+            result["ListBottom"] = ("OTHER ".format(keys[display_end - 3]), max_sum)
+        else:                                               # if sorted alphabetically (everything else)
+            result["DisplayValues"] = temp_dict
+            result["ListTop"] = ("FEWER THAN {}".format(keys[display_start + 1]), min_sum)
+            result["ListBottom"] = ("GREATER THAN {}".format(keys[display_end - 3]), max_sum)
+        return result   # {'DisplayValues': {1.0: 936, ...}, 'ListTop': ('OTHER', 1000), 'ListBottom': ...}
+
+    def element_count(self, elem_list, start_end, default, result_sort=True, is_levels=False):
+        element_proportions, sorted_proportions = {}, {}                    # elem_list is what we're sorting
+        distinct_elements = np.unique(np.array(elem_list))                  # distinct_elements is elem_list's DISTINCT
+        for element in distinct_elements:
+            element_proportions[element] = elem_list.count(element)         # creates dictionary, element: count,...
+        if result_sort:                                                     # if true, sorts by key...
             sorted_proportions = dict(sorted(element_proportions.items(), key=operator.itemgetter(1), reverse=True))
-        else:
+        else:                                                               # ...if false, sorts by proportion
             sorted_proportions = dict(sorted(element_proportions.items()))
-        if len(sorted_proportions) > 22:
-            min_sum, max_sum, keys, values = 0, 0, list(sorted_proportions.keys()), list(sorted_proportions.values())
-            if result_sort:             # if ordered by values (races / classes / gender)
-                temp_dict = {"OTHER": 0}
-                for j, (key, value) in enumerate(zip(keys, values)):
-                    if j < 21:
-                        temp_dict[key] = value
-                    else:
-                        min_sum += value
-                sorted_proportions = dict(sorted(temp_dict.items(), key=operator.itemgetter(1), reverse=True))
-                sorted_proportions["OTHER"] = min_sum
-            else:                       # if ordered by keys (attributes / age / height / weight)
-                start_point, end_point, temp_dict = int(len(keys)/2)-11, int(len(keys)/2)+10, {}
-                for j, (key, value) in enumerate(zip(keys, values)):
-                    if len(sorted_proportions) > 23:
-                        if j <= start_point:
-                            min_sum += value
-                        temp_dict["FEWER THAN {}".format(keys[start_point] + 1)] = min_sum
-                    if start_point < j < end_point:
-                        temp_dict[key] = value
-                    if j >= end_point:
-                        max_sum += value
-                sorted_proportions = temp_dict
-                sorted_proportions["GREATER THAN {}".format(keys[end_point] - 1)] = max_sum
-        if is_levels:                   # replaces key names with vulgar fractions if key is character levels
-            temp_dict = {}
-            for key in sorted_proportions:
-                temp_dict[self.vulfrac(key)] = sorted_proportions[key]
-            sorted_proportions = temp_dict
-        for key, value in sorted_proportions.items():
-            label_text += str(key) + "\n"
-            result_text += "{:.1f}".format(100 * value / len(elem_list)) + "%\n"
-        #     print("   ", str(key) + ":", str(f'{value:,}') + ", or", str(f'{100 * value / len(elem_list):.2f}') + "%")
-        return [result_text, label_text]
+        sorted_proportions = self.multi_sort(sorted_proportions, start_end, default, result_sort)
+        if is_levels:                       # replaces key names with vulgar fractions if key is character levels
+            temp_dict = {}                  # sorted_proportions["DisplayValues]: {3.0: 11, 3.33: 18, 3.5: 21, , ...}
+            for key in sorted_proportions["DisplayValues"]:
+                temp_dict[self.vulfrac(key)] = sorted_proportions["DisplayValues"][key]
+            sorted_proportions["DisplayValues"] = temp_dict
+        return sorted_proportions           # at this point this is still a dictionary {"Fewer than 60": 26, ...}
 
     @staticmethod
-    def vulfrac(value):
+    def vulfrac(value):                                 # converts decimal values to vulgar factions
         excess, final = value % 1, ""
         if excess > 0:
             if excess < 0.4:
@@ -783,8 +780,16 @@ class CharacterInterface:
         return "0" if final == "0" else final.lstrip("0")
 
     @staticmethod
+    def percentile_keys(elem_list, sorted_proportions):     # calculates percentage and adds % symbol to key names
+        label, result, denom = [], [], len(elem_list)       # labels = keys, results = values
+        for key, value in sorted_proportions.items():
+            label.append(str(key))
+            result.append("{:.1f}".format(100 * value / denom) + "%")
+        return [result, label]
+
+    @staticmethod
     def block_analysis(data_block):
-        if data_block == "" or isinstance(data_block[0], str):  # second statement deals with the three blank outputs
+        if data_block == "" or isinstance(data_block[0], str):  # this statement deals with the three blank outputs
             return ["", "", "", ""]
         else:
             medio, minio, maxio = np.median(data_block), min(data_block), max(data_block)
@@ -793,25 +798,68 @@ class CharacterInterface:
                     str(int(minio)) if minio % 1 == 0 else re.sub('.00', '', "{:.2f}".format(minio)),
                     str(int(maxio)) if maxio % 1 == 0 else re.sub('.00', '', "{:.2f}".format(maxio))]
 
-    def bulk_buttons(self, element_list, button_label, result_sort):   # proportional breakout display
+    @staticmethod
+    def start_end_assigner(start_point, element_count, delta):      # accepts (25, 78, 15), returns [40, 62]
+        start_point = start_point + delta if start_point > -delta else 1
+        end_point = start_point + 22                                # accepts (5, 78, -15), returns [1, 23]
+        if end_point > element_count:
+            start_point = element_count - 22                        # accepts (65, 78, 15), returns [56, 78]
+            end_point = element_count
+        start_point = 1 if start_point < 0 else start_point
+        return [start_point, end_point]                             # can generalize by adding the +/- 22 as a parameter
+
+    def bulk_nav_button(self, start, count, delta, element_list, row, labels, button_label, result_sort):
+        mod_midpoint, number_of_units = self.start_end_assigner(start, count, delta), len(element_list)
+        label = "{:.1f}".format(100 * labels[1] / number_of_units) + "%"
+        self.label = tk.Label(master=self.frameleft, relief=tk.FLAT, fg="#FFFFFF", bg='#000000', padx=0, pady=0,
+                              anchor='e', text=label, font=('Courier', 12), justify='right')
+        self.label.grid(row=row, column=0, sticky='nsew')
+        self.label = tk.Button(master=self.frameright, relief=tk.FLAT, fg="#FFFFFF", bg='#000000', padx=8, pady=0,
+                               anchor='w', text=labels[0], font=('Courier', 12), justify='left',
+                               command=lambda: self.bulk_buttons(element_list, button_label, result_sort,
+                                                                 mod_midpoint))
+        self.label.grid(row=row, column=0, sticky='nsew')
+
+    def bulk_buttons(self, element_list, button_label, result_sort, default="default"):
         self.zoom_frame.destroy()
         self.zoom_frame = tk.Frame(master=self.selection_body, relief=tk.FLAT, bg='#000000')
         self.zoom_frame.grid(row=0, column=1, sticky='nsew')
-        for a, weight in enumerate([1, 9]):     # at [1, 8] this will blank out the bulk_outcome frame at 1080p
+        for a, weight in enumerate([1, 9]):         # at [1, 8] this will blank out the bulk_outcome frame at 1080p
             self.zoom_frame.rowconfigure(a, weight=weight, uniform=1)
         for a, weight in enumerate([2, 5]):
             self.zoom_frame.columnconfigure(a, weight=weight, uniform=1)
         self.method_label = tk.Label(master=self.zoom_frame, relief=tk.FLAT, fg="#FFFFFF", bg='#000000',
-                                     text=re.sub(':', '', button_label), font=('Courier', 12))
+                                     text=button_label, font=('Courier', 12))
         self.method_label.grid(row=0, column=0, sticky='se')
-        label_text = self.element_count(element_list, result_sort=result_sort, is_levels=button_label == "level:")
-        for b, (text, pad, side, anchor) in enumerate(zip(label_text, [0, 10], ['right', 'left'], ['ne', 'nw'])):
-            self.frame = tk.Frame(master=self.zoom_frame, relief=tk.FLAT, bg='#000000')
-            self.frame.grid(row=1, column=b, sticky='nsew')
-            self.frame.grid_propagate(False)
-            self.label = tk.Label(master=self.frame, relief=tk.FLAT, fg="#FFFFFF", bg='#000000', text=text, padx=pad,
-                                  anchor=anchor, font=('Courier', 12), justify=side)
-            self.label.pack(side=side, fill="y", expand=False)
+        self.frameleft = tk.Frame(master=self.zoom_frame, relief=tk.FLAT, bg='#000000')
+        self.frameright = tk.Frame(master=self.zoom_frame, relief=tk.FLAT, bg='#000000')
+        self.frameleft.grid(row=1, column=0, sticky='nsew')
+        self.frameright.grid(row=1, column=1, sticky='nsew')
+        self.frameleft.grid_propagate(False)
+        self.frameright.grid_propagate(False)
+        self.frameleft.columnconfigure(0, weight=1, uniform=1)
+        for i in range(25):                         # spaces out the result grid
+            self.frameleft.rowconfigure(i, weight=1, uniform=1)
+            self.frameright.rowconfigure(i, weight=1, uniform=1)
+        element_count = len(np.unique(np.array(element_list)))
+        if default == "default":                    # if this is a default page, display the mid-point
+            start_end = self.start_end_assigner(int(element_count / 2) - 10, element_count, 0)
+        else:
+            start_end = default                     # otherwise display the specified interval
+        label_dict = self.element_count(element_list, start_end, default, result_sort=result_sort,
+                                        is_levels=button_label == "level:")
+        label_lists = self.percentile_keys(element_list, label_dict["DisplayValues"])
+        for i, (side, frame, anch) in enumerate(zip(['right', 'left'], [self.frameleft, self.frameright], ['e', 'w'])):
+            for j, key in enumerate(label_lists[0]):                            # populates bulk output labels
+                self.label = tk.Label(master=frame, relief=tk.FLAT, fg="#FFFFFF", bg='#000000', padx=i*10, pady=0,
+                                      anchor=anch, text=label_lists[i][j], font=('Courier', 12), justify=side)
+                self.label.grid(row=j, column=0, sticky='nsew')
+        if start_end[0] > 1 and not (result_sort and default == "default"):     # 2 or more AND not a starter prop sort
+            self.bulk_nav_button(start_end[0], element_count, -20, element_list, 0, label_dict["ListTop"],
+                                 button_label, result_sort)                     # creates FEWER THAN / top button
+        if 22 < start_end[1] < element_count:                                   # 22 or more AND not maxed
+            self.bulk_nav_button(start_end[0], element_count, 20, element_list, 21, label_dict["ListBottom"],
+                                 button_label, result_sort)                     # creates GREATER THAN / bottom button
 
     def bulk_outcome(self):
         self.selection_body.destroy()
@@ -827,7 +875,7 @@ class CharacterInterface:
             self.frame.grid_rowconfigure(i, weight=1, uniform=1)
         for i in range(8):
             self.frame.grid_columnconfigure(i, weight=1, uniform=1)
-        # generates character_list and properties lists (which are later
+        # generates character_list and properties lists
         race = '' if self.bulk_attributes["race"] == "ANY" else self.bulk_attributes["race"]
         gender = "random" if self.bulk_attributes["gender"] == "ANY" else self.bulk_attributes["gender"]
         charclass = [] if self.bulk_attributes["charclass"] == "ANY" else \
@@ -886,7 +934,7 @@ class CharacterInterface:
         for j, (label, out_data, units) in enumerate(zip(button_labels, fin_output, out_units)):
             self.sub_frame.grid_rowconfigure(j, weight=1, uniform=1)
             self.dub_frame.grid_rowconfigure(j, weight=1, uniform=1)
-            if label == "":                 # if it's going to generate an empty button, make it a label
+            if label == "":                 # if it's going to generate a blank button, make it a label
                 self.button = tk.Label(master=self.sub_frame, relief=tk.FLAT, fg="#FFFFFF", bg='#000000', anchor='e',
                                        font=('Courier', 12), text=label)
             else:                           # otherwise, button
@@ -906,7 +954,7 @@ class CharacterInterface:
         self.label = tk.Label(master=self.frame, relief=tk.FLAT, borderwidth=4, fg="#AAAAAA", bg='#000000',
                               font=('Courier', 8), text=user_val, justify='left')
         self.label.grid(row=0, column=0, columnspan=5, sticky='nw')
-        self.bulk_buttons(levels, "level:", False)              # this generates a splash value for the zoom_frame
+        self.bulk_buttons(levels, "level:", False)              # establishes a default value for zoom_frame (levels)
         # self.bulk_buttons(race_list, "race breakout", True)
         self.return_to_main_menu()
 

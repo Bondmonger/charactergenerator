@@ -67,24 +67,30 @@ def display_level(levels):  # converts the list of levels into a displayable str
 #   COMPLETE [void out the two blank buttons in bulk_buttons()]
 #   COMPLETE [need to refresh bulk_outcome on result button clicks]
 #   COMPLETE [fixed high elf median weight value / bad rstrip on round numbers]
-#   WISHLIST
+#   COMPLETE [pop out the string tool from self.element_count() (it's now called from the parent)]
+#   COMPLETE [pop out the clustering routine (same, though we now need access to the full element count)]
+#   COMPLETE [pass sorted dictionaries back to the parent]
+#   COMPLETE [pass forward the current center point]
+#   COMPLETE [update the clustering method to accept variable center-points]
+#   COMPLETE [build placeholder clustering buttons / assign button method(s)]
+#   COMPLETE [add expansion/navigation to clustered results]
+#   TICKETS:
+#       add paths from character sheet to party and vice versa
 #       add a save/load function
 #       add an auto-reorder button to the view party screen in bulk party gen
 #       display selected class in method V
-#       display method (I through VI) in all six methods
-#       expanded party display toggle in view-character screen
+#       display method (I through VI) in all six interim screens
 #       up/down arrow hotkeys for race/class selection
 #       confirmation window on quit / escape_function()
 #       remove case sensitivity from hotkeys
 #       pop out the legend in the party comp pie chart to make the fonts match
-#       selection options in method VI's generate_individual_character?
-#           level, yes... but for race/class/gender we're talking about big changes to self.reroll
+#       level select option in method VI's generate_individual_character
 #       should 0-level characters have a standardized per-race attribute blocks?
 #           also they're coming back with bad ages (under 10 y/o)
 # 4) figure out storage/equipment fields
 #   a)	csv all the armor and weapons
 #   b)	weapon proficiencies
-#   c)	multi-attack
+#   c)	multi-attack (or does this belong in the class abilities?)
 # 5) dual-classing and bards
 # 6) stat up 0-level humans, demi-humans & wights
 # 7) special abilities
@@ -95,7 +101,12 @@ def display_level(levels):  # converts the list of levels into a displayable str
 #   e)	nonlethal melee
 #   f)	miscellaneous ability/resistance definitions
 #   g)	languages
-
+#   h)  alignment
+# 8) combat engine
+#   a) melee weapons
+#   b) pummel / grapple / overbear
+#   c) psionics
+#   d) missile weapons
 
 def clip_surplus_dict(race, attrs, excess):  # nips the tops off attributes above racial maximum
     ord_attrs, rac_max = ['Str', 'Int', 'Wis', 'Dex', 'Con', 'Cha', 'Com'], datalocus.racial_maximums(race)
