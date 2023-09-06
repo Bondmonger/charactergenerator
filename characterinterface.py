@@ -730,24 +730,31 @@ class CharacterInterface:
 
     def multi_sort(self, sorted_proportions, start_end, default, proportional):
         min_sum, max_sum, keys, temp_dict, count = 0, 0, list(sorted_proportions.keys()), {}, len(sorted_proportions)
+        mid_sum = 0
         if default == "default" and proportional:
             start_end = self.start_end_assigner(1, count, 0)
         result, display_start, display_end = {}, start_end[0] - 1, start_end[1]
         for j, key in enumerate(sorted_proportions):
-            if j <= display_start + 1:                      # remember how we offset/overwrite the button? hence +1
+            if j <= display_start:
                 min_sum += sorted_proportions[key]
             if display_start <= j < display_end:
                 temp_dict[key] = sorted_proportions[key]
-            if j >= display_end:
+            if display_start < j < display_end:
+                mid_sum += sorted_proportions[key]
+            if j >= display_end - 1:
                 max_sum += sorted_proportions[key]
+        print("min_sum: {} mid_sum: {} max_sum {}".format(min_sum, mid_sum, max_sum))
+        print(sorted_proportions)
+        offset = 0 if len(keys) == 1 else 1
+        rollup = 1 if len(keys) < 3 else 2
         if proportional:                                    # if sorted proportionally (race, class, gender)
             result["DisplayValues"] = dict(sorted(temp_dict.items(), key=operator.itemgetter(1), reverse=True))
-            result["ListTop"] = ("OTHER".format(keys[display_start + 1]), min_sum)
-            result["ListBottom"] = ("OTHER ".format(keys[display_end - 3]), max_sum)
+            result["ListTop"] = ("OTHER".format(keys[display_start + offset]), min_sum)
+            result["ListBottom"] = ("OTHER ".format(keys[display_end - rollup]), max_sum)
         else:                                               # if sorted alphabetically (everything else)
             result["DisplayValues"] = temp_dict
-            result["ListTop"] = ("FEWER THAN {}".format(keys[display_start + 1]), min_sum)
-            result["ListBottom"] = ("GREATER THAN {}".format(keys[display_end - 3]), max_sum)
+            result["ListTop"] = ("FEWER THAN {}".format(keys[display_start + offset]), min_sum)
+            result["ListBottom"] = ("GREATER THAN {}".format(keys[display_end - rollup]), max_sum)
         return result   # {'DisplayValues': {1.0: 936, ...}, 'ListTop': ('OTHER', 1000), 'ListBottom': ...}
 
     def element_count(self, elem_list, start_end, default, result_sort=True, is_levels=False):
@@ -779,12 +786,11 @@ class CharacterInterface:
             final = str(int(value))
         return "0" if final == "0" else final.lstrip("0")
 
-    @staticmethod
-    def percentile_keys(elem_list, sorted_proportions):     # calculates percentage and adds % symbol to key names
-        label, result, denom = [], [], len(elem_list)       # labels = keys, results = values
+    def percentile_keys(self, sorted_proportions):      # calculates percentage and adds % symbol to key names
+        label, result = [], []                          # labels = keys, results = values
         for key, value in sorted_proportions.items():
             label.append(str(key))
-            result.append("{:.1f}".format(100 * value / denom) + "%")
+            result.append("{:.1f}".format(100 * value / self.bulk_attributes["samplesize"]) + "%")
         return [result, label]
 
     @staticmethod
@@ -801,16 +807,16 @@ class CharacterInterface:
     @staticmethod
     def start_end_assigner(start_point, element_count, delta):      # accepts (25, 78, 15), returns [40, 62]
         start_point = start_point + delta if start_point > -delta else 1
-        end_point = start_point + 22                                # accepts (5, 78, -15), returns [1, 23]
+        end_point = start_point + 21                                # accepts (5, 78, -15), returns [1, 23]
         if end_point > element_count:
-            start_point = element_count - 22                        # accepts (65, 78, 15), returns [56, 78]
+            start_point = element_count - 21                        # accepts (65, 78, 15), returns [56, 78]
             end_point = element_count
         start_point = 1 if start_point < 0 else start_point
         return [start_point, end_point]                             # can generalize by adding the +/- 22 as a parameter
 
     def bulk_nav_button(self, start, count, delta, element_list, row, labels, button_label, result_sort):
-        mod_midpoint, number_of_units = self.start_end_assigner(start, count, delta), len(element_list)
-        label = "{:.1f}".format(100 * labels[1] / number_of_units) + "%"
+        mod_midpoint = self.start_end_assigner(start, count, delta)
+        label = "{:.1f}".format(100 * labels[1] / self.bulk_attributes["samplesize"]) + "%"
         self.label = tk.Label(master=self.frameleft, relief=tk.FLAT, fg="#FFFFFF", bg='#000000', padx=0, pady=0,
                               anchor='e', text=label, font=('Courier', 12), justify='right')
         self.label.grid(row=row, column=0, sticky='nsew')
@@ -848,7 +854,7 @@ class CharacterInterface:
             start_end = default                     # otherwise display the specified interval
         label_dict = self.element_count(element_list, start_end, default, result_sort=result_sort,
                                         is_levels=button_label == "level:")
-        label_lists = self.percentile_keys(element_list, label_dict["DisplayValues"])
+        label_lists = self.percentile_keys(label_dict["DisplayValues"])
         for i, (side, frame, anch) in enumerate(zip(['right', 'left'], [self.frameleft, self.frameright], ['e', 'w'])):
             for j, key in enumerate(label_lists[0]):                            # populates bulk output labels
                 self.label = tk.Label(master=frame, relief=tk.FLAT, fg="#FFFFFF", bg='#000000', padx=i*10, pady=0,
@@ -857,7 +863,8 @@ class CharacterInterface:
         if start_end[0] > 1 and not (result_sort and default == "default"):     # 2 or more AND not a starter prop sort
             self.bulk_nav_button(start_end[0], element_count, -20, element_list, 0, label_dict["ListTop"],
                                  button_label, result_sort)                     # creates FEWER THAN / top button
-        if 22 < start_end[1] < element_count:                                   # 22 or more AND not maxed
+        print("end point: {} element count: {}".format(start_end[1], element_count))
+        if 21 < start_end[1] < element_count:                         # 21 or more AND not maxed
             self.bulk_nav_button(start_end[0], element_count, 20, element_list, 21, label_dict["ListBottom"],
                                  button_label, result_sort)                     # creates GREATER THAN / bottom button
 
