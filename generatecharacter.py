@@ -51,7 +51,7 @@ def display_level(levels):  # converts the list of levels into a displayable str
 #   COMPLETE [char_sheet hotkeys only active when char_sheet is active]
 #   COMPLETE [add weightedness to the multi-class determination]
 #   COMPLETE [get selectclass.py to run faster]
-#   COMPLETE [make the race > class determination reversible (class > race)]
+#   COMPLETE [make the race-to-class determination reversible (class-to-race)]
 #   COMPLETE [get csv checks going at a higher level so in-memory version can be preserved during bulk events}
 #   COMPLETE [level range routines for full party & bulk generation]
 #   COMPLETE [determine primary display method for full party generation]
@@ -74,39 +74,44 @@ def display_level(levels):  # converts the list of levels into a displayable str
 #   COMPLETE [update the clustering method to accept variable center-points]
 #   COMPLETE [build placeholder clustering buttons / assign button method(s)]
 #   COMPLETE [add expansion/navigation to clustered results]
+#   COMPLETE [remove case sensitivity from hotkeys]
+#   COMPLETE [implement create_main_menu method in all locations]
+#   COMPLETE [remove_party_member isn't working properly with multi-unit parties in methods I through V]
+#   COMPLETE [add path from character sheet to party and vice versa]
+#   COMPLETE [add file management functionality]
 #   TICKETS:
-#       add paths from character sheet to party and vice versa
-#       add a save/load function
-#       add an auto-reorder button to the view party screen in bulk party gen
+#       add a reorder button to the view party screen in bulk party gen
 #       display selected class in method V
-#       display method (I through VI) in all six interim screens
-#       up/down arrow hotkeys for race/class selection
+#       display method (I through VI) in interim screens
+#       arrow hotkeys for race/class selection
 #       confirmation window on quit / escape_function()
-#       remove case sensitivity from hotkeys
 #       pop out the legend in the party comp pie chart to make the fonts match
 #       level select option in method VI's generate_individual_character
-#       should 0-level characters have a standardized per-race attribute blocks?
+#       should 0-level characters have standardized, per-race attribute blocks?
 #           also they're coming back with bad ages (under 10 y/o)
-# 4) figure out storage/equipment fields
-#   a)	csv all the armor and weapons
-#   b)	weapon proficiencies
-#   c)	multi-attack (or does this belong in the class abilities?)
-# 5) dual-classing and bards
-# 6) stat up 0-level humans, demi-humans & wights
+# 4) dual-classing and bards
+# 5) stat up 0-level humans, demi-humans & wights
+# 6) figure out storage/equipment fields
+#   a)	csv all armor
+#   b)  csv all weapons
+#   c)	weapon proficiencies
+#   d)	multi-attack (does this belong in the class abilities?)
 # 7) special abilities
-#   a)	spells per level
-#   b)	race/class abilities
-#   c)	thief-like abilities
-#   d)	psionics
-#   e)	nonlethal melee
-#   f)	miscellaneous ability/resistance definitions
-#   g)	languages
-#   h)  alignment
+#   a)	csv all spells
+#   b)  logic for spells per level
+#   c)	race/class abilities
+#   d)	thief-like abilities
+#   e)	psionics
+#   f)	nonlethal melee
+#   g)	miscellaneous ability/resistance definitions
+#   h)	languages
+#   i)  alignment
 # 8) combat engine
 #   a) melee weapons
 #   b) pummel / grapple / overbear
 #   c) psionics
 #   d) missile weapons
+#   e) martial arts
 
 def clip_surplus_dict(race, attrs, excess):  # nips the tops off attributes above racial maximum
     ord_attrs, rac_max = ['Str', 'Int', 'Wis', 'Dex', 'Con', 'Cha', 'Com'], datalocus.racial_maximums(race)
@@ -116,8 +121,8 @@ def clip_surplus_dict(race, attrs, excess):  # nips the tops off attributes abov
         temp_excess[k] = attrs[k] - temp_excess[k]
         if temp_excess[k] < 0:
             temp_excess[k] = 0
-        attrs[k] -= temp_excess[k]  # trims attributes
-        excess[k] += temp_excess[k]  # updates excess
+        attrs[k] -= temp_excess[k]      # trims attributes
+        excess[k] += temp_excess[k]     # updates excess
     return
 
 

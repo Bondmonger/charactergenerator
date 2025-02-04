@@ -261,7 +261,7 @@ def methodvi(race, ch_classes):
         surplus_atts = _deficit(merged_mins, ordered_atts)      # sums surplus attribute points (vs race/class mins)
         surplus_atts = _positives(race, surplus_atts)           # randomly redistributes surplus to negative attributes
         re_attached = _re_combine(merged_mins, surplus_atts)    # recombines attributes
-        excess = clip_surplus(race, re_attached)                # nips off attributes over racial caps
+        excess = clip_surplus(race, re_attached)                # nips off surplus points (above racial caps)
         compute_exstr(re_attached, race, excess)
         re_attached[6] += datalocus.comeliness_bonus(re_attached[5])
     attr_dict = dict(zip(attr_names, re_attached))

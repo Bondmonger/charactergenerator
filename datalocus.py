@@ -345,4 +345,3 @@ def call_height_weight(race):
                 for a in range(26):
                     result.append(int(row[a + 18]))
     return result
-
