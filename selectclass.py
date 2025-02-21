@@ -4,6 +4,17 @@ import time
 import csv
 import datalocus
 from functools import lru_cache
+import os
+import sys
+
+
+def get_resource_path(filename):
+    """Gets the correct path for a resource file whether running as script or frozen exe"""
+    if getattr(sys, 'frozen', False):
+        base_path = sys._MEIPASS
+    else:
+        base_path = os.path.dirname(os.path.abspath(__file__))
+    return os.path.join(base_path, filename)
 
 
 def min_merger(_minimums):                                      # used by combinator()
@@ -34,7 +45,7 @@ def list_to_string(list_of_classes):            # accepts a list of lists, like 
 @lru_cache(maxsize=5)
 def combinator():
     races_and_classes, final, output = [], [], []
-    with open('attributemins.csv') as mins:
+    with open(get_resource_path('attributemins.csv')) as mins:
         for row in csv.reader(mins):
             if row[71] != '-' and row[71] != 'classes':         # eliminates class rows and header (we only want races)
                 temp_race = row[0]                              # assigns persistent race value for upcoming FOR loop
@@ -61,7 +72,7 @@ def combinator():
 def other_combinator():
     races_and_classes, final, output = [], [], []
     source_list, frequency_list, multifreq_list, class_dict = [], [], [], {}
-    with open('attributemins.csv') as mins:
+    with open(get_resource_path('attributemins.csv')) as mins:
         for row in csv.reader(mins):
             if row[71] != '-':                              # looking only at races (passing classes to ELSE)
                 temp_race = row[0]                          # assigns persistent race value for upcoming FOR loop
@@ -226,7 +237,7 @@ class IsEligible:
 
 @lru_cache(maxsize=10)
 def race_class_data():
-    min_df = pd.read_csv("attributemins.csv")           # loads the csv data into memory
+    min_df = pd.read_csv(get_resource_path("attributemins.csv"))           # loads the csv data into memory
     min_cols = [0, 1, 2, 3, 4, 5, 6, 10, 26, 27, 28, 29, 30, 31, 32, 70, 71, 73, 74]
     min_df = min_df[min_df.columns[min_cols]]           # creates a dataframe using only the specified columns
     min_df['modifiedfreq'] = min_df['weightedprob']     # creates a new column, 'modifiedfreq'
@@ -329,7 +340,7 @@ def race_from_class(ch_class=''):                           # accepts 'Fighter/I
 # NOT IN USE (generates a list of all permissible race/class combinations)
 def list_o_classes():
     races_and_classes = []
-    with open('attributemins.csv') as mins:
+    with open(get_resource_path('attributemins.csv')) as mins:
         for row in csv.reader(mins):
             if row[71] != '-' and row[71] != 'classes':         # eliminates class rows and header (we only want races)
                 temp_race = row[0]                              # assigns persistent race value for upcoming FOR loop

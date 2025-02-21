@@ -1,5 +1,5 @@
 import tkinter as tk
-import random           # only used in make_party()
+import random                       # only used in make_party()
 import time
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from matplotlib.figure import Figure
@@ -11,7 +11,7 @@ import character
 import datalocus
 import selectclass
 import attributes
-from savegamestat import PickleHandler
+from savegamestat import PickleHandler      # this has to be explicitly imported since it's just the class
 
 
 class CharacterInterface:
@@ -169,7 +169,7 @@ class CharacterInterface:
         self.attribs_fr = tk.Frame()                # header_defaults() ATTRIBUTES child
         self.hcontrol_fr = tk.Frame()               # header_defaults() ATTRIBUTES child
         self.header_control_frame = tk.Frame()      # header_controls() ATTRIBUTES sub-child
-        self.selection_frame = tk.Frame()           # selection_frame_open() RACE/CLASS OPTIONS parent
+        self.selection_frame = tk.Frame(master=self.master)  # selection_frame_open() RACE/CLASS OPTIONS parent
         self.selection_label = tk.Label()           # selection_frame_open() RACE/CLASS OPTIONS sub
         self.selection_body = tk.Frame()            # selection_frame() child: methodvi -> full party POPUP
         self.sub_frame = tk.Frame()                 # selection_frame() sub-child: output frame in bulk party interface
@@ -189,6 +189,7 @@ class CharacterInterface:
         self.frameleft = tk.Frame()                 # left frame of bulk generation report
         self.frameright = tk.Frame()                # right frame of bulk generation report
         self.save_frame = tk.Frame()                # save/load screen
+        self.method_info_label = tk.Label()         # the small, gray-text method labels
 
         self.button = tk.Button()
         self.rc_opts = tk.Button()
@@ -206,24 +207,23 @@ class CharacterInterface:
         self.update_party_frame()
         self.display_label['text'] = self.display_text[0]
 
-    def generate_party_frame(self):
-        self.member_frame = tk.Frame(self.master, bg='#000077')
+    def generate_party_frame(self):         # enhanced via claude 2-8-25
+        bg_color, column_weights = '#000077', [5, 1, 1, 1]
+        label_style = {'relief': tk.FLAT, 'borderwidth': 4, 'fg': "#FFFFFF", 'bg': "#000000", 'font': ('Courier', 12),
+                       'justify': "left", 'anchor': 'nw'}
+        self.member_frame = tk.Frame(self.master, bg=bg_color)
         self.member_frame.grid(row=0, column=3, rowspan=2, columnspan=3, sticky="nsew")
         self.member_frame.grid_propagate(False)
-        for a, value in enumerate([5, 1, 1, 1]):
-            self.member_frame.grid_columnconfigure(a, weight=value, uniform=1)
+        for col, weight in enumerate(column_weights):
+            self.member_frame.grid_columnconfigure(col, weight=weight, uniform=1)
         self.member_frame.grid_rowconfigure(0, weight=1, uniform=1)
-        self.party_frame = tk.Frame(master=self.member_frame, relief=tk.FLAT, borderwidth=4, bg='#000077')
-        self.acs_label = tk.Label(master=self.member_frame, relief=tk.FLAT, borderwidth=4, fg="#FFFFFF", bg='#000000',
-                                  font=('Courier', 12), justify="left", anchor='nw')
-        self.hps_label = tk.Label(master=self.member_frame, relief=tk.FLAT, borderwidth=4, fg="#FFFFFF", bg='#000000',
-                                  font=('Courier', 12), justify="left", anchor='nw')
-        self.th_label = tk.Label(master=self.member_frame, relief=tk.FLAT, borderwidth=4, fg="#FFFFFF", bg='#000000',
-                                 font=('Courier', 12), justify="left", anchor='nw')
-        self.party_frame.grid(row=0, column=0, rowspan=2, sticky='nsew')
-        self.hps_label.grid(row=0, column=1, rowspan=2, sticky='nsew')
-        self.acs_label.grid(row=0, column=2, rowspan=2, sticky='nsew')
-        self.th_label.grid(row=0, column=3, rowspan=2, sticky='nsew')
+        self.party_frame = tk.Frame(master=self.member_frame, relief=tk.FLAT, borderwidth=4, bg=bg_color)
+        labels = {'hps': self.hps_label, 'acs': self.acs_label, 'th': self.th_label}
+        for name in labels:
+            setattr(self, f'{name}_label', tk.Label(master=self.member_frame, **label_style))
+        widgets = [(self.party_frame, 0), (self.hps_label, 1), (self.acs_label, 2), (self.th_label, 3)]
+        for widget, col in widgets:
+            widget.grid(row=0, column=col, rowspan=2, sticky='nsew')
 
     def update_party_frame(self, buttons=True):                     # updates the party frame
         self.member_frame.lift()                                    # undoes the lower() from clear_party_popup()
@@ -295,11 +295,11 @@ class CharacterInterface:
         for key in self.master.bind():              # unbinds all hotkeys
             self.master.unbind(key)
         control_panel_buttons = self.control_label.pack_slaves()
-        for y in control_panel_buttons:             # unbinds all buttons
+        for y in control_panel_buttons:             # forgets all buttons
             y.pack_forget()
         for i, member in enumerate(self.party_list, 1):
             self.bind_member(i)                     # re-binds party index positions
-        self.new_button.pack(side='left')           # re-binds buttons
+        self.new_button.pack(side='left')           # restores buttons
         self.re_name.pack(side='left')
         self.remove_button.pack(side='left')
         self.drain_button.pack(side='left')
@@ -309,6 +309,7 @@ class CharacterInterface:
             self.master.bind('o', lambda event: self.arrange_party(self.selected_character))
             self.master.bind('O', lambda event: self.arrange_party(self.selected_character))
         self.extended_party.pack(side='left')
+
         self.master.bind('c', lambda event: self.make_another_character())
         self.master.bind('C', lambda event: self.make_another_character())
         self.master.bind('r', lambda event: self.remove_party_member())
@@ -338,6 +339,7 @@ class CharacterInterface:
         self.drain_button.pack(side='left')
         self.xp_button.pack(side='left')
         self.extended_party.pack(side='left')
+
         self.master.bind('c', lambda event: self.make_another_character())
         self.master.bind('C', lambda event: self.make_another_character())
         self.master.bind('a', lambda event: self.add_party_member())
@@ -480,6 +482,9 @@ class CharacterInterface:
         self.master.bind('<Escape>', lambda event: self.escape_function())
 
     def escape_function(self):
+        confirm = self.confirmation_box(self.master, f"Do you wish to exit the character builder?")
+        if not confirm:
+            return
         self.master.destroy()
 
     def startframe_close(self):
@@ -540,6 +545,9 @@ class CharacterInterface:
         self.update_newchar_button(self.methodi_header)
         self.headerdefaults(attribs)
         self.selectionframe_open(attribs)
+        self.method_info_label = tk.Label(master=self.attribs_fr, relief=tk.FLAT, anchor='sw', bg='#000000',
+                                          fg="#AAAAAA", font=('Courier', 8), text="method i")
+        self.method_info_label.grid(row=2, column=0, columnspan=5, sticky='nsew')
 
     def methodii_header(self, attribs=None):
         if attribs is None:
@@ -547,6 +555,9 @@ class CharacterInterface:
         self.update_newchar_button(self.methodii_header)
         self.headerdefaults(attribs)
         self.selectionframe_open(attribs)
+        self.method_info_label = tk.Label(master=self.attribs_fr, relief=tk.FLAT, anchor='sw', bg='#000000',
+                                          fg="#AAAAAA", font=('Courier', 8), text="method ii")
+        self.method_info_label.grid(row=2, column=0, columnspan=5, sticky='nsew')
 
     def method_suspension(self, attribs, selected_attribute):
         self.attributes_frame.destroy()
@@ -587,6 +598,9 @@ class CharacterInterface:
             self.method_label['text'] = value
         self.selectionframe_open(attribs)
         self.header_controls()                          # uses self.m_a_c(), which must first be updated by self.u_n_b()
+        self.method_info_label = tk.Label(master=self.attribs_fr, relief=tk.FLAT, anchor='sw', bg='#000000',
+                                          fg="#AAAAAA", font=('Courier', 8), text="method iii")
+        self.method_info_label.grid(row=2, column=0, columnspan=5, sticky='nsew')
 
     def methodiv_header(self, attribs=None, selection=13):
         if attribs is None:
@@ -597,9 +611,10 @@ class CharacterInterface:
         attribs.append([3, 3, 3, 3, 3, 3, 3])               # flushes/blanks out the selection frame
         attribs = attr_names + attribs                      # adds attribute names to front of attributes lists
         self.attribs_fr.grid_propagate(False)
-        for i, width in enumerate([1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]):         # generates column widths
-            self.attribs_fr.grid_columnconfigure(i, weight=width, uniform=1)
-        self.attribs_fr.grid_rowconfigure(0, weight=1, uniform=1)
+        for i in range(15):                                 # generates column widths
+            self.attribs_fr.grid_columnconfigure(i, weight=1, uniform=1)
+        for i, weight in enumerate([3, 1]):
+            self.attribs_fr.grid_rowconfigure(i, weight=weight, uniform=1)
         for k in range(13):                                 # generates attribute sets
             if k == 0:                                      # assigns attribute names to first column
                 self.methodiv_button = tk.Label(master=self.attribs_fr, relief=tk.FLAT, anchor='s', bg='#000000',
@@ -617,10 +632,12 @@ class CharacterInterface:
                 format(attribs[k][0], attribs[k][1], attribs[k][2], attribs[k][3], attribs[k][4], attribs[k][5],
                        attribs[k][6])
         self.header_controls()                          # uses self.m_a_c(), which is updated by self.u_n_b()
+        self.label = tk.Label(master=self.attribs_fr, relief=tk.FLAT, anchor='sw', bg='#000000', fg="#AAAAAA",
+                              font=('Courier', 8), text="method iv")
+        self.label.grid(row=1, column=0, columnspan=5, sticky='nsew')
         self.selectionframe_open(attribs[selection])
 
     def methodv_header(self, charclass=None, attribs=(18, 18, 18, 18, 18, 18, 18)):
-        # self.save_characters("party", self.party_list)
         self.update_newchar_button(self.methodv_header)
         self.common_header_elements()
         self.attributes_frame.grid_propagate(False)
@@ -644,6 +661,9 @@ class CharacterInterface:
                                              bg='#000000', font=('Courier', 12), justify="left", anchor='center')
                 self.method_label.grid(row=1, column=k, columnspan=1, sticky='nsew')
                 self.method_label['text'] = value
+        self.method_info_label = tk.Label(master=self.attribs_fr, relief=tk.FLAT, anchor='sw', bg='#000000',
+                                          fg="#AAAAAA", font=('Courier', 8), text="method v")
+        self.method_info_label.grid(row=2, column=0, columnspan=5, sticky='nsew')
         self.selectionframe_methodv(charclass, attribs)
 
     def methodvi_header(self):
@@ -973,7 +993,7 @@ class CharacterInterface:
                 self.label = tk.Label(master=self.dub_frame, relief=tk.FLAT, fg="#FFFFFF", bg='#000000',
                                       anchor='center', font=('Courier', 12), text=out_data[k]+units)
                 self.label.grid(row=j, column=k, sticky='nsew')
-        # current query values, displayed in upper left corner of frame
+        # current parameters, displayed in upper left corner of frame
         user_val = str(len(character_list)) + " units   level: " + str(self.bulk_attributes["level"]) + "   race: " + \
             self.bulk_attributes["race"] + "   class: " + self.bulk_attributes["charclass"] + "\nruntime:  " + \
             "{:.0f}".format(1000 * (time.time() - start)) + " ms"
@@ -1034,22 +1054,36 @@ class CharacterInterface:
             self.button = tk.Button(self.frame, text=butt_name, bg='#000000', relief=tk.FLAT, fg="#FFFFFF",
                                     font=('Courier', 12), anchor='center', command=lambda x=command_def: x())
             self.button.pack(expand=True, fill='both')
-        self.frame = tk.Frame(self.selection_body)
+        self.frame = tk.Frame(self.selection_body, bg='#000000')
         self.frame.pack_propagate(False)        # if disabled/changed to grid_prop- the window starts resizing
-        self.frame.grid(row=3, column=10, rowspan=7, columnspan=9, sticky='nsew')
+        self.frame.grid(row=3, column=10, rowspan=7, columnspan=7, sticky='nsew')
         arch_list, arch_dict = [], {"Cleric": 0, "Fighter": 0, "Magic User": 0, "Thief": 0}
         for char in self.party_list:            # populates arch_dict with a proportional archetype count
             for sub_class in char.classes:
                 arch_list.append(datalocus.archetype(sub_class))
                 arch_dict[datalocus.archetype(sub_class)] += 1 / len(char.classes)
+        colors = ["#5B9BD5", "#FFC000", "#C00000", "#70AD47"]
         fig = Figure(facecolor='#000000')       # creates black matplotlib frame
-        ax = fig.add_subplot(2, 6, (1, 10))     # creates 2x6 grid within fig and places the chart from 1,1 to 2,4
-        ax.pie(list(arch_dict.values()), radius=1.4, labels=list(arch_dict.keys()), shadow=True, labeldistance=None,
-               colors=["#5B9BD5", "#FFC000", "#C00000", "#70AD47"])     # label distance passes key values to legend
-        ax.legend(loc=1, bbox_to_anchor=(1.5, 0., 0.5, 1.), fontsize=12, frameon=False, labelcolor='#FFFFFF',
-                  prop='monospace')
+        ax = fig.add_subplot(2, 4, (1, 10))     # creates 2x6 grid within fig and places the chart from 1,1 to 2,4
+        ax.pie(list(arch_dict.values()), radius=1.4, labels=None, shadow=True, colors=colors)
+        legend_frame = tk.Frame(self.frame, bg='#000000')
+        legend_frame.pack(side='right', anchor='n')
+        labels = list(arch_dict.keys())
+        for color, label in zip(colors, labels):
+            entry_frame = tk.Frame(legend_frame, bg='#000000')
+            entry_frame.pack(anchor='w', pady=2)
+            color_box = tk.Canvas(entry_frame, width=60, height=15, bg=color,
+                                  highlightthickness=0)
+            color_box.pack(side='left', padx=(0, 5))
+            label = tk.Label(entry_frame, text=label, font=('Courier', 12),
+                             bg='#000000', fg='#FFFFFF')
+            label.pack(side='left')
         chart1 = FigureCanvasTkAgg(fig, self.frame)
-        chart1.get_tk_widget().pack(fill='both')
+        canvas_widget = chart1.get_tk_widget()
+        canvas_widget.configure(bg='#000000', highlightthickness=0, bd=0)
+        canvas = chart1.tkcanvas  # needed to delve into an internal matplotlib method to eliminate line
+        canvas.configure(bg='#000000', highlightthickness=0, bd=0)
+        canvas_widget.pack(fill='both')
 
     def minlevelset(self, level):
         self.minmaxlevel["min"] = level
@@ -1074,6 +1108,7 @@ class CharacterInterface:
         self.selection_frame.destroy()                      # destroys and re-creates its own frame
         self.selection_frame = tk.Frame(master=self.master, relief=tk.FLAT, borderwidth=2, bg='#000000')
         self.selection_frame.grid(row=1, column=0, rowspan=3, columnspan=6, sticky="nsew")
+        self.selection_frame.lift()
         for y, race in enumerate(eligible_races):          # generates race buttons from IsEligible object
             self.rc_opts = tk.Button(self.selection_frame, text=race, bg='#000000', fg="#FFFFFF",
                                      font=('Courier', 12), relief=tk.FLAT, anchor='w',
@@ -1178,6 +1213,9 @@ class CharacterInterface:
                                                                                      attribs=attributes.methodv(c)))
                 self.rc_opts.place(height=20, width=274, x=320 + 404 * int((z / 23)), y=10 + 20 * (z % 23))
         else:
+            if hasattr(self, 'method_info_label'):
+                self.method_info_label.configure(text=f"method v, class: {charclass}")
+                self.method_info_label.update()
             eligibility_object.filtered_eligibility(attribs, charclass)
             charraces = eligibility_object.eligible_races
             self.header_controls()          # creates reroll button, then immediately re-defines the lambda
@@ -1329,6 +1367,13 @@ class CharacterInterface:
             self.frame.grid_rowconfigure(i, weight=1, uniform=1)
         self.partypopup_close(lowclose=not top_button)      # this is clumsy, but we need to use the inverted boolean
 
+    def sort_party_by_combat_value(self):
+        def calculate_combat_value(unit):
+            ac = 10 + unit.calculate_ac()
+            return unit.hp * (25 - ac)/15
+        self.party_list.sort(key=calculate_combat_value, reverse=True)
+        self.expanded_party_display()
+
     def party_to_charsheet(self, focus):
         self.temp_frame.destroy()
         self.expanded_member_frame.destroy()
@@ -1340,10 +1385,13 @@ class CharacterInterface:
 
     def partypopup_close(self, lowclose=True):      # this is the combined party popup closer
         self.show_files("party")                    # this updates self.file_dict (contents of "party" save directory)
-        rows, heights, displays = [1, 7, 9, 11], [3, 2, 2, 2], ["CLOSE", "SAVE PARTY", "LOAD PARTY", "DELETE A SAVE"]
-        generate = [lowclose, len(self.party_list) > 0, len(self.file_dict) > 0, len(self.file_dict) > 0]
+        rows, heights = [1, 7, 9, 11, 13], [3, 2, 2, 2, 2]
+        displays = ["CLOSE", "SAVE PARTY", "LOAD PARTY", "DELETE A SAVE", "SORT PARTY"]
+        generate = [lowclose, len(self.party_list) > 0, len(self.file_dict) > 0, len(self.file_dict) > 0,
+                    len(self.party_list) > 1]
         commands = [lambda: self.clear_party_popup(), lambda: self.save_load_screen("save"),
-                    lambda: self.save_load_screen("load"), lambda: self.save_load_screen("delete")]
+                    lambda: self.save_load_screen("load"), lambda: self.save_load_screen("delete"),
+                    lambda: self.sort_party_by_combat_value()]
         for i, (row, height, txt, gen, cmd) in enumerate(zip(rows, heights, displays, generate, commands)):
             if gen:         # for the three main bottom buttons (close, save and load)
                 self.inner_frame = tk.Frame(self.frame, bg='#000000')
@@ -1370,9 +1418,51 @@ class CharacterInterface:
         self.member_frame.lower()
         self.display_text = ['']    # just to clear out any leftover message
 
-    def save_characters(self, location, content, name):  # self.save_characters("party", self.party_list, "file name")
-        save_file = PickleHandler(base_directory=location)
-        save_file.save_party(content, name)
+    @staticmethod
+    def confirmation_box(parent, message):
+        dialog = tk.Toplevel(parent, bg="#000000")
+        result = False
+        dialog.geometry("300x150")
+        dialog.update_idletasks()                                       # Make sure geometry is set
+        x = parent.winfo_rootx() + (parent.winfo_width() // 2) - 150    # Centers on parent
+        y = parent.winfo_rooty() + (parent.winfo_height() // 2) - 75
+        dialog.geometry(f"+{x}+{y}")
+        dialog.overrideredirect(True)                                   # Now remove the title bar
+        dialog.attributes('-topmost', True)
+
+        def on_yes():
+            nonlocal result
+            result = True
+            dialog.destroy()
+
+        def on_no():
+            nonlocal result
+            result = False
+            dialog.destroy()
+
+        content_frame = tk.Frame(dialog, bg="#000000")
+        content_frame.pack(fill="both", expand=True, padx=1, pady=1)
+        tk.Label(dialog, text=message, wraplength=250, pady=20, bg="#000000", borderwidth=4, fg="#FFFFFF",
+                 font=('Courier', 12), justify="left").pack(expand=True)
+        button_frame = tk.Frame(dialog, bg="#000000")
+        button_frame.pack(pady=10)
+        tk.Button(button_frame, text="Yes", width=10, command=on_yes, bg="#000000", borderwidth=2, fg="#FFFFFF",
+                  font=('Courier', 12), justify="left", anchor='center').pack(side=tk.LEFT, padx=10)
+        tk.Button(button_frame, text="No", width=10, command=on_no, bg="#000000", borderwidth=2, fg="#FFFFFF",
+                  font=('Courier', 12), justify="left", anchor='center').pack(side=tk.LEFT, padx=10)
+        dialog.bind("<Return>", lambda e: on_yes())             # temporary key bindings
+        dialog.bind("<Escape>", lambda e: on_no())
+        dialog.focus_set()
+        parent.wait_window(dialog)
+        return result
+
+    def save_characters(self, location, content, name):     # self.save_characters("party", self.party_list, "filename")
+        if name in self.file_dict:
+            confirm = self.confirmation_box(self.save_frame, f"Do you want to overwrite the existing save in {name}?")
+            if not confirm:
+                return
+        save_file = PickleHandler(base_directory=location)  # establishes the where (root/party)
+        save_file.save_party(content, name)                 # saves file
         self.close_save_screen()
 
     def load_characters(self, location, name):    # self.load_characters("party", "Slot 1")
@@ -1385,6 +1475,9 @@ class CharacterInterface:
         self.file_dict = save_file.list_files()     # actually a dict
 
     def delete_characters(self, location, name):    # self.load_characters("party", "Slot 1")
+        confirm = self.confirmation_box(self.save_frame, f"Do you want to delete the existing save in {name}?")
+        if not confirm:
+            return
         save_file = PickleHandler(base_directory=location)
         save_file.delete_party(name)
         self.close_save_screen()
@@ -1393,7 +1486,7 @@ class CharacterInterface:
         for key in self.master.bind():                  # unbinds hotkeys
             self.master.unbind(key)                     # ...but restores <escape> key
         self.master.bind('<Escape>', lambda event: self.escape_function())
-        self.show_files("party")    # updates self.show_files
+        self.show_files("party")    # updates self.file_dict
         self.save_frame.destroy()
         self.save_frame = tk.Frame(self.master, bg='#000000')
         self.save_frame.grid_propagate(False)
@@ -1402,9 +1495,9 @@ class CharacterInterface:
             self.save_frame.grid_rowconfigure(j, weight=1, uniform=1)
         for k in range(6):
             self.save_frame.grid_columnconfigure(k, weight=1, uniform=1)
-        button_actions = {
+        button_actions = {          # builds the save slot buttons
             "save": {"command": lambda loc: self.save_characters("party", self.party_list, f"Slot {loc}"),
-                     "initial_state": "normal", "filled_state": "disabled", "empty_state": "normal"},
+                     "initial_state": "normal", "filled_state": "normal", "empty_state": "normal"},
             "load": {"command": lambda loc: self.load_characters("party", f"Slot {loc}"),
                      "initial_state": "disabled", "filled_state": "normal", "empty_state": "disabled"},
             "delete": {"command": lambda loc: self.delete_characters("party", f"Slot {loc}"),

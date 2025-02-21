@@ -79,18 +79,16 @@ def display_level(levels):  # converts the list of levels into a displayable str
 #   COMPLETE [remove_party_member isn't working properly with multi-unit parties in methods I through V]
 #   COMPLETE [add path from character sheet to party and vice versa]
 #   COMPLETE [add file management functionality]
-#   TICKETS:
-#       add a reorder button to the view party screen in bulk party gen
-#       display selected class in method V
-#       display method (I through VI) in interim screens
-#       arrow hotkeys for race/class selection
-#       confirmation window on quit / escape_function()
-#       pop out the legend in the party comp pie chart to make the fonts match
-#       level select option in method VI's generate_individual_character
-#       should 0-level characters have standardized, per-race attribute blocks?
-#           also they're coming back with bad ages (under 10 y/o)
+#   COMPLETE [add a reorder button to the view party screen in bulk party gen]
+#   COMPLETE [confirmation window on quit / escape_function()]
+#   COMPLETE [display selected class in method V]
+#   COMPLETE [display method (I through VI) in interim screens]
+#   COMPLETE [pop out the legend in the party comp pie chart to make the fonts match]
 # 4) dual-classing and bards
+#       Alignment (needed for calculating dual combination options)
 # 5) stat up 0-level humans, demi-humans & wights
+#   a) 0-level characters should have standardized racial stat blocks?
+#   b) they're coming back with bad ages (under 10 y/o)
 # 6) figure out storage/equipment fields
 #   a)	csv all armor
 #   b)  csv all weapons
@@ -105,7 +103,6 @@ def display_level(levels):  # converts the list of levels into a displayable str
 #   f)	nonlethal melee
 #   g)	miscellaneous ability/resistance definitions
 #   h)	languages
-#   i)  alignment
 # 8) combat engine
 #   a) melee weapons
 #   b) pummel / grapple / overbear

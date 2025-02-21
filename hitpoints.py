@@ -6,11 +6,9 @@ def roll(a):  # rolls a single die of "a" sides
     return random.randrange(1, a + 1)
 
 
-def hp_compute_first(hpcalcs):  # calculates starter hit points: roundup(maximum_hp/3)
-    hitpoints = 0
-    for a in range(hpcalcs[1]):
-        hitpoints += roll(hpcalcs[0]) + (hpcalcs[2])
-    return hitpoints
+def hp_compute_first(hp_data):  # calculates starter hit points: roundup(maximum_hp/3)
+    die_size, num_dice, modifier = hp_data[0], hp_data[1], hp_data[2]
+    return sum(roll(die_size) + modifier for _ in range(num_dice))
 
 
 def hp_compute_mid(hpcalcs, hp, level, incoming_level=1):  # calculates mid-level hit points and adds them to list hp

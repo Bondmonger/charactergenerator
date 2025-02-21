@@ -10,24 +10,10 @@ class PickleHandler:
         self.base_directory = base_directory
         os.makedirs(self.base_directory, exist_ok=True)     # Create the directory if it doesn't exist
 
-    def save_party(self, data: Any, filename: str, overwrite=None) -> bool:
+    def save_party(self, data: Any, filename: str) -> bool:
         if not filename.endswith('.pkl'):
             filename += '.pkl'
         filepath = os.path.join(self.base_directory, filename)
-        print(f"Saving to: {filepath}")
-        if os.path.exists(filepath):
-            if overwrite is None:
-                while True:
-                    response = input(f"File {filename} already exists. Overwrite? (y/n): ").lower()
-                    if response in {'y', 'n'}:
-                        break
-                    print("Please enter 'y' or 'n'")
-                if response == 'n':
-                    print("Save operation cancelled")
-                    return False
-            elif not overwrite:
-                print(f"File {filename} already exists and overwrite=False")
-                return False
         try:
             with open(filepath, 'wb') as file:
                 pickle.dump(data, file)

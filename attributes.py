@@ -6,12 +6,9 @@ def _roll(a):  # rolls a single die of "a" sides
     return random.randrange(1, a + 1)
 
 
-def _dice(r, s):  # Rolls "r" dice of "s" sides, returning the sum of the three highest values
-    results = []
-    for a in range(r):
-        results.append(_roll(s))
-    results.sort(reverse=True)
-    return sum(results[0:3])
+def _dice(rolls, sides):  # Rolls dice of sides "sides", returning the sum of the three highest values
+    results = [_roll(sides) for _ in range(rolls)]
+    return sum(sorted(results, reverse=True)[:3])
 
 
 def _cruncher(crunch):  # converts ints into floats with small positive decimal values in order to break ties
@@ -78,25 +75,19 @@ def _sequencer(ch_class, race):             # sequences a 3d6-to-9d6 for single-
 
 def _multi_sequencer(race, *ch_classes):                        # sequences 7 attributes via method V (3d6-to-9d6)
     if len(ch_classes[0]) == 1:
-        return _sequencer(ch_classes[0][0], race)               # _sequencer() handles single-class characters
-    else:
-        ninedsix, summed_attrs, final, ordered_list = [], [], [], [*range(3, 10, 1)]
-        for ch_class in ch_classes[0]:                          # nests method V values [[9, 3, 5, 7, 8, 6, 4], ...etc]
-            ninedsix.append(datalocus.ua_attr(ch_class))
-        for a in range(7):                                      # sums method V values by attribute ([9,7], then [3,4])
-            grouped_attrs = []
-            for method_value in ninedsix:
-                grouped_attrs.append(method_value[a])
-            grouped_attrs.sort(reverse=True)                    # sorts subgroups for tiebreakers ( 9 + 7 > 8 + 8 )
-            summed_attrs.append(sum(grouped_attrs) + 0.1 * grouped_attrs[0] + 0.01 * grouped_attrs[1])
-            summed_attrs[a] = _cruncher(summed_attrs[a]) + 10   # applies cruncher to break ties
-        ordered_list.reverse()
-        for a in range(7):
-            summed_attrs[summed_attrs.index(max(summed_attrs))] = ordered_list[a]
-        for a in range(7):                                      # rolls up via newly sequenced method V values
-            final.append(_dice(summed_attrs[a], 6))
-        racial_bonus(race, final)
-        return final
+        return _sequencer(ch_classes[0][0], race)               # handles single-class case
+    class_method_values = [datalocus.ua_attr(ch_class) for ch_class in ch_classes[0]]
+    attribute_scores = []
+    for attr_index in range(7):                                 # sums method V values by attribute ([9,7], then [3,4])
+        attr_values = [values[attr_index] for values in class_method_values]
+        attr_values.sort(reverse=True)                          # sorts subgroups for tiebreakers ( 9 + 7 > 8 + 8 )
+        weighted_sum = (sum(attr_values) + 0.1 * attr_values[0] + 0.01 * attr_values[1])
+        final_score = _cruncher(weighted_sum) + 10
+        attribute_scores.append(final_score)
+    dice_mapping = {score: dice for score, dice in
+                    zip(sorted(attribute_scores, reverse=True), range(9, 2, -1))}
+    final_scores = [_dice(dice_mapping[score], 6) for score in attribute_scores]
+    return racial_bonus(race, final_scores)
 
 
 def _prioritize(raw_attr, sequence_attr, race):     # _prioritizes raw_attr via sequence_attr
@@ -111,13 +102,7 @@ def _prioritize(raw_attr, sequence_attr, race):     # _prioritizes raw_attr via 
 
 
 def _min_merger(minimums):                         # merges any number of minimum attribute lists
-    final = []
-    for position in range(7):
-        temp = []
-        for attrib in minimums:
-            temp.append(attrib[position])
-        final.append(max(temp))
-    return final
+    return list(map(max, zip(*minimums)))
 
 
 def _deficit(mins, attrs):                          # returns current attributes minus the minimums
