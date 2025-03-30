@@ -3,10 +3,11 @@ import attributes
 import hitpoints
 import agevalues
 import heightweight
+import charalign
 import generatecharacter
 import selectclass
 import datalocus
-import time
+# import time
 
 
 def roll(b):  # rolls a single die of "b" sides
@@ -20,6 +21,7 @@ class Character:
         # print("classes: ", classes)
         self.race = selectclass.race_from_class(classes) if len(race) == 0 else race            # 'Gray Elf'
         self.classes = selectclass.random_class(self.race) if len(classes) == 0 else classes    # ['Fighter', 'Thief']
+        self.alignment = self.calculate_alignment()
         # end = time.time()
         # print('character generation duration:', end - start)
         self.attributes = attributes.methodvi(self.race, self.classes) if len(attrib_list) == 0 else attrib_list
@@ -265,6 +267,11 @@ class Character:
         class_modifier = datalocus.class_level_movement(tuple(self.level), tuple(result[1]))    # level modifier
         mv_rate = int(0.5 + (result[0][self.gender == 'female'] * class_modifier / 12))
         return mv_rate                                      # returned value is a rounded race_mod * class_mod
+
+    def calculate_alignment(self):
+        result = datalocus.race_class_alignment(self.race, tuple(self.classes))
+        alignment = charalign.get_random_weighted_alignment(result[0], result[1])
+        return alignment
 
     def assign_name(self, str_input):
         self.character_name = str_input

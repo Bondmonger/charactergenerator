@@ -100,7 +100,7 @@ class CharacterInterface:
         self.contdisp_frame.grid(row=2, column=0, rowspan=2, columnspan=6, sticky="nsew")
         self.contdisp_frame.grid_propagate(False)
         self.contdisp_frame.grid_columnconfigure(0, weight=1, uniform=1)
-        self.contdisp_frame.grid_rowconfigure(0, weight=8, uniform=1)   # wonky weights for matching selectionframe's...
+        self.contdisp_frame.grid_rowconfigure(0, weight=8, uniform=1)   # wonky weights for matching selectionframe...
         self.contdisp_frame.grid_rowconfigure(1, weight=9, uniform=1)   # ...9:1 across 3/4 of the master frame, where
         self.contdisp_frame.grid_rowconfigure(2, weight=3, uniform=1)   # ...contdisp was originally 3:3:1 across 1/2
         self.display_label_text = ''
@@ -278,12 +278,13 @@ class CharacterInterface:
                                     command=lambda increase=x: self.adjust_attribute(increase, 1), relief=tk.FLAT)
             self.button.place(height=8, width=6, x=120, y=80 + 18 * x)
         self.chright_label['text'] = "\n{}\n{} years old ({})\n\nXP: {:,}\n    {:,} xp to next level ({})\n\n{}' "\
-                                     "{}   {} lbs\n\nMovement: {}\u0022\nAlignment: \nPsionics: "\
+                                     "{}   {} lbs\n\nMovement: {}\u0022\nAlignment: {}\nPsionics: "\
             .format(self.selected_character.gender, self.selected_character.age[0], self.selected_character.age[1],
                     self.selected_character.xp, int(self.selected_character.next_level[0]) - self.selected_character.xp,
                     self.selected_character.next_level[1], int(self.selected_character.size[0] / 12),
                     str(self.selected_character.size[0] % 12) + '"' if self.selected_character.size[0] % 12 > 0 else '',
-                    str(self.selected_character.size[1]), self.selected_character.class_movement())
+                    str(self.selected_character.size[1]), self.selected_character.class_movement(),
+                    self.selected_character.alignment)
 
     def reroll(self, dummy_val=''):                 # generates a new character and refreshes label text
         self.display_text[0] = dummy_val            # look, I'm just getting rid of that argument warning
@@ -931,12 +932,12 @@ class CharacterInterface:
             selectclass.string_to_list(self.bulk_attributes["charclass"], "/")
         character_list, class_list, race_list, levels, hp_values, armor_class, thac0 = [], [], [], [], [], [], []
         strength, intelligence, wisdom, dexterity, constitution, charisma, comeliness = [], [], [], [], [], [], []
-        movement, age, height, weight, gender_count, start = [], [], [], [], [], time.time()
+        movement, age, height, weight, gender_count, start, align_list = [], [], [], [], [], time.time(), []
         for element in range(self.bulk_attributes["samplesize"]):   # generates units...
             classes = charclass.copy()                              # [copy() prevents downgrade-subsequent-units bug]
             temp_char = character.Character(self.bulk_attributes["level"], race=race, gender=gender, classes=classes)
             character_list.append(temp_char)                        # ...and appends them to character_list
-        # self.save_characters("bulk", character_list)                # saves the bulk volume
+        # self.save_characters("bulk", character_list)              # saves the bulk volume
         for aaa in character_list:                                  # generates object property stacks
             # print(aaa.__dict__)
             levels.append(np.average(aaa.level)), class_list.append(aaa.display_class), race_list.append(aaa.race)
@@ -946,6 +947,7 @@ class CharacterInterface:
             dexterity.append(aaa.attributes["Dex"]), constitution.append(aaa.attributes["Con"])
             charisma.append(aaa.attributes["Cha"]), comeliness.append(aaa.attributes["Com"]), height.append(aaa.size[0])
             weight.append(aaa.size[1]), age.append(aaa.age[0]), gender_count.append(aaa.gender)
+            align_list.append(aaa.alignment)
         # generates output column headers
         self.sub_frame = tk.Frame(master=self.frame, relief=tk.FLAT, bg='#000000')
         self.sub_frame.grid(row=1, column=3, columnspan=5, sticky='nsew')
@@ -962,13 +964,16 @@ class CharacterInterface:
         self.sub_frame.grid_propagate(False)
         self.sub_frame.grid_columnconfigure(0, weight=1, uniform=1)
         outputs = [levels, hp_values, armor_class, thac0, movement, age, height, weight, "", strength, intelligence,
-                   wisdom, dexterity, constitution, charisma, comeliness, "", class_list, race_list, gender_count]
+                   wisdom, dexterity, constitution, charisma, comeliness, "", class_list, race_list, gender_count,
+                   align_list]
         button_labels = ["level:", "hitpoints:", "armor class:", "thac0:", "movement rate:", "age:", "height:",
                          "weight:", "", "strength:", "intelligence:", "wisdom:", "dexterity:", "constitution:",
-                         "charisma:", "comeliness:", "", "class breakout", "race breakout", "gender breakout"]
+                         "charisma:", "comeliness:", "", "class breakout", "race breakout", "gender breakout",
+                         "alignment breakout"]
         data_bools = [False, False, False, False, False, False, False, False, False, False, False, False, False, False,
-                      False, False, False, True, True, True]
-        fin_output, out_units = [], ["", "", "", "", '"', "", '"', "", "", "", "", "", "", "", "", "", "", "", "", ""]
+                      False, False, False, True, True, True, True]
+        fin_output, out_units = [], ["", "", "", "", '"', "", '"', "", "", "", "", "", "", "", "", "", "", "", "", "",
+                                     ""]
         for h in outputs:
             fin_output.append(self.block_analysis(h))
         self.dub_frame = tk.Frame(master=self.frame, relief=tk.FLAT, bg='#000000')
@@ -1320,7 +1325,7 @@ class CharacterInterface:
         self.expanded_member_frame.destroy()
         self.expanded_member_frame, final_list = tk.Frame(self.master, bg='#000000'), []
         self.expanded_member_frame.grid(row=1, column=0, rowspan=3, columnspan=6, sticky="nsew")
-        for a, value in enumerate([3, 3, 1, 3, 1, 1, 1, 1, 1]):
+        for a, value in enumerate([3, 3, 1, 3, 3, 1, 1, 1, 1, 1]):
             self.expanded_member_frame.grid_columnconfigure(a, weight=value, uniform=1)
         self.expanded_member_frame.grid_rowconfigure(0, weight=1, uniform=1)
         self.expanded_member_frame.grid_rowconfigure(1, weight=1, uniform=1)
@@ -1328,6 +1333,7 @@ class CharacterInterface:
         self.frame.grid(row=0, column=0, sticky="nsew")
         display_class, display_hp, display_th, display_race = ['\nClass\n'], ['\nHP\n'], ['\nTH\n'], ['\nRace\n']
         display_move, display_dmg, display_acs, levels_d = ['\nMV\n'], ['\nDmg\n'], ['\nAC\n'], ['\nLevel\n']
+        display_align = ['\nAlignment\n']
         self.label = tk.Label(master=self.frame, borderwidth=4, fg="#FFFFFF", font=('Courier', 12), bg='#000000',
                               relief=tk.FLAT, justify="left", anchor='nw', text='Name\n')
         self.label.place(height=40, width=274, x=50, y=18)
@@ -1343,6 +1349,7 @@ class CharacterInterface:
             display_race.append('\n{}'.format(member.race))
             display_class.append('\n{}'.format(member.display_class))
             display_move.append('\n{}"'.format(member.class_movement()))
+            display_align.append('\n{}'.format(member.alignment))
             damage_bon = int(member.str_damage_bonus())
             display_dmg.append('\n{0:{1}}'.format(damage_bon, '+' if damage_bon else ''))   # ...-1, 0, +1, etc...
             levels_d.append('\n{}'.format(member.display_level))
@@ -1350,8 +1357,8 @@ class CharacterInterface:
             self.label = tk.Label(self.frame, text=str(b), bg='#000000', fg="#FFFFFF", font=('Courier', 12),
                                   relief=tk.FLAT, justify="left", anchor='w')
             self.label.place(height=18, width=274, x=52, y=40 + 18 * b)
-        display_list = [display_race, levels_d, display_class, display_hp, display_acs, display_th, display_dmg,
-                        display_move]
+        display_list = [display_race, levels_d, display_align, display_class, display_hp, display_acs, display_th,
+                        display_dmg, display_move]
         for c in display_list:
             final_list.append("".join(c))                                   # joins each vertical string
         for n, str_val in enumerate(final_list):

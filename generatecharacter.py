@@ -85,7 +85,8 @@ def display_level(levels):  # converts the list of levels into a displayable str
 #   COMPLETE [display method (I through VI) in interim screens]
 #   COMPLETE [pop out the legend in the party comp pie chart to make the fonts match]
 # 4) dual-classing and bards
-#       Alignment (needed for calculating dual combination options)
+#   COMPLETE [Alignment (blocker for calculating dual combination options)]
+#   a) dual-classing
 # 5) stat up 0-level humans, demi-humans & wights
 #   a) 0-level characters should have standardized racial stat blocks?
 #   b) they're coming back with bad ages (under 10 y/o)

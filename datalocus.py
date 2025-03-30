@@ -196,6 +196,26 @@ def race_class_movement(race, ch_classes):              # accepts ('Drow', tuple
     return result                                       # result is male/female base values with class transposer
 
 
+@lru_cache(maxsize=400)                                 # provides race/class alignment parameters
+def race_class_alignment(race, ch_classes):             # accepts ('Drow', tuple(['Cleric', 'Thief']))
+    result = ['', []]                                   # returns ['chaotic evil', ['lawful good', 'lawful neutral'...]]
+    with open(get_resource_path('attributemins.csv')) as alignments:
+        csv_data = list(csv.reader(alignments))
+        for row in csv_data:
+            if race == row[0]:
+                result[0] = row[82]                     # adds racial alignment locus
+                permitted_alignments = [align.strip() for align in row[81].split(',')]
+                result[1].append(permitted_alignments)  # adds racial alignment filter
+                break                                   # found the race, no need to continue
+        for ch_class in ch_classes:                     # iterate through each class in the tuple ch_classes argument
+            for row in csv_data:
+                if ch_class == row[0]:
+                    class_alignments = [align.strip() for align in row[81].split(',')]
+                    result[1].append(class_alignments)
+                    break                               # found the race, no need to continue
+    return result
+
+
 @lru_cache(maxsize=100)
 def class_level_movement(levels, elig):                 # calculates movement for non-armored characters
     final = []                                          # elig is a ternary transposer (0="none", 1=Monk, 2=Barb)
