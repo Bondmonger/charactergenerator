@@ -61,15 +61,15 @@ class Character:
         return displaystr
 
     # not currently in use, previously included in update_charsheet via self.selected_character.display_attributes()
-    def display_attributes(self):                                   # displays attributes in terminal
-        print("{} {} {} {} --- hp: {} | hgt: {}'{}” wgt: {} lbs  age: {} ({}) --- str: {}, int {}, wis {}, dex {}, "
-              "con {}, cha {}".format(generatecharacter.display_level(self.level), self.gender, self.race,
-                                      self.display_class, str(self.hp), str(self.size[0] / 12)[0:1],
-                                      str(self.size[0] % 12), str(self.size[1]), str(self.age[0]), self.age[1],
-                                      self.display_strength(), str(self.attributes['Int']), str(self.attributes['Wis']),
-                                      str(self.attributes['Dex']), str(self.attributes['Con']),
-                                      str(self.attributes['Cha'])))
-        return
+    # def display_attributes(self):                                   # displays attributes in terminal
+    #     print("{} {} {} {} --- hp: {} | hgt: {}'{}" wgt: {} lbs  age: {} ({}) --- str: {}, int {}, wis {}, dex {}, "
+    #           "con {}, cha {}".format('/'.join(str(level) for level in self.level), self.gender, self.race,
+    #                                   self.display_class, str(self.hp), str(self.size[0] / 12)[0:1],
+    #                                   str(self.size[0] % 12), str(self.size[1]), str(self.age[0]), self.age[1],
+    #                                   self.display_strength(), str(self.attributes['Int']), str(self.attributes['Wis']),
+    #                                   str(self.attributes['Dex']), str(self.attributes['Con']),
+    #                                   str(self.attributes['Cha'])))
+    #     return
 
     def modify_str(self, adjustment):
         max_strength = datalocus.racial_maximums(self.race)[0]     # used at the end
@@ -183,19 +183,18 @@ class Character:
         self.xp += adjustment
         return
 
-    def wightify(self):
+    def wightify(self):     # important - self.movement is the check used by class_movement to flag non-classed units
         self.hp = 3
         for a in range(4):
             self.hp += roll(8)
-        self.race, self.classes, self.next_level, self.display_level = '', ['0-level'], [0, 'Wight'], ''
-        self.display_class, self.age[1], self.xp = 'Wight', 'undead', 0
+        self.race, self.classes, self.next_level, self.alignment = 'Wight', ['0-level'], [0, 'Wight'], 'Lawful Evil'
+        self.display_class, self.age[1], self.xp, self.movement, self.display_level = '', 'undead', 0, 12, ''
         self.attributes['Str'], self.attributes['Dex'], self.attributes['Con'], self.attributes['Com'] = 10, 10, 10, 10
+        return "This character has become a WIGHT!"
 
     def calculate_level(self, adj=0):                           # also updates hit points
         if max(self.level) + adj < 1:                           # 1st level energy drain targets become wights
-            self.wightify()
-            message = "This character has become a WIGHT!"
-            return message
+            return self.wightify()
         message = ''
         current_xp_floor = max(generatecharacter.next_xp(self.classes, self.level, self.attributes, -1))
         current_xp_ceiling = min(generatecharacter.next_xp(self.classes, self.level, self.attributes))
@@ -205,7 +204,7 @@ class Character:
             lower_threshold = generatecharacter.next_xp(self.classes, self.level, self.attributes, adj - 1)[ind_pos]
             self.xp = int((lower_threshold + upper_thr) / 2)    # ...sets xp to midpoint of destination level
         if current_xp_floor <= self.xp < current_xp_ceiling:
-            return
+            return ''                                           # returns an empty string if no level change
         hp_calcs, number_of_classes = [], len(self.level)
         if self.xp >= min(generatecharacter.next_xp(self.classes, self.level, self.attributes, 1)):  # caps level-up
             self.xp = min(generatecharacter.next_xp(self.classes, self.level, self.attributes, 1)) - 1
@@ -263,10 +262,13 @@ class Character:
         return final
 
     def class_movement(self):                               # calculates movement for non-armored characters
-        result = datalocus.race_class_movement(self.race, tuple(self.classes))      # race modifier & transposer
-        class_modifier = datalocus.class_level_movement(tuple(self.level), tuple(result[1]))    # level modifier
-        mv_rate = int(0.5 + (result[0][self.gender == 'female'] * class_modifier / 12))
-        return mv_rate                                      # returned value is a rounded race_mod * class_mod
+        if hasattr(self, 'movement'):
+            return self.movement
+        else:
+            result = datalocus.race_class_movement(self.race, tuple(self.classes))      # race modifier & transpose
+            class_modifier = datalocus.class_level_movement(tuple(self.level), tuple(result[1]))    # level modifier
+            mv_rate = int(0.5 + (result[0][self.gender == 'female'] * class_modifier / 12))
+            return mv_rate                                      # returned value is a rounded race_mod * class_mod
 
     def calculate_alignment(self):
         result = datalocus.race_class_alignment(self.race, tuple(self.classes))

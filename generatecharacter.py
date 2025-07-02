@@ -84,12 +84,30 @@ def display_level(levels):  # converts the list of levels into a displayable str
 #   COMPLETE [display selected class in method V]
 #   COMPLETE [display method (I through VI) in interim screens]
 #   COMPLETE [pop out the legend in the party comp pie chart to make the fonts match]
-# 4) dual-classing and bards
-#   COMPLETE [Alignment (blocker for calculating dual combination options)]
-#   a) dual-classing
-# 5) stat up 0-level humans, demi-humans & wights
-#   a) 0-level characters should have standardized racial stat blocks?
-#   b) they're coming back with bad ages (under 10 y/o)
+#   b) convert messaging out to an event-driven system (added-to-party, level up, level down, wight)
+#       this is tougher than I expected - the timing issues aren't resolved by popping out a messaging class
+#       the first step is probably chiseling out all the locations where display_text[0] is updated
+#       that means mapping out the surrounding propagation sequences (frames, labels, contents)
+#       it would also be nice if we had (or preserved?) a display_text[0] log?
+# 4 & 5) dual-classing and bards - there's no separation, we need to deal with all this leveling stuff together
+#   COMPLETE [Alignment (a prerequisite for evaluating valid dual-class combinations)]
+#   COMPLETE [catalog all the different frame and label parameters (for pop-out)]
+#   COMPLETE [pop out global UI/UX settings]
+#   b) get wights working, ideally circumventing the rest of the create character steps
+#       I know you want to save this for later, but lots of stuff breaks whenever a wight is generated
+#   c) get 0-level humans units working properly, fixing ages (under 10 y/o) and establishing attribute blocks
+#   d) get 0-level demi-human units working properly, with code blocks from MM, MM2 and FF
+#   e) dual-classing eligibility - ideally we insert this (as a Boolean) in bulk unit generator for tuning
+#   f) we may as well do psionic eligibility as well, since we already have the field on the character sheet
+#   g) need to determine how dual-classes will be stored (separate xp field?, what about legacy hp?)
+#       one option here is to zero out xp and store prior-xp with the inactive class
+#   h) need to define a character sheet button/method for changing class
+#   i) need to establish logic for dual-classing in pre-mades
+#   j) need to build custom logic for bards (fighter to thief to bard)
+#   k) revisit cavaliers and thief acrobats
+#       cavaliers: optional 0-level path
+#       cavaliers: attribute increment rules (these should be stored as a cavalier-specific array, then applied to atts)
+#       thief-acrobats: acrobat is a prestige class (like knight) - we might have it as an option for eligible thieves
 # 6) figure out storage/equipment fields
 #   a)	csv all armor
 #   b)  csv all weapons
@@ -124,16 +142,9 @@ def clip_surplus_dict(race, attrs, excess):  # nips the tops off attributes abov
     return
 
 
-def primary_att(cha_class):                         # returns minimum attributes required for the 10% xp bonus
-    return datalocus.xp_bonus_check(cha_class)      # [-1, -1, 16, -1, -1, -1, -1]
-
-
-def bonus_check(cha_class, atts):  # checks eligibility for 10% xp boost
-    minimums = primary_att(cha_class)
-    for attribute_score in range(7):
-        if atts[attribute_score] < minimums[attribute_score]:
-            return False
-    return True
+def bonus_check(cha_class, atts):                   # checks eligibility for 10% xp boost
+    minimums = datalocus.xp_bonus_check(cha_class)  # min atts for 10% xp bonus / [-1, -1, 16, -1, -1, -1, -1]
+    return all(att >= min_att for att, min_att in zip(atts, minimums) if min_att > 0)   # FALSE if any att is below min
 
 
 def return_xp(ch_class):            # returns the complete list of xp thresholds for the input character class

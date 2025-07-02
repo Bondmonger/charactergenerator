@@ -191,7 +191,7 @@ def race_class_movement(race, ch_classes):              # accepts ('Drow', tuple
                 for male_female in range(2):            # populates racial movement [12, 12], for [male, female]
                     result[0].append(int(row[77+male_female]))
             for ch_class in ch_classes:
-                if ch_class == row[0]:                  # populates class transposer mods (1 for monk, 2 for barb)
+                if ch_class == row[0]:                  # populates transposer value (1 for monk, 2 for barb, else 0)
                     result[1].append(int(row[79]))
     return result                                       # result is male/female base values with class transposer
 
@@ -203,16 +203,16 @@ def race_class_alignment(race, ch_classes):             # accepts ('Drow', tuple
         csv_data = list(csv.reader(alignments))
         for row in csv_data:
             if race == row[0]:
-                result[0] = row[82]                     # adds racial alignment locus
+                result[0] = row[82]                     # identifies and appends racial alignment locus
                 permitted_alignments = [align.strip() for align in row[81].split(',')]
-                result[1].append(permitted_alignments)  # adds racial alignment filter
-                break                                   # found the race, no need to continue
-        for ch_class in ch_classes:                     # iterate through each class in the tuple ch_classes argument
+                result[1].append(permitted_alignments)  # identifies and appends racial alignment filter
+                break                                   # race found, no need to continue
+        for ch_class in ch_classes:                     # iterates through each class in the tuple ch_classes argument
             for row in csv_data:
                 if ch_class == row[0]:
                     class_alignments = [align.strip() for align in row[81].split(',')]
-                    result[1].append(class_alignments)
-                    break                               # found the race, no need to continue
+                    result[1].append(class_alignments)  # identifies and appends class alignment filter
+                    break                               # class found, no need to continue
     return result
 
 
