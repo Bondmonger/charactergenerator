@@ -11,7 +11,7 @@ import character
 import datalocus
 import selectclass
 import attributes
-from savegamestat import PickleHandler      # this has to be explicitly imported since it's just the class
+from savegamestat import PickleHandler      # this has to be explicitly imported
 
 
 class CharacterInterface:
@@ -31,7 +31,7 @@ class CharacterInterface:
         self.gender = "random"                  # accepts "random", "male" or "female"
         self.tk_variable = tk.IntVar()          # this is establishing type=Int for the dropdown menu in head_controls
 
-        root.option_add('*Frame.background', '#000000')     # globals
+        root.option_add('*Frame.background', '#000000')     # tkinter class globals
         root.option_add('*Label.background', '#000000')
         root.option_add('*Label.foreground', '#FFFFFF')
         root.option_add('*Label.font', ('Courier', 12))
@@ -198,6 +198,7 @@ class CharacterInterface:
         return
 
     def update_charsheet(self):
+        # print(self.selected_character.__dict__)
         self.update_character_frame()
         self.update_party_frame()
         self.display_label['text'] = self.display_text[0]
@@ -489,7 +490,7 @@ class CharacterInterface:
         self.selection_frame.destroy()
         self.update_newchar_button(self.reroll)     # sets make_another_character() to reroll()
         self.make_another_character()
-        if len(self.party_list) == 8:                # these are for party_maker() so that if we have generated an...
+        if len(self.party_list) == 8:               # these are for party_maker() so that if we have generated an...
             self.selected_character = self.party_list[0]
             self.update_character_frame()           # ...entire party we arrive at charsheet on character #1
 
@@ -1360,18 +1361,18 @@ class CharacterInterface:
                                     text="CLOSE", command=lambda: self.clear_party_popup(), bd=4)
             self.button.grid(row=3, column=0, columnspan=2, sticky='nsew')
 
-    def clear_party_popup(self):
+    def clear_party_popup(self):            # can occur from race/class select, or from charsheet, or from bulk party...
         self.temp_frame.destroy()
         self.expanded_member_frame.destroy()
         self.generate_party_frame()
-        self.display_text = ['']    # just to clear out any leftover message
+        self.display_text = ['']
         self.update_charsheet()
-        self.member_frame.lower()
+        if self.selection_body is not None:
+            self.member_frame.lower()       # ...if transitioning back to bulk party, we need to lower member_frame
 
     @staticmethod
     def confirmation_box(parent, message):
-        dialog = tk.Toplevel(parent, bg="#000000")
-        result = False
+        dialog, result = tk.Toplevel(parent, bg="#000000"), False
         dialog.geometry("300x150")
         dialog.update_idletasks()                                       # Make sure geometry is set
         x = parent.winfo_rootx() + (parent.winfo_width() // 2) - 150    # Centers on parent
@@ -1386,8 +1387,6 @@ class CharacterInterface:
             dialog.destroy()
 
         def on_no():
-            nonlocal result
-            result = False
             dialog.destroy()
 
         content_frame = tk.Frame(dialog, bg="#000000")
