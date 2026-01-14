@@ -53,9 +53,10 @@ def generate_age(race, ch_class, level):
 
 
 # start = time.time()
-# testrace = "Korobokuru"
+# testrace = "Korobokuru" 
 # testclass = ["Shukenja"]
 # a = generate_age(testrace, testclass, 2)
 # print(a)
 # end = time.time()
 # print('duration:', end-start)
+
