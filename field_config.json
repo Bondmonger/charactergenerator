@@ -1,0 +1,81 @@
+{
+  "basic_info": {
+    "name": { "column": "Entry name", "type": "simple" },
+    "creature_type": { "column": "Creature", "type": "simple" },
+    "frequency": { "column": "frequency", "type": "simple" },
+    "appearance_range": {
+      "columns": ["min\nApp", "max\nApp"],
+      "type": "range"
+    },
+    "alignment": { "column": "Align.", "type": "simple" },
+    "mob_type": { "column": "Type(s)", "type": "simple" }
+  },
+
+  "size": {
+    "size": {
+      "columns": ["size", "length", "dimension", "weight"],
+      "type": "multi_field"
+    }
+  },
+
+  "combat": {
+    "ac": { "column": "AC", "type": "simple" },
+    "hit_dice": {
+      "columns": ["d2", "d3", "d4", "d5", "d6", "d7", "d8", "d10", "d12", "+"],
+      "type": "multi_field"
+    },
+    "hd_thac0": { "column": "HD (Thac0)", "type": "simple" },
+    "hd_saves": { "column": "Eff. Level", "type": "simple" },
+    "thac0": { "column": "Thac0", "type": "simple" },
+    "attacks": {
+      "type": "correlated",
+      "columns": ["Attack type(s)", "damage"],
+      "parser": "parse_attacks"
+    }
+  },
+
+  "abilities": {
+    "strength": { "column": "Str", "type": "simple" },
+    "intelligence": {
+      "columns": ["intMn", "intMx"],
+      "type": "range"
+    },
+    "wisdom": {
+      "columns": ["wisMin", "wisMx"],
+      "type": "range"
+    }
+  },
+
+  "movement": {
+    "movement": {
+      "columns": ["mov", "fly", "swm", "brw", "web", "MC"],
+      "type": "multi_field"
+    }
+  },
+
+  "special": {
+    "treasure": { "column": "Treasure", "type": "simple" },
+    "special_abilities": {
+      "column": "Special Abilities",
+      "type": "simple"
+    }
+  },
+
+  "experience_value": {
+    "xp_base": { "column": "XPbase", "type": "simple" },
+    "xp_plus": { "column": "XPplus", "type": "simple" },
+    "monster_level": { "column": "Level", "type": "simple" }
+  },
+
+  "class_levels": {
+    "class_levels": {
+      "type": "multi_field",
+      "columns": [
+        "Monster", "Fighter", "Paladin", "Ranger", "Bushi",
+        "Oriental Barbarian", "Samurai", "Cleric", "Druid",
+        "Shukenja", "Shaman", "Monk", "Thief", "Assassin",
+        "Magic User", "Illusionist", "Wu-jen", "Witchdoctor"
+      ]
+    }
+  }
+}
