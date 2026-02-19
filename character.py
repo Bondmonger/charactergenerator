@@ -7,7 +7,15 @@ import charalign
 import generatecharacter
 import selectclass
 import datalocus
+from enum import Enum
 # import time
+
+
+class CharacterEventType(Enum):                         # events emitted by Character operations
+    CHARACTER_RENAMED, XP_AWARDED, LEVEL_CHANGED = \
+        "character_renamed", "xp_awarded", "level_changed"
+    ATTRIBUTE_CHANGED, AGE_CHANGED, CHARACTER_TRANSFORMED = \
+        "attribute_changed", "age_changed", "character_transformed"
 
 
 def roll(b):  # rolls a single die of "b" sides
@@ -15,8 +23,9 @@ def roll(b):  # rolls a single die of "b" sides
 
 
 class Character:
-    def __init__(self, level=1, race='', gender='random', classes=(), attrib_list=()):
+    def __init__(self, level=1, race='', gender='random', classes=(), attrib_list=(), event_bus=None):
         # start = time.time()
+        self.event_bus = event_bus                      # optional EventBus for domain event emission
         self.character_name = ''
         # print("classes: ", classes)
         self.race = selectclass.race_from_class(classes) if len(race) == 0 else race            # 'Gray Elf'
@@ -50,6 +59,39 @@ class Character:
         self.hp = generatecharacter.flatten(self.hp_history)
         return
 
+    def change_attribute(self, attr: str, adjustment: int) -> None:  # public domain wrapper for modify_attribute
+        old_value = self.attributes[attr]
+        self.modify_attribute(attr, adjustment)
+        if self.event_bus:
+            self.event_bus.emit(CharacterEventType.ATTRIBUTE_CHANGED, {
+                'character': self, 'name': self.character_name,
+                'attr': attr, 'old_value': old_value, 'new_value': self.attributes[attr]})
+
+    def rename(self, new_name: str) -> None:            # renames character and emits CHARACTER_RENAMED event
+        old_name = self.character_name
+        self.character_name = new_name
+        if self.event_bus:
+            self.event_bus.emit(CharacterEventType.CHARACTER_RENAMED, {
+                'character': self, 'old_name': old_name, 'new_name': new_name})
+
+    def award_xp(self, amount: int) -> str:             # awards xp, recalculates level, emits events
+        self.modify_xp(amount)
+        message = self.calculate_level(0)
+        if self.event_bus:
+            self.event_bus.emit(CharacterEventType.XP_AWARDED, {
+                'character': self, 'name': self.character_name, 'amount': amount, 'total_xp': self.xp})
+            if message:
+                self.event_bus.emit(CharacterEventType.LEVEL_CHANGED, {
+                    'character': self, 'name': self.character_name, 'message': message, 'level': self.level})
+        return message
+
+    def drain_level(self) -> str:                       # drains one level and emits LEVEL_CHANGED event
+        message = self.calculate_level(-1)
+        if self.event_bus and message:
+            self.event_bus.emit(CharacterEventType.LEVEL_CHANGED, {
+                'character': self, 'name': self.character_name, 'message': message, 'level': self.level})
+        return message
+
     def display_strength(self):                                     # calculates a displayable strength
         archetypes = []
         for character_class in self.classes:
@@ -59,17 +101,6 @@ class Character:
         else:
             displaystr = str(self.attributes['Str'])
         return displaystr
-
-    # not currently in use, previously included in update_charsheet via self.selected_character.display_attributes()
-    # def display_attributes(self):                                   # displays attributes in terminal
-    #     print("{} {} {} {} --- hp: {} | hgt: {}'{}" wgt: {} lbs  age: {} ({}) --- str: {}, int {}, wis {}, dex {}, "
-    #           "con {}, cha {}".format('/'.join(str(level) for level in self.level), self.gender, self.race,
-    #                                   self.display_class, str(self.hp), str(self.size[0] / 12)[0:1],
-    #                                   str(self.size[0] % 12), str(self.size[1]), str(self.age[0]), self.age[1],
-    #                                   self.display_strength(), str(self.attributes['Int']), str(self.attributes['Wis']),
-    #                                   str(self.attributes['Dex']), str(self.attributes['Con']),
-    #                                   str(self.attributes['Cha'])))
-    #     return
 
     def modify_str(self, adjustment):
         max_strength = datalocus.racial_maximums(self.race)[0]     # used at the end
@@ -175,6 +206,11 @@ class Character:
                 self.modify_attribute(k, v)
             if self.age[0] > self.age[4]:
                 self.age[1] = "dead"
+            if self.event_bus:
+                self.event_bus.emit(CharacterEventType.AGE_CHANGED, {
+                    'character': self, 'name': self.character_name,
+                    'old_category': starting_category, 'new_category': self.age[1],
+                    'age': self.age[0]})
         return
 
     def modify_xp(self, adjustment):
@@ -190,9 +226,14 @@ class Character:
         self.race, self.classes, self.next_level, self.alignment = 'Wight', ['0-level'], [0, 'Wight'], 'Lawful Evil'
         self.display_class, self.age[1], self.xp, self.movement, self.display_level = '', 'undead', 0, 12, ''
         self.attributes['Str'], self.attributes['Dex'], self.attributes['Con'], self.attributes['Com'] = 10, 10, 10, 10
-        return "This character has become a WIGHT!"
+        message = "This character has become a WIGHT!"
+        if self.event_bus:
+            self.event_bus.emit(CharacterEventType.CHARACTER_TRANSFORMED, {
+                'character': self, 'name': self.character_name,
+                'message': message, 'transformation': 'wight'})
+        return message
 
-    def calculate_level(self, adj=0):                           # also updates hit points
+    def calculate_level(self, adj=0):                           # adj is either -1 or 0 / also updates hit points
         if max(self.level) + adj < 1:                           # 1st level energy drain targets become wights
             return self.wightify()
         message = ''
@@ -274,10 +315,6 @@ class Character:
         result = datalocus.race_class_alignment(self.race, tuple(self.classes))
         alignment = charalign.get_random_weighted_alignment(result[0], result[1])
         return alignment
-
-    def assign_name(self, str_input):
-        self.character_name = str_input
-
 
 # some_dude = Character(level=5, race="Halfling", classes=['Fighter', 'Thief'],
 #                       attrib_list=[{'Str': 1, 'Int': 13, 'Wis': 9, 'Dex': 15, 'Con': 18, 'Cha': 11, 'Com': 4},

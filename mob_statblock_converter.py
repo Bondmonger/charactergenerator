@@ -3,7 +3,7 @@ import json
 import argparse
 from typing import Dict, List, Any, Union
 
-#   in Terminal, use:
+#   requires field_config.py. in Terminal, use:
 #       python mob_statblock_converter.py "monster manual index (NPC_test).xlsx" "2-4, 11, 15, 2365"
 #       python mob_statblock_converter.py "monster manual index (NPC_test).xlsx" "1-2392"
 
@@ -65,6 +65,7 @@ class GeneralizedMonsterConverter:
             raise ValueError(f"Missing correlated parser: {parser_name}")
         return parser(row, cfg['columns'])
 
+    @staticmethod
     def parse_attacks(self, row: pd.Series, columns: List[str]) -> List[Dict[str, str]]:
         attacks = []
         if len(columns) != 2:

@@ -84,35 +84,42 @@ def display_level(levels):  # converts the list of levels into a displayable str
 #   COMPLETE [display selected class in method V]
 #   COMPLETE [display method (I through VI) in interim screens]
 #   COMPLETE [pop out the legend in the party comp pie chart to make the fonts match]
-#   b) convert messaging out to an event-driven system (added-to-party, level up, level down, wight)
-#       this is tougher than I expected - the timing issues aren't resolved by popping out a messaging class
-#       the first step is probably chiseling out all the locations where display_text[0] is updated
-#       that means mapping out the surrounding propagation sequences (frames, labels, contents)
-#       it would also be nice if we had (or preserved?) a display_text[0] log?
-# 4 & 5) dual-classing and bards - there's no separation, we need to deal with all this leveling stuff together
 #   COMPLETE [Alignment (a prerequisite for evaluating valid dual-class combinations)]
 #   COMPLETE [catalog all the different frame and label parameters (for pop-out)]
 #   COMPLETE [pop out global UI/UX settings]
+#   COMPLETE [catalog all locations where display_text[0] is updated]
+# 4 & 5) dual-classing and bards - there's no separation, we need to deal with all this leveling stuff together
+#   a) convert messaging out to an event-driven system (added-to-party, level up, level down, wight)
+#       1) introduce event system
+#       2) extract Party into a domain class
+#       3) replace display_text[0] with log system
+#       4) convert mutations to emit events
+#       5) make Tkinter reactive
 #   b) get wights working, ideally circumventing the rest of the create character steps
-#       I know you want to save this for later, but lots of stuff breaks whenever a wight is generated
-#   c) get 0-level humans units working properly, fixing ages (under 10 y/o) and establishing attribute blocks
-#   d) get 0-level demi-human units working properly, with code blocks from MM, MM2 and FF
-#   e) dual-classing eligibility - ideally we insert this (as a Boolean) in bulk unit generator for tuning
-#   f) we may as well do psionic eligibility as well, since we already have the field on the character sheet
-#   g) need to determine how dual-classes will be stored (separate xp field?, what about legacy hp?)
-#       one option here is to zero out xp and store prior-xp with the inactive class
-#   h) need to define a character sheet button/method for changing class
-#   i) need to establish logic for dual-classing in pre-mades
-#   j) need to build custom logic for bards (fighter to thief to bard)
-#   k) revisit cavaliers and thief acrobats
-#       cavaliers: optional 0-level path
-#       cavaliers: attribute increment rules (these should be stored as a cavalier-specific array, then applied to atts)
-#       thief-acrobats: acrobat is a prestige class (like knight) - we might have it as an option for eligible thieves
+#       1) standardize the 'size' field, converting to letter size (S/M/L), height/length, weight
+#       2) stat block from MM
+#   c)  0-level units
+#       1) fix age calculations (under 10 y/o)
+#       2) establish default attribute blocks
+#       3) stat blocks from MM, MM2 and FF
+#   d) eligibility
+#       1) dual-classing - ideally we insert this (as a Boolean) in bulk unit generator for tuning
+#           i. how are xp stored? (zero out xp and store prior-xp with the inactive class?)
+#           ii. how are legacy hp stored?
+#           iii. define a character sheet button & method for dual-classing
+#           iv. need to establish logic for dual-classing in NPCs
+#           v.  custom logic
+#               A. bards (fighter to thief to bard)
+#               B. cavalier (optional 0-level path, incrementing attributes)
+#                   stored as cavalier-specific array, then applied to atts
+#               C. thief-acrobat (as prestige class, similar to knights, option for mid-level thieves)
+#       2) psionics
+#           calculate psionic strength
 # 6) figure out storage/equipment fields
 #   a)	csv all armor
 #   b)  csv all weapons
 #   c)	weapon proficiencies
-#   d)	multi-attack (does this belong in the class abilities?)
+#   d)	multi-attack (does this an ability or is it a unit attribute?)
 # 7) special abilities
 #   a)	csv all spells
 #   b)  logic for spells per level
@@ -124,8 +131,6 @@ def display_level(levels):  # converts the list of levels into a displayable str
 #   h)	languages
 # 8) combat engine
 #   a) melee weapons
-#   b) pummel / grapple / overbear
-#   c) psionics
 #   d) missile weapons
 #   e) martial arts
 

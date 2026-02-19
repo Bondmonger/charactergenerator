@@ -11,18 +11,24 @@ import character
 import datalocus
 import selectclass
 import attributes
+from gameevents import EventBus
+from party import Party, PartyEventType
+from character import CharacterEventType
 from savegamestat import PickleHandler      # this has to be explicitly imported
 
 
 class CharacterInterface:
     def __init__(self, master, level=1):
-        self.party_list = []
+        self.event_bus = EventBus()                     # creates event bus
+        self.party = Party(event_bus=self.event_bus)    # creates party using event bus
+        self._setup_party_event_listeners()             # subscribes to party events
+        self._setup_character_event_listeners()         # subscribes to character events
         self.display_text = ['']
         self.level = level
         self.minmaxlevel = {"min": level, "max": level}       # only used during full party gen
         self.bulk_attributes = {"level": 1, "charclass": "ANY", "race": "ANY", "gender": "ANY", "samplesize": 1000}
         self.master = master
-        self.selected_character = character.Character(self.level)
+        self.selected_character = character.Character(self.level, event_bus=self.event_bus)
         self.master.attributes('-fullscreen', True)
         self.master.title("Interface Template")
         self.master.configure(relief=tk.RIDGE, bd=16)
@@ -197,6 +203,72 @@ class CharacterInterface:
         self.make_another_character = self.reroll   # self.m_a_c()
         return
 
+    def _setup_party_event_listeners(self):         # subscribes to party domain events
+        self.event_bus.subscribe(PartyEventType.MEMBER_ADDED, self._on_member_added)
+        self.event_bus.subscribe(PartyEventType.MEMBER_REMOVED, self._on_member_removed)
+        self.event_bus.subscribe(PartyEventType.PARTY_REORDERED, self._on_party_reordered)
+        self.event_bus.subscribe(PartyEventType.PARTY_SORTED, self._on_party_sorted)
+        self.event_bus.subscribe(PartyEventType.PARTY_CLEARED, self._on_party_cleared)
+
+    def _setup_character_event_listeners(self):     # subscribes to character domain events
+        self.event_bus.subscribe(CharacterEventType.CHARACTER_RENAMED, self._on_character_renamed)
+        self.event_bus.subscribe(CharacterEventType.XP_AWARDED, self._on_xp_awarded)
+        self.event_bus.subscribe(CharacterEventType.LEVEL_CHANGED, self._on_level_changed)
+        self.event_bus.subscribe(CharacterEventType.ATTRIBUTE_CHANGED, self._on_attribute_changed)
+        self.event_bus.subscribe(CharacterEventType.AGE_CHANGED, self._on_age_changed)
+        self.event_bus.subscribe(CharacterEventType.CHARACTER_TRANSFORMED, self._on_character_transformed)
+
+    def _on_character_renamed(self, event):         # handles CHARACTER_RENAMED event
+        old, new = event.data['old_name'], event.data['new_name']
+        if old:
+            self.display_text[0] = f"{old} is now {new}"
+        else:
+            self.display_text[0] = f"{new}'s name has been assigned"
+        print(f"[EVENT] Character renamed: {old!r} -> {new!r}")
+
+    def _on_xp_awarded(self, event):                # handles XP_AWARDED event
+        name, amount = event.data['name'], event.data['amount']
+        print(f"[EVENT] {name} awarded {amount} xp (total: {event.data['total_xp']})")
+
+    def _on_level_changed(self, event):             # handles LEVEL_CHANGED event
+        self.display_text[0] = event.data['message']
+        print(f"[EVENT] Level changed: {event.data['message']}")
+
+    def _on_attribute_changed(self, event):         # handles ATTRIBUTE_CHANGED event (silent)
+        print(f"[EVENT] {event.data['name']} {event.data['attr']}: "
+              f"{event.data['old_value']} -> {event.data['new_value']}")
+
+    def _on_age_changed(self, event):               # handles AGE_CHANGED event (silent)
+        print(f"[EVENT] {event.data['name']} age category: "
+              f"{event.data['old_category']} -> {event.data['new_category']}")
+
+    def _on_character_transformed(self, event):     # handles CHARACTER_TRANSFORMED event
+        self.display_text[0] = event.data['message']
+        print(f"[EVENT] Character transformed: {event.data['message']}")
+
+    def _on_member_added(self, event):              # handles MEMBER_ADDED event
+        name = event.data['name']
+        self.display_text[0] = f"{name} has been added to the party"
+        print(f"[EVENT] Member added: {name}")      # For debugging
+
+    def _on_member_removed(self, event):            # handles MEMBER_REMOVED event
+        name = event.data['name']
+        self.display_text[0] = f"{name} has been removed from the party"
+        print(f"[EVENT] Member removed: {name}")    # For debugging
+
+    def _on_party_reordered(self, event):           # handles PARTY_REORDERED event
+        name = event.data['name']
+        old_pos = event.data['old_position'] + 1    # Converts to 1-indexed for display
+        new_pos = event.data['new_position'] + 1
+        print(f"[EVENT] {name} moved from position {old_pos} to {new_pos}")
+
+    def _on_party_sorted(self, event):              # handles PARTY_SORTED event
+        print(f"[EVENT] Party sorted by combat value")
+
+    def _on_party_cleared(self, event):             # handles PARTY_CLEARED event
+        count = event.data['count']
+        print(f"[EVENT] Party cleared ({count} members removed)")
+
     def update_charsheet(self):
         # print(self.selected_character.__dict__)
         self.update_character_frame()
@@ -227,23 +299,23 @@ class CharacterInterface:
         display_acs, display_hps, display_th = 'AC', 'HP', 'TH'
         display_names = tk.Label(master=self.party_frame, anchor='w', justify="left", text='   Members')
         display_names.place(x=5, y=4, height=20, relwidth=1.0)
-        for a, member in enumerate(self.party_list, 1):             # constructs member buttons
+        for a, member in enumerate(self.party, 1):             # constructs member buttons
             display_names = tk.Button(self.party_frame, text='\u0332{}  {}'.format(str(a), member.character_name),
                                       relief=tk.FLAT, justify="left", anchor='w',
-                                      command=lambda pos=a: self.refresh(self.party_list[pos - 1]))
+                                      command=lambda pos=a: self.refresh(self.party.get_member(pos - 1)))
             display_names.place(x=3, y=5 + 18 * a, height=18, relwidth=1.0)
             display_hps += '\n{}'.format(member.hp)                 # updates attribute column text
             display_acs += '\n{}'.format(10 + member.calculate_ac())
             display_th += '\n{}'.format(20 + member.calculate_thaco())
-        for b in range(len(self.party_list) + 1, 9):                # constructs placeholders for empty member slots
+        for b in range(len(self.party) + 1, 9):                # constructs placeholders for empty member slots
             display_names = tk.Label(self.party_frame, text=str(b), justify="left", anchor='w')
             display_names.place(x=5, y=5 + 18 * b, height=18, relwidth=1)
         if not buttons:                                             # temporarily overwrites self.party_frame
             self.method_label = tk.Label(master=self.party_frame, bd=4, justify="left", anchor='nw', padx=4)
             nonbutton_names = '   Members'
-            for a, member in enumerate(self.party_list, 1):
+            for a, member in enumerate(self.party, 1):
                 nonbutton_names += '\n\u0332{}  {}'.format(str(a), member.character_name)
-            for b in range(len(self.party_list) + 1, 9):
+            for b in range(len(self.party) + 1, 9):
                 nonbutton_names += '\n{}'.format(str(b))
             self.method_label.configure(text=nonbutton_names)
             self.method_label.pack(fill="both")                     # THIS LABEL MUST LATER BE MANUALLY DESTROYED
@@ -279,7 +351,7 @@ class CharacterInterface:
 
     def reroll(self, dummy_val=''):                 # generates a new character and refreshes label text
         self.display_text[0] = dummy_val            # look, I'm just getting rid of that argument warning
-        self.selected_character = character.Character(self.level)
+        self.selected_character = character.Character(self.level, event_bus=self.event_bus)
         self.nonmember_buttons()
         self.update_charsheet()                     # this is the only char-gen method that doesn't unbind hotkeys
 
@@ -289,7 +361,7 @@ class CharacterInterface:
         control_panel_buttons = self.control_label.pack_slaves()
         for y in control_panel_buttons:             # forgets all buttons
             y.pack_forget()
-        for i, member in enumerate(self.party_list, 1):
+        for i, member in enumerate(self.party, 1):
             self.bind_member(i)                     # re-binds party index positions
         self.new_button.pack(side='left')           # restores buttons
         self.re_name.pack(side='left')
@@ -301,7 +373,7 @@ class CharacterInterface:
             self.master.bind('D', lambda event: self.drain())
             self.master.bind('x', lambda event: self.boost())
             self.master.bind('X', lambda event: self.boost())
-        if len(self.party_list) > 1:                # re-binds hotkeys
+        if len(self.party) > 1:                # re-binds hotkeys
             self.marching_order.pack(side='left')
             self.master.bind('o', lambda event: self.arrange_party(self.selected_character))
             self.master.bind('O', lambda event: self.arrange_party(self.selected_character))
@@ -323,11 +395,11 @@ class CharacterInterface:
         control_panel_buttons = self.control_label.pack_slaves()
         for y in control_panel_buttons:
             y.pack_forget()
-        for i, member in enumerate(self.party_list, 1):
+        for i, member in enumerate(self.party, 1):
             self.bind_member(i)                     # re-binds party index positions
         self.new_button.pack(side='left')
         self.re_name.pack(side='left')
-        if len(self.party_list) < 8:
+        if len(self.party) < 8:
             self.add_button.pack(side='left')
         if self.selected_character.display_class:   # if the unit's "display_class" field has a non-null value...
             self.drain_button.pack(side='left')
@@ -360,21 +432,20 @@ class CharacterInterface:
         self.update_charsheet()
 
     def drain(self):                                        # drains one level from current character
-        self.display_text[0] = str(self.selected_character.calculate_level(-1))
+        self.selected_character.drain_level()
         self.update_charsheet()
-        self.member_buttons() if self.selected_character in self.party_list else self.nonmember_buttons()
+        self.member_buttons() if self.selected_character in self.party else self.nonmember_buttons()
         self.display_text[0] = ''
 
     def boost(self):                                        # awards 1,000 xp to current character
-        self.selected_character.modify_xp(1000)
-        self.display_text[0] = self.selected_character.calculate_level(0)
+        self.selected_character.award_xp(1000)
         self.update_charsheet()
-        self.member_buttons() if self.selected_character in self.party_list else self.nonmember_buttons()
+        self.member_buttons() if self.selected_character in self.party else self.nonmember_buttons()
         self.display_text[0] = ''
 
     def adjust_attribute(self, attr, adj):                  # modifies an attribute by the value of adj
         attr_list = ['Str', 'Int', 'Wis', 'Dex', 'Con', 'Cha', 'Com']
-        self.selected_character.modify_attribute(attr_list[attr], adj)
+        self.selected_character.change_attribute(attr_list[attr], adj)
         self.update_charsheet()
 
     def stacked_attrs(self):                    # generates text for display_label
@@ -384,30 +455,25 @@ class CharacterInterface:
             temp = temp + "{}: {}\n".format(a, self.selected_character.attributes[a])
         return temp
 
-    def remove_party_member(self):              # removes current character from party
-        if len(self.party_list) > 0 and self.selected_character in self.party_list:
-            self.master.unbind(len(self.party_list))
-            self.party_list.remove(self.selected_character)
-            temp_name = self.selected_character.character_name
+    def remove_party_member(self):
+        if self.party.remove_member(self.selected_character):
+            self.master.unbind(len(self.party) + 1)         # +1 because we removed after getting length
             self.make_another_character()
-            self.display_text[0] = "{} has been removed from the party".format(temp_name)
             if self.make_another_character == self.reroll:  # it seems like we always want update_charsheet(), but...
                 self.update_charsheet()                     # ...if we do, member_frame lingers on new_char I-V
 
     def add_party_member(self):                 # adds current character to party
-        if len(self.party_list) < 8 and self.selected_character not in self.party_list:
-            self.party_list.append(self.selected_character)
+        if self.party.add_member(self.selected_character):
             self.select_name(add_member=True)
 
     def bind_member(self, party_index):          # binds a number key to current character's
-        self.master.bind(party_index, lambda event: self.refresh(self.party_list[party_index-1]))
+        self.master.bind(party_index, lambda event: self.refresh(self.party.get_member(party_index-1)))
 
     def party_screen_bind(self, party_index):
-        self.master.bind(party_index, lambda event: self.party_to_charsheet(self.party_list[party_index-1]))
+        self.master.bind(party_index, lambda event: self.party_to_charsheet(self.party.get_member(party_index-1)))
 
     def select_name(self, add_member=False):                # creates field for assigning character name
-        if add_member and len(self.selected_character.character_name) > 0:      # (1/4) named non-member (ADD=True)
-            self.display_text[0] = "{} has been added to the party".format(self.selected_character.character_name)
+        if add_member and len(self.selected_character.character_name) > 0:      # (1 of 4) named non-member (ADD=True)
             self.update_charsheet()
             self.member_buttons()
         else:
@@ -426,20 +492,14 @@ class CharacterInterface:
             self.name_slot.focus_set()                      # places cursor in input field
             self.master.bind('<Return>', lambda event: self.name_character(add_member))
 
-    def name_character(self, add_member=False):             # names character
-        temp_n = self.name_slot.get()                       # captures name text...
-        if add_member and len(self.selected_character.character_name) == 0:     # (2/4) unnamed non-member (ADD=True)
-            self.display_text[0] = "{} has been added to the party".format(temp_n)
-        elif len(self.selected_character.character_name) == 0:                  # (3/4) unnamed non-member (ADD=False)
-            self.display_text[0] = "{}'s name has been assigned".format(temp_n)
-        else:                                                                   # (4/4) update name (ADD=False)
-            self.display_text[0] = "{} is now {}".format(self.selected_character.character_name, temp_n)
-        self.selected_character.assign_name(temp_n)
+    def name_character(self, add_member=False):         # names character
+        temp_n = self.name_slot.get()                   # captures name text...
+        self.selected_character.rename(temp_n)          # domain method sets name and emits CHARACTER_RENAMED event
         self.method_label.destroy()                     # manual rem. of temp label (update_party_frame(buttons=False))
         # self.close_selection_frame.configure(state='normal')     # restoration of main menu button
         self.update_charsheet()                         # update_charsheet()
-        self.member_buttons() if self.selected_character in self.party_list else self.nonmember_buttons()
-        for i, member in enumerate(self.party_list, 1):
+        self.member_buttons() if self.selected_character in self.party else self.nonmember_buttons()
+        for i, member in enumerate(self.party, 1):
             self.bind_member(i)                         # re-binds party hotkeys
         self.master.unbind('<Return>')                  # releases <Return> key
         self.display_text[0] = ''
@@ -455,20 +515,27 @@ class CharacterInterface:
         for key in self.master.bind():
             self.master.unbind(key)                     # unbinds hotkeys
         self.control_label['text'] = "  Assign {}'s new position with a NUMBER key (1 through {})"\
-            .format(selected_character.character_name, len(self.party_list))
-        for position, member in enumerate(self.party_list):
+            .format(selected_character.character_name, len(self.party))
+        for position, member in enumerate(self.party):
             self.intermediate_move(position)        # passes user to intermediate function to re-bind number keys
 
     def intermediate_move(self, position):          # binds number keys to helper function
         self.master.bind(position + 1, lambda event: self.move_member(position))
 
     def move_member(self, position):                # moves selected_character and removes control label text
+        self.party.move_member(self.selected_character, position)
         self.method_label.destroy()                 # manual rem. of temp label (update_party_frame(buttons=False))
-        # self.close_selection_frame.configure(state='normal')     # restoration of main menu button
-        self.party_list.insert(position, self.party_list.pop(self.party_list.index(self.selected_character)))
         self.control_label['text'] = ''             # move_member() is a helper method to intermediate_move()
         self.member_buttons()                       # ...for preserving the assignments through the incrementer
         self.update_charsheet()
+
+    # def move_member(self, position):                # moves selected_character and removes control label text
+    #     self.method_label.destroy()                 # manual rem. of temp label (update_party_frame(buttons=False))
+    #     # self.close_selection_frame.configure(state='normal')     # restoration of main menu button
+    #     self.party_list.insert(position, self.party_list.pop(self.party_list.index(self.selected_character)))
+    #     self.control_label['text'] = ''             # move_member() is a helper method to intermediate_move()
+    #     self.member_buttons()                       # ...for preserving the assignments through the incrementer
+    #     self.update_charsheet()
 
     def clbutt(self):
         self.attributes_frame.destroy()             # only necessary when returning from selection screen
@@ -490,8 +557,8 @@ class CharacterInterface:
         self.selection_frame.destroy()
         self.update_newchar_button(self.reroll)     # sets make_another_character() to reroll()
         self.make_another_character()
-        if len(self.party_list) == 8:               # these are for party_maker() so that if we have generated an...
-            self.selected_character = self.party_list[0]
+        if len(self.party) == 8:               # these are for party_maker() so that if we have generated an...
+            self.selected_character = self.party.get_member(0)
             self.update_character_frame()           # ...entire party we arrive at charsheet on character #1
 
     def common_header_elements(self):
@@ -982,7 +1049,7 @@ class CharacterInterface:
         self.create_main_menu_button(self.selection_frame)
 
     def party_maker(self):          # this generates the "Full Party" control frame
-        self.party_list = []
+        self.party.clear()
         self.selection_body.destroy()
         self.selection_body = tk.Frame(master=self.selection_frame, bd=4)
         self.selection_body.grid(row=0, column=0, sticky="nsew")
@@ -1015,11 +1082,16 @@ class CharacterInterface:
         self.button.pack(expand=True, fill='both')
         self.create_main_menu_button(self.selection_frame)
 
-    def make_party(self):                       # this advances "Full Party" control frame to the results interface
-        self.party_list, level = [], 1
+    def make_party(self):
+        self.party.clear()                      # clears existing party, but why are we dropping level = 1?
         for unit in range(8):                   # generates fully-random party
             level = random.randrange(self.minmaxlevel['min'], self.minmaxlevel['max'] + 1)
-            self.party_list.append(character.Character(level))
+            self.party.add_member(character.Character(level, event_bus=self.event_bus))
+    # def make_party(self):                       # this advances "Full Party" control frame to the results interface
+    #     self.party_list, level = [], 1
+    #     for unit in range(8):                   # generates fully-random party
+    #         level = random.randrange(self.minmaxlevel['min'], self.minmaxlevel['max'] + 1)
+    #         self.party_list.append(character.Character(level))
         for butt_name, row_loc, command_def in zip(["REROLL", "VIEW PARTY", "PROCEED TO\nCHARACTER SHEET"], [3, 7, 5],
                                                    [self.make_party, self.party_frame_popup, self.startframe_close]):
             self.frame = tk.Frame(self.selection_body)
@@ -1031,7 +1103,7 @@ class CharacterInterface:
         self.frame.pack_propagate(False)        # if disabled/changed to grid_prop- the window starts resizing
         self.frame.grid(row=3, column=10, rowspan=7, columnspan=7, sticky='nsew')
         arch_list, arch_dict = [], {"Cleric": 0, "Fighter": 0, "Magic User": 0, "Thief": 0}
-        for char in self.party_list:            # populates arch_dict with a proportional archetype count
+        for char in self.party:                 # populates arch_dict with a proportional archetype count
             for sub_class in char.classes:
                 arch_list.append(datalocus.archetype(sub_class))
                 arch_dict[datalocus.archetype(sub_class)] += 1 / len(char.classes)
@@ -1216,7 +1288,8 @@ class CharacterInterface:
         # print("charsheet_transition pre-list format: ", charclass)
         class_list = selectclass.string_to_list(charclass, '/')
         self.selected_character = character.Character(level=self.level, race=charrace, classes=class_list,
-                                                      attrib_list=formatted_atts, gender=self.gender)
+                                                      attrib_list=formatted_atts, gender=self.gender,
+                                                      event_bus=self.event_bus)
         # print("charsheet_transition class format: ", class_list)
         self.selection_frame.destroy()
         self.attributes_frame.destroy()
@@ -1284,10 +1357,10 @@ class CharacterInterface:
         display_align = ['\nAlignment\n']
         self.label = tk.Label(master=self.frame, bd=4, justify="left", anchor='nw', text='Name\n')
         self.label.place(height=40, width=274, x=50, y=18)
-        for a, member in enumerate(self.party_list, 1):
+        for a, member in enumerate(self.party, 1):
             self.button = tk.Button(self.frame, text='\u0332{}  {}'.format(str(a), member.character_name),
-                                    relief=tk.FLAT, justify="left",
-                                    command=lambda pos=a: self.party_to_charsheet(self.party_list[pos - 1]), anchor='w')
+                                    relief=tk.FLAT, justify="left", anchor='w',
+                                    command=lambda pos=a: self.party_to_charsheet(self.party.get_member(pos - 1)))
             self.button.place(height=18, width=274, x=50, y=40 + 18 * a)
             self.party_screen_bind(a)         # where the hell do these un-bind?
             display_hp.append('\n{}'.format(member.hp))
@@ -1300,7 +1373,7 @@ class CharacterInterface:
             damage_bon = int(member.str_damage_bonus())
             display_dmg.append('\n{0:{1}}'.format(damage_bon, '+' if damage_bon else ''))   # ...-1, 0, +1, etc...
             levels_d.append('\n{}'.format(member.display_level))
-        for b in range(len(self.party_list) + 1, 9):                        # generates empty character slots
+        for b in range(len(self.party) + 1, 9):                        # generates empty character slots
             self.label = tk.Label(self.frame, text=str(b), justify="left", anchor='w')
             self.label.place(height=18, width=274, x=52, y=40 + 18 * b)
         display_list = [display_race, levels_d, display_align, display_class, display_hp, display_acs, display_th,
@@ -1320,11 +1393,15 @@ class CharacterInterface:
         self.partypopup_close(lowclose=not top_button)      # this is clumsy, but we need to use the inverted boolean
 
     def sort_party_by_combat_value(self):
-        def calculate_combat_value(unit):
-            ac = 10 + unit.calculate_ac()
-            return unit.hp * (25 - ac)/15
-        self.party_list.sort(key=calculate_combat_value, reverse=True)
+        self.party.sort_by_combat_value()
         self.expanded_party_display()
+
+    # def sort_party_by_combat_value(self):
+    #     def calculate_combat_value(unit):
+    #         ac = 10 + unit.calculate_ac()
+    #         return unit.hp * (25 - ac)/15
+    #     self.party_list.sort(key=calculate_combat_value, reverse=True)
+    #     self.expanded_party_display()
 
     def party_to_charsheet(self, focus):
         self.temp_frame.destroy()
@@ -1339,8 +1416,8 @@ class CharacterInterface:
         self.show_files("party")                    # this updates self.file_dict (contents of "party" save directory)
         rows, heights = [1, 7, 9, 11, 13], [3, 2, 2, 2, 2]
         displays = ["CLOSE", "SAVE PARTY", "LOAD PARTY", "DELETE A SAVE", "SORT PARTY"]
-        generate = [lowclose, len(self.party_list) > 0, len(self.file_dict) > 0, len(self.file_dict) > 0,
-                    len(self.party_list) > 1]
+        generate = [lowclose, len(self.party) > 0, len(self.file_dict) > 0, len(self.file_dict) > 0,
+                    len(self.party) > 1]
         commands = [lambda: self.clear_party_popup(), lambda: self.save_load_screen("save"),
                     lambda: self.save_load_screen("load"), lambda: self.save_load_screen("delete"),
                     lambda: self.sort_party_by_combat_value()]
@@ -1404,19 +1481,27 @@ class CharacterInterface:
         parent.wait_window(dialog)
         return result
 
-    def save_characters(self, location, content, name):     # self.save_characters("party", self.party_list, "filename")
+    def save_characters(self, location, name):     # self.save_characters("party", self.party_list, "filename")
         if name in self.file_dict:
             confirm = self.confirmation_box(self.save_frame, f"Do you want to overwrite the existing save in {name}?")
             if not confirm:
                 return
-        save_file = PickleHandler(base_directory=location)  # establishes the where (root/party)
-        save_file.save_party(content, name)                 # saves file
+        save_file = PickleHandler(base_directory=location)              # establishes the where (root/party)
+        save_file.save_party(self.party.members, name)                  # saves file
         self.close_save_screen()
 
-    def load_characters(self, location, name):    # self.load_characters("party", "Slot 1")
+    def load_characters(self, location, name):  # self.load_characters("party", "Slot 1")
         save_file = PickleHandler(base_directory=location)
-        self.party_list = save_file.load_party(name)
+        members = save_file.load_party(name)
+        self.party.clear()
+        for member in members:
+            self.party.add_member(member)
         self.close_save_screen()
+
+    # def load_characters(self, location, name):    # self.load_characters("party", "Slot 1")
+    #     save_file = PickleHandler(base_directory=location)
+    #     self.party_list = save_file.load_party(name)
+    #     self.close_save_screen()
 
     def show_files(self, location):         # to update save.file_list, it's self.show_files("party")
         save_file = PickleHandler(base_directory=location)
@@ -1444,7 +1529,7 @@ class CharacterInterface:
         for k in range(6):
             self.save_frame.grid_columnconfigure(k, weight=1, uniform=1)
         button_actions = {          # builds the save slot buttons
-            "save": {"command": lambda loc: self.save_characters("party", self.party_list, f"Slot {loc}"),
+            "save": {"command": lambda loc: self.save_characters("party", f"Slot {loc}"),
                      "initial_state": "normal", "filled_state": "normal", "empty_state": "normal"},
             "load": {"command": lambda loc: self.load_characters("party", f"Slot {loc}"),
                      "initial_state": "disabled", "filled_state": "normal", "empty_state": "disabled"},
