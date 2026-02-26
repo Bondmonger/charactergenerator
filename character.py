@@ -8,6 +8,8 @@ import generatecharacter
 import selectclass
 import datalocus
 from enum import Enum
+import json
+import os
 # import time
 
 
@@ -26,6 +28,8 @@ class Character:
     def __init__(self, level=1, race='', gender='random', classes=(), attrib_list=(), event_bus=None):
         # start = time.time()
         self.event_bus = event_bus                      # optional EventBus for domain event emission
+        self.ac_override = None                         # set by MobStatblock to bypass calculate_ac()
+        self.thac0_override = None                      # set by MobStatblock to bypass calculate_thaco()
         self.character_name = ''
         # print("classes: ", classes)
         self.race = selectclass.race_from_class(classes) if len(race) == 0 else race            # 'Gray Elf'
@@ -219,18 +223,22 @@ class Character:
         self.xp += adjustment
         return
 
-    def wightify(self):     # important - self.movement is the check used by class_movement to flag non-classed units
-        self.hp = 3
-        for a in range(4):
-            self.hp += roll(8)
-        self.race, self.classes, self.next_level, self.alignment = 'Wight', ['0-level'], [0, 'Wight'], 'Lawful Evil'
-        self.display_class, self.age[1], self.xp, self.movement, self.display_level = '', 'undead', 0, 12, ''
-        self.attributes['Str'], self.attributes['Dex'], self.attributes['Con'], self.attributes['Com'] = 10, 10, 10, 10
+    def wightify(self):                         # important - self.movement is the check used to flag non-classed units
+        from mobstatblock import MobStatblock   # note that preserved_height converts feet (in monsters.json) to inches
+        preserved_height, preserved_weight, preserved_int, preserved_wis = \
+            self.size[0], self.size[1], self.attributes['Int'], self.attributes['Wis']
+        monsters_path = os.path.join(os.path.dirname(__file__), 'monsters.json')
+        with open(monsters_path, encoding='utf-8') as f:
+            mob_data = json.load(f)
+        entry = mob_data['Wight']['Wight']
+        MobStatblock.apply_to(self, entry)
+        self.size[0], self.size[1], self.attributes['Int'], self.attributes['Wis'] = \
+            preserved_height, preserved_weight, preserved_int, preserved_wis
         message = "This character has become a WIGHT!"
         if self.event_bus:
-            self.event_bus.emit(CharacterEventType.CHARACTER_TRANSFORMED, {
-                'character': self, 'name': self.character_name,
-                'message': message, 'transformation': 'wight'})
+            self.event_bus.emit(CharacterEventType.CHARACTER_TRANSFORMED,
+                                {'character': self, 'name': self.character_name,
+                                 'message': message, 'transformation': 'wight'})
         return message
 
     def calculate_level(self, adj=0):                           # adj is either -1 or 0 / also updates hit points
@@ -273,6 +281,8 @@ class Character:
         return message
 
     def calculate_ac(self):                                 # calculates AC from dex_multiplier() and class_ac()
+        if self.ac_override is not None:                    # mob units: use stored AC value directly
+            return self.ac_override - 10                    # display is 10 + calculate_ac(), so AC 5 → returns -5
         dex_ac, class_defense = datalocus.dex_acbonus(self.attributes['Dex']) * self.dex_multiplier(), 0
         if "Monk" in self.classes or "Oriental Monk" in self.classes or "Kensai" in self.classes:
             class_defense = datalocus.class_ac(tuple(self.classes), tuple(self.level))
@@ -297,6 +307,8 @@ class Character:
         return thaco                                        # (tuple['Fighter', 'Thief'], tuple[3, 4]) returns a 2
 
     def calculate_thaco(self):                              # combines class and strength modifiers
+        if self.thac0_override is not None:                 # mob units: use stored THAC0 value directly
+            return self.thac0_override - 20                 # display is 20 + calculate_thaco(), so THAC0 15 returns -5
         display, multiplier = self.display_strength(), self.str_multiplier()
         bonus = datalocus.str_thacobonus(self.attributes['Str'], self.attributes['Exc'], display, multiplier)
         final = -(self.class_thaco() + bonus)
@@ -315,6 +327,8 @@ class Character:
         result = datalocus.race_class_alignment(self.race, tuple(self.classes))
         alignment = charalign.get_random_weighted_alignment(result[0], result[1])
         return alignment
+
+
 
 # some_dude = Character(level=5, race="Halfling", classes=['Fighter', 'Thief'],
 #                       attrib_list=[{'Str': 1, 'Int': 13, 'Wis': 9, 'Dex': 15, 'Con': 18, 'Cha': 11, 'Com': 4},

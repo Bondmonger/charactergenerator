@@ -88,16 +88,14 @@ def display_level(levels):  # converts the list of levels into a displayable str
 #   COMPLETE [catalog all the different frame and label parameters (for pop-out)]
 #   COMPLETE [pop out global UI/UX settings]
 #   COMPLETE [catalog all locations where display_text[0] is updated]
+#   COMPLETE [convert messaging out to an event-driven system (added-to-party, level up, level down, wight)]
+#   COMPLETE [introduce event system]
+#   COMPLETE [extract Party into a domain class]
+#   COMPLETE [replace display_text[0] with log system]
+#   COMPLETE [get wights working, ideally circumventing the rest of the create character steps]
+#   COMPLETE [standardize the 'size' field, converting to letter size (S/M/L), height/length, weight]
+#   COMPLETE [convert mutations to emit events / make Tkinter reactive] / stat blocks from MM
 # 4 & 5) dual-classing and bards - there's no separation, we need to deal with all this leveling stuff together
-#   a) convert messaging out to an event-driven system (added-to-party, level up, level down, wight)
-#       1) introduce event system
-#       2) extract Party into a domain class
-#       3) replace display_text[0] with log system
-#       4) convert mutations to emit events
-#       5) make Tkinter reactive
-#   b) get wights working, ideally circumventing the rest of the create character steps
-#       1) standardize the 'size' field, converting to letter size (S/M/L), height/length, weight
-#       2) stat block from MM
 #   c)  0-level units
 #       1) fix age calculations (under 10 y/o)
 #       2) establish default attribute blocks

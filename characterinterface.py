@@ -270,7 +270,7 @@ class CharacterInterface:
         print(f"[EVENT] Party cleared ({count} members removed)")
 
     def update_charsheet(self):
-        # print(self.selected_character.__dict__)
+        print(self.selected_character.__dict__)
         self.update_character_frame()
         self.update_party_frame()
         self.display_label['text'] = self.display_text[0]
@@ -452,7 +452,7 @@ class CharacterInterface:
         temp, other_atts = "", ["Int", "Wis", "Dex", "Con", "Cha", "Com"]
         temp = "Str: {}\n".format(self.selected_character.display_strength())
         for a in other_atts:
-            temp = temp + "{}: {}\n".format(a, self.selected_character.attributes[a])
+            temp += "{}: {}\n".format(a, self.selected_character.attributes.get(a, 10))
         return temp
 
     def remove_party_member(self):
@@ -528,14 +528,6 @@ class CharacterInterface:
         self.control_label['text'] = ''             # move_member() is a helper method to intermediate_move()
         self.member_buttons()                       # ...for preserving the assignments through the incrementer
         self.update_charsheet()
-
-    # def move_member(self, position):                # moves selected_character and removes control label text
-    #     self.method_label.destroy()                 # manual rem. of temp label (update_party_frame(buttons=False))
-    #     # self.close_selection_frame.configure(state='normal')     # restoration of main menu button
-    #     self.party_list.insert(position, self.party_list.pop(self.party_list.index(self.selected_character)))
-    #     self.control_label['text'] = ''             # move_member() is a helper method to intermediate_move()
-    #     self.member_buttons()                       # ...for preserving the assignments through the incrementer
-    #     self.update_charsheet()
 
     def clbutt(self):
         self.attributes_frame.destroy()             # only necessary when returning from selection screen
@@ -1087,11 +1079,6 @@ class CharacterInterface:
         for unit in range(8):                   # generates fully-random party
             level = random.randrange(self.minmaxlevel['min'], self.minmaxlevel['max'] + 1)
             self.party.add_member(character.Character(level, event_bus=self.event_bus))
-    # def make_party(self):                       # this advances "Full Party" control frame to the results interface
-    #     self.party_list, level = [], 1
-    #     for unit in range(8):                   # generates fully-random party
-    #         level = random.randrange(self.minmaxlevel['min'], self.minmaxlevel['max'] + 1)
-    #         self.party_list.append(character.Character(level))
         for butt_name, row_loc, command_def in zip(["REROLL", "VIEW PARTY", "PROCEED TO\nCHARACTER SHEET"], [3, 7, 5],
                                                    [self.make_party, self.party_frame_popup, self.startframe_close]):
             self.frame = tk.Frame(self.selection_body)
@@ -1396,13 +1383,6 @@ class CharacterInterface:
         self.party.sort_by_combat_value()
         self.expanded_party_display()
 
-    # def sort_party_by_combat_value(self):
-    #     def calculate_combat_value(unit):
-    #         ac = 10 + unit.calculate_ac()
-    #         return unit.hp * (25 - ac)/15
-    #     self.party_list.sort(key=calculate_combat_value, reverse=True)
-    #     self.expanded_party_display()
-
     def party_to_charsheet(self, focus):
         self.temp_frame.destroy()
         self.expanded_member_frame.destroy()
@@ -1497,11 +1477,6 @@ class CharacterInterface:
         for member in members:
             self.party.add_member(member)
         self.close_save_screen()
-
-    # def load_characters(self, location, name):    # self.load_characters("party", "Slot 1")
-    #     save_file = PickleHandler(base_directory=location)
-    #     self.party_list = save_file.load_party(name)
-    #     self.close_save_screen()
 
     def show_files(self, location):         # to update save.file_list, it's self.show_files("party")
         save_file = PickleHandler(base_directory=location)

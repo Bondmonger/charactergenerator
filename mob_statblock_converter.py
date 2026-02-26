@@ -66,7 +66,7 @@ class GeneralizedMonsterConverter:
         return parser(row, cfg['columns'])
 
     @staticmethod
-    def parse_attacks(self, row: pd.Series, columns: List[str]) -> List[Dict[str, str]]:
+    def parse_attacks(row: pd.Series, columns: List[str]) -> List[Dict[str, str]]:
         attacks = []
         if len(columns) != 2:
             return attacks

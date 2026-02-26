@@ -95,6 +95,58 @@ def racial_maximums(race):                                      # accepts ('High
 
 
 @lru_cache(maxsize=100)
+def primary_attrs(ch_class) -> list:                # accepts 'Ranger'
+    raw = ''                                        # returns ['Str', 'Int', 'Wis']
+    with open(get_resource_path('xpvalues.csv')) as f:
+        for row in csv.reader(f):
+            if row[0] == ch_class:
+                raw = row[1].strip()
+                break
+    if not raw or raw == '-':
+        return []                                   # no primary attribute → not dual-class eligible
+    attr_map = {'str': 'Str', 'int': 'Int', 'wis': 'Wis', 'dex': 'Dex', 'con': 'Con', 'cha': 'Cha', 'com': 'Com'}
+    result = []
+    for token in raw.split():                       # tokens look like 'str16', 'wis14', etc.
+        key = ''.join(c for c in token if c.isalpha()).lower()
+        if key in attr_map:
+            result.append(attr_map[key])
+    return result
+
+
+@lru_cache(maxsize=100)
+def dual_class_destinations(ch_class) -> list:      # accepts 'Fighter'
+    result = []                                     # returns ['Acrobat', 'Bard', 'Cleric', ...]
+    with open(get_resource_path('attributemins.csv')) as f:
+        for row in csv.reader(f):
+            if row[0] == ch_class and len(row) > 84 and row[84].strip() and row[84].strip() != '-':
+                result = [d.strip() for d in row[84].split(',')]
+                break
+    return result
+
+
+@lru_cache(maxsize=100)
+def dual_class_probs(ch_class) -> list:             # accepts 'Fighter'
+    result = []                                     # returns [0.0, 0.2, 0.2, ...] (12 values, levels 1-12)
+    with open(get_resource_path('attributemins.csv')) as f:
+        for row in csv.reader(f):
+            if row[0] == ch_class and len(row) > 85 and row[85].strip() and row[85].strip() != '-':
+                result = [float(p.strip()) for p in row[85].split(',')]
+                break
+    return result
+
+
+@lru_cache(maxsize=200)
+def class_alignment_restrictions(ch_class) -> list:  # accepts 'Thief'
+    result = []                                       # returns ['Lawful Neutral', 'Lawful Evil', ...]
+    with open(get_resource_path('attributemins.csv')) as f:
+        for row in csv.reader(f):
+            if row[0] == ch_class and len(row) > 81 and row[81].strip():
+                result = [a.strip() for a in row[81].split(',')]
+                break
+    return result
+
+
+@lru_cache(maxsize=100)
 def archetype(ch_class):                                            # accepts ('Ranger')
     with open(get_resource_path('xpvalues.csv')) as archetypes:     # returns ('Fighter')
         for row in csv.reader(archetypes):

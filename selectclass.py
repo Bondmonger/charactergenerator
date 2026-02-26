@@ -334,6 +334,69 @@ def race_from_class(ch_class=''):                           # accepts 'Fighter/I
         return random.choices(list(prop.keys()), weights=prop.values(), k=1)[0]
 
 
+@lru_cache(maxsize=200)
+def _dual_class_attr_minimums(original: str, destination: str) -> dict:     # returns per-attribute minimums for combo
+    # print(f"[DEBUG] computing mins for {original} -> {destination}")
+    ord_attrs, orig_mins = ['Str', 'Int', 'Wis', 'Dex', 'Con', 'Cha', 'Com'], datalocus.minimums(original)
+    dest_mins = datalocus.minimums(destination)         # rule 1: merges class minimums
+    base = [max(o, d) for o, d in zip(orig_mins, dest_mins)]
+    result = dict(zip(ord_attrs, base))
+    # print(f"[DEBUG] base merged: {result}")
+    for attr in datalocus.primary_attrs(original):      # rule 2: starting class primaries >= 15
+        result[attr] = max(result[attr], 15)
+    # print(f"[DEBUG] after origin primaries: {result}")
+    for attr in datalocus.primary_attrs(destination):   # rule 3: destination class primaries >= 17
+        result[attr] = max(result[attr], 17)
+    # print(f"[DEBUG] final: {result}")
+    return result                                       # returns dict keyed by attribute name {'Str': 15, 'Int': 9,...}
+
+
+def dual_class_eligible(original: str, destination: str, attributes: dict, alignment: str,
+                        race: str, bard_track: bool = False) -> bool:
+    # print(f"[DEBUG] alignment='{alignment}'")
+    # print(f"[DEBUG] dest_permitted={datalocus.class_alignment_restrictions(destination)}")
+    if race not in ('Human', 'Half-elf'):                                   # either Human or Half-elf
+        return False
+    if race == 'Half-elf' and not bard_track:                               # ...and only Half-elf if Bard
+        return False
+    if not datalocus.primary_attrs(original):                               # origin class must have a primary attribute
+        return False
+    if not datalocus.primary_attrs(destination):                            # destination must have a primary attribute
+        return False
+    if destination not in datalocus.dual_class_destinations(original):      # destination must be legal given origin
+        return False
+    # print(f"[DEBUG] passed race/primary gates")
+    # print(f"[DEBUG] destinations for {original}: {datalocus.dual_class_destinations(original)}")
+    # print(f"[DEBUG] {destination} in destinations: {destination in datalocus.dual_class_destinations(original)}")
+    minimums = _dual_class_attr_minimums(original, destination)
+    for attr, minimum in minimums.items():                                  # attribute meet minimums for both classes
+        if attributes.get(attr, 0) < minimum:
+            return False
+    orig_permitted = set(datalocus.class_alignment_restrictions(original))  # alignment legal for both classes
+    dest_permitted = set(datalocus.class_alignment_restrictions(destination))
+    if bard_track and original == 'Fighter' and destination == 'Thief':     # alignment exception for bard track
+        dest_permitted.add('Neutral Good')
+    if alignment not in orig_permitted:
+        return False
+    if alignment not in dest_permitted:
+        return False
+    return True
+
+
+def dual_class_options(original: str, attributes: dict,     # returns all valid destination classes for a given origin
+                       alignment: str, race: str, bard_track: bool = False) -> list:
+    # print(f"[DEBUG] dual_class_destinations('{original}')={datalocus.dual_class_destinations(original)}")
+    return [dest for dest in datalocus.dual_class_destinations(original)    # empty list means no valid options
+            if dual_class_eligible(original, dest, attributes, alignment, race, bard_track)]
+
+
+def dual_class_transition_prob(ch_class: str, level: int) -> float:     # returns NPC per-level transition probability
+    probs = datalocus.dual_class_probs(ch_class)
+    if not probs or level < 1 or level > len(probs):
+        return 0.0                                                      # returns a zero for level 1 or 'out of range'
+    return probs[level - 1]
+
+
 # char_classes = ()
 # print(race_from_class(char_classes))
 
