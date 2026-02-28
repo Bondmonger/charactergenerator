@@ -90,9 +90,9 @@ class MobStatblock:
         char.alignment     = _expand_alignment(basic.get('alignment'))
         char.age[1]        = basic.get('mob_type', '')      # age[1] is the category string shown on the char sheet
 
-        # combat stats — stored as overrides so calculate_ac() / calculate_thaco() short-circuit
-        char.ac_override    = combat.get('ac')              # raw AC value (e.g. 5 for a wight)
-        char.thac0_override = combat.get('thac0')           # raw THAC0 value (e.g. 15 for a wight)
+        # combat stats — stored directly so calculate_ac() / calculate_thaco() short-circuit
+        char.ac    = combat.get('ac')                       # raw AC value (e.g. 5 for a wight)
+        char.thac0 = combat.get('thac0')                    # raw THAC0 value (e.g. 15 for a wight)
 
         # hit dice — store formula and roll hp for this instance (same as pc hp/hp_history pattern)
         hit_dice = combat.get('hit_dice', {})
@@ -125,8 +125,6 @@ class MobStatblock:
         char.gender         = 'unknown'
         char.age            = [0, '', '', {}, 0]               # [num, category, max_str, age_adj_dict, max_age]
         char.hp_history     = [[]]
-        char.ac_override    = None
-        char.thac0_override = None
         char.hit_dice       = {}
         cls.apply_to(char, entry)
         return char

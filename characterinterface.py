@@ -26,7 +26,8 @@ class CharacterInterface:
         self.display_text = ['']
         self.level = level
         self.minmaxlevel = {"min": level, "max": level}       # only used during full party gen
-        self.bulk_attributes = {"level": 1, "charclass": "ANY", "race": "ANY", "gender": "ANY", "samplesize": 1000}
+        self.bulk_attributes = {"level": 1, "charclass": "ANY", "race": "ANY", "gender": "ANY", "samplesize": 1000,
+                                "dual_class": True}
         self.master = master
         self.selected_character = character.Character(self.level, event_bus=self.event_bus)
         self.master.attributes('-fullscreen', True)
@@ -752,8 +753,8 @@ class CharacterInterface:
         self.selection_body.destroy()
         self.selection_body = tk.Frame(master=self.selection_frame)
         self.selection_body.grid(row=0, column=0, sticky="nsew")
-        self.frame = tk.Frame(master=self.selection_body)
-        self.frame.grid(row=0, column=2, rowspan=12, columnspan=7, sticky='nsew')
+        self.frame = tk.Frame(master=self.selection_body, background='green')
+        self.frame.grid(row=0, column=2, rowspan=12, columnspan=7, sticky='nsew')   # kurek
         self.frame.grid_propagate(False)                            # this is the panel frame containing the dropdowns
         for i in range(20):
             self.selection_body.grid_columnconfigure(i, weight=1, uniform=1)
@@ -790,6 +791,14 @@ class CharacterInterface:
                                   activeforeground='#FFFFFF', width=24)
             class_dropdown["menu"].config(bg='#000000', fg='#FFFFFF', font=('Courier', 12))
             class_dropdown.grid(row=order*2, column=0)
+        self.dual_class_var = tk.BooleanVar(value=self.bulk_attributes["dual_class"])
+        dual_class_check = tk.Checkbutton(self.frame, text="dual classing",
+                                          variable=self.dual_class_var,
+                                          command=self.bulkdualclassset,
+                                          bg='#000000', fg='#FFFFFF', font=('Courier', 12),
+                                          selectcolor='#000000', activebackground='#000000',
+                                          activeforeground='#FFFFFF')
+        dual_class_check.grid(row=11, column=0, sticky='w')
         self.button = tk.Button(self.selection_body, text="GENERATE UNITS", relief=tk.FLAT,
                                 command=lambda: self.bulk_outcome())
         self.button.grid(row=5, column=13, columnspan=2, sticky='nsew')
@@ -814,6 +823,9 @@ class CharacterInterface:
     def bulksample(self, samplesize):
         self.bulk_attributes["samplesize"] = samplesize
         self.bulk_maker()
+
+    def bulkdualclassset(self):
+        self.bulk_attributes["dual_class"] = self.dual_class_var.get()
 
     def multi_sort(self, sorted_proportions, start_end, default, proportional):
         min_sum, max_sum, keys, temp_dict, count = 0, 0, list(sorted_proportions.keys()), {}, len(sorted_proportions)
@@ -954,7 +966,7 @@ class CharacterInterface:
         for i, width in enumerate([1, 1]):
             self.selection_body.grid_columnconfigure(i, weight=width, uniform=1)
         self.selection_body.grid_rowconfigure(0, weight=1, uniform=1)
-        self.frame = tk.Frame(master=self.selection_body, relief=tk.FLAT)
+        self.frame = tk.Frame(master=self.selection_body, relief=tk.FLAT, background='green')
         self.frame.grid(row=0, column=0, sticky='nsew')
         self.frame.grid_propagate(False)
         for i in range(12):
@@ -971,7 +983,8 @@ class CharacterInterface:
         movement, age, height, weight, gender_count, start, align_list = [], [], [], [], [], time.time(), []
         for element in range(self.bulk_attributes["samplesize"]):   # generates units...
             classes = charclass.copy()                              # [copy() prevents downgrade-subsequent-units bug]
-            temp_char = character.Character(self.bulk_attributes["level"], race=race, gender=gender, classes=classes)
+            temp_char = character.Character(self.bulk_attributes["level"], race=race, gender=gender, classes=classes,
+                                            auto_dual_class=self.bulk_attributes["dual_class"])
             character_list.append(temp_char)                        # ...and appends them to character_list
         # self.save_characters("bulk", character_list)              # saves the bulk volume
         for aaa in character_list:                                  # generates object property stacks
@@ -1072,13 +1085,22 @@ class CharacterInterface:
         self.frame.grid(row=3, column=6, columnspan=4, sticky='nsew')
         self.button = tk.Button(self.frame, text="GENERATE PARTY", relief=tk.FLAT, command=lambda: self.make_party())
         self.button.pack(expand=True, fill='both')
+        self.dual_class_var = tk.BooleanVar(value=self.bulk_attributes["dual_class"])
+        dual_class_check = tk.Checkbutton(self.selection_body, text="dual classing",
+                                          variable=self.dual_class_var,
+                                          command=self.bulkdualclassset,
+                                          bg='#000000', fg='#FFFFFF', font=('Courier', 12),
+                                          selectcolor='#000000', activebackground='#000000',
+                                          activeforeground='#FFFFFF')
+        dual_class_check.grid(row=12, column=2, columnspan=3, sticky='sw')
         self.create_main_menu_button(self.selection_frame)
 
     def make_party(self):
         self.party.clear()                      # clears existing party, but why are we dropping level = 1?
         for unit in range(8):                   # generates fully-random party
             level = random.randrange(self.minmaxlevel['min'], self.minmaxlevel['max'] + 1)
-            self.party.add_member(character.Character(level, event_bus=self.event_bus))
+            self.party.add_member(character.Character(level, event_bus=self.event_bus,
+                                                      auto_dual_class=self.bulk_attributes["dual_class"]))
         for butt_name, row_loc, command_def in zip(["REROLL", "VIEW PARTY", "PROCEED TO\nCHARACTER SHEET"], [3, 7, 5],
                                                    [self.make_party, self.party_frame_popup, self.startframe_close]):
             self.frame = tk.Frame(self.selection_body)

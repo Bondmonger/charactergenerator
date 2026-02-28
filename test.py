@@ -146,13 +146,14 @@ class TestCharacterBasicInit(unittest.TestCase):
     def test_fighter_has_required_fields(self):
         c = make_fighter()
         for field in ('race', 'classes', 'alignment', 'attributes', 'xp',
-                      'level', 'hp', 'size', 'ac_override', 'thac0_override'):
+                      'level', 'hp', 'size'):
             self.assertTrue(hasattr(c, field), f"Missing field: {field}")
 
-    def test_overrides_none_by_default(self):
+    def test_no_ac_or_thac0_on_pc(self):
+        """PC characters must not have ac or thac0 set — values are always calculated."""
         c = make_fighter()
-        self.assertIsNone(c.ac_override)
-        self.assertIsNone(c.thac0_override)
+        self.assertFalse(hasattr(c, 'ac'), "PC should not have top-level 'ac' field")
+        self.assertFalse(hasattr(c, 'thac0'), "PC should not have top-level 'thac0' field")
 
     def test_hp_positive(self):
         c = make_fighter()
@@ -308,7 +309,7 @@ class TestChangeAttribute(unittest.TestCase):
 # ---------------------------------------------------------------------------
 
 class TestCalculateACAndTHACO(unittest.TestCase):
-    """Override short-circuits: when ac_override/thac0_override are set,
+    """Short-circuit: when ac/thac0 are set directly on the unit,
        calculate_ac() and calculate_thaco() must use the stored value."""
 
     def setUp(self):
@@ -318,24 +319,24 @@ class TestCalculateACAndTHACO(unittest.TestCase):
         result = self.c.calculate_ac()
         self.assertIsInstance(result, (int, float))
 
-    def test_ac_override_short_circuit(self):
-        # AC 5 → stored as override 5 → calculate_ac() should return 5 - 10 = -5
-        self.c.ac_override = 5
+    def test_ac_short_circuit(self):
+        # AC 5 → stored as self.ac = 5 → calculate_ac() should return 5 - 10 = -5
+        self.c.ac = 5
         self.assertEqual(self.c.calculate_ac(), -5)
 
     def test_thaco_no_override_returns_int(self):
         result = self.c.calculate_thaco()
         self.assertIsInstance(result, (int, float))
 
-    def test_thaco_override_short_circuit(self):
-        # THAC0 15 → stored as override 15 → calculate_thaco() should return 15 - 20 = -5
-        self.c.thac0_override = 15
+    def test_thaco_short_circuit(self):
+        # THAC0 15 → stored as self.thac0 = 15 → calculate_thaco() should return 15 - 20 = -5
+        self.c.thac0 = 15
         self.assertEqual(self.c.calculate_thaco(), -5)
 
-    def test_clearing_override_restores_calculation(self):
-        self.c.ac_override = 5
-        self.c.ac_override = None
-        # Should not raise and should not equal the override result
+    def test_clearing_ac_restores_calculation(self):
+        self.c.ac = 5
+        del self.c.ac
+        # Should not raise and should revert to normal calculation
         result = self.c.calculate_ac()
         self.assertIsNotNone(result)
 
@@ -376,11 +377,11 @@ class TestMobStatblockApplyTo(unittest.TestCase):
     def test_alignment_expanded(self):
         self.assertEqual(self.c.alignment, 'Lawful Evil')
 
-    def test_ac_override_set(self):
-        self.assertEqual(self.c.ac_override, 5)
+    def test_ac_set(self):
+        self.assertEqual(self.c.ac, 5)
 
-    def test_thac0_override_set(self):
-        self.assertEqual(self.c.thac0_override, 15)
+    def test_thac0_set(self):
+        self.assertEqual(self.c.thac0, 15)
 
     def test_ac_short_circuits_to_correct_display_value(self):
         # calculate_ac() returns (override - 10); display layer adds 10 → final AC 5
@@ -457,8 +458,8 @@ class TestMobStatblockFromJson(unittest.TestCase):
     def test_movement(self):
         self.assertEqual(self.mob.movement, 9)
 
-    def test_ac_override_correct(self):
-        self.assertEqual(self.mob.ac_override, 5)
+    def test_ac_correct(self):
+        self.assertEqual(self.mob.ac, 5)
 
     def test_classes_0level(self):
         self.assertEqual(self.mob.classes, ['0-level'])
@@ -622,11 +623,11 @@ class TestWightificationWithFakeJson(unittest.TestCase):
     def test_race_set_to_wight(self):
         self.assertEqual(self.c.race, 'Wight')
 
-    def test_ac_override_from_json(self):
-        self.assertEqual(self.c.ac_override, 5)
+    def test_ac_from_json(self):
+        self.assertEqual(self.c.ac, 5)
 
-    def test_thac0_override_from_json(self):
-        self.assertEqual(self.c.thac0_override, 15)
+    def test_thac0_from_json(self):
+        self.assertEqual(self.c.thac0, 15)
 
     def test_hp_positive_after_wightify(self):
         self.assertGreater(self.c.hp, 0)
@@ -645,13 +646,13 @@ class TestDisplayACAndTHACO(unittest.TestCase):
 
     def test_mob_display_ac_equals_5(self):
         c = make_fighter()
-        c.ac_override = 5
+        c.ac = 5
         display_ac = 10 + c.calculate_ac()
         self.assertEqual(display_ac, 5)
 
     def test_mob_display_thaco_equals_15(self):
         c = make_fighter()
-        c.thac0_override = 15
+        c.thac0 = 15
         display_thaco = 20 + c.calculate_thaco()
         self.assertEqual(display_thaco, 15)
 
@@ -743,6 +744,202 @@ class TestDualClassEligibility(unittest.TestCase):
             self.eligible('Fighter', 'Thief', attrs, alignment='Neutral Good', race='Half-elf', bard_track=True),
             "Half-elf Fighter on bard track should be eligible for Fighter → Thief"
         )
+
+
+# ---------------------------------------------------------------------------
+
+class TestDualClassCharacter(unittest.TestCase):
+    """dual_class field, initiate_dual_class(), class_thaco(), HP zeros,
+    XP freeze, and crossover reinsertion."""
+
+    # High-attribute Fighter who can dual-class to Thief (Human, LG).
+    # Two dicts required: [0] = attributes, [1] = excess — mirrors make_fighter() pattern.
+    # NOTE: Character.__init__ destructively pops index 1, so we must pass a fresh
+    # copy each call — never pass the class-level list directly.
+    _FIGHTER_ATTRS_TEMPLATE = [
+        {'Str': 15, 'Int': 12, 'Wis': 14, 'Dex': 17, 'Con': 12, 'Cha': 15, 'Com': 10, 'Exc': 0},
+        {'Str': 0,  'Int': 0,  'Wis': 0,  'Dex': 0,  'Con': 0,  'Cha': 0,  'Com': 0,  'Exc': 0},
+    ]
+
+    def _make_lg_fighter(self, level=5):
+        import copy
+        from character import Character
+        c = Character(
+            level=level,
+            race='Human',
+            gender='male',
+            classes=['Fighter'],
+            attrib_list=copy.deepcopy(self._FIGHTER_ATTRS_TEMPLATE),
+        )
+        c.alignment = 'Lawful Good'   # force a permissible alignment
+        return c
+
+    # ---- __init__ default ------------------------------------------------
+
+    def test_dual_class_none_by_default(self):
+        c = self._make_lg_fighter()
+        self.assertIsNone(c.dual_class)
+
+    # ---- initiate_dual_class() -------------------------------------------
+
+    def test_initiate_sets_dual_class_dict(self):
+        c = self._make_lg_fighter(level=5)
+        c.initiate_dual_class('Thief')
+        self.assertIsNotNone(c.dual_class)
+        self.assertEqual(c.dual_class['original'], 'Fighter')
+        self.assertEqual(c.dual_class['destination'], 'Thief')
+
+    def test_initiate_freezes_original_level(self):
+        c = self._make_lg_fighter(level=5)
+        frozen = max(c.level)
+        c.initiate_dual_class('Thief')
+        self.assertEqual(c.dual_class['original_level'], frozen)
+
+    def test_initiate_sets_destination_class(self):
+        c = self._make_lg_fighter(level=5)
+        c.initiate_dual_class('Thief')
+        self.assertEqual(c.classes, ['Thief'])
+
+    def test_initiate_destination_level_zero(self):
+        c = self._make_lg_fighter(level=5)
+        c.initiate_dual_class('Thief')
+        self.assertEqual(c.level, [0])
+
+    def test_initiate_hp_history_has_zeros_for_destination(self):
+        c = self._make_lg_fighter(level=5)
+        c.initiate_dual_class('Thief')
+        # First list in hp_history is destination zeros
+        self.assertEqual(c.hp_history[0], [0])
+
+    def test_initiate_requires_single_class(self):
+        from character import Character
+        multi_attrs = [
+            {'Str': 15, 'Int': 12, 'Wis': 14, 'Dex': 14, 'Con': 12, 'Cha': 15, 'Com': 10, 'Exc': 0},
+            {'Str': 0,  'Int': 0,  'Wis': 0,  'Dex': 0,  'Con': 0,  'Cha': 0,  'Com': 0,  'Exc': 0},
+        ]
+        c = Character(level=3, race='Human', gender='male',
+                      classes=['Fighter', 'Thief'], attrib_list=multi_attrs)
+        with self.assertRaises(ValueError):
+            c.initiate_dual_class('Magic User')
+
+    # ---- class_thaco() dual-class awareness --------------------------------
+
+    def test_thaco_pre_crossover_uses_destination_only(self):
+        """Pre-crossover: only the destination class level is used for THAC0."""
+        import datalocus
+        c = self._make_lg_fighter(level=5)
+        c.initiate_dual_class('Thief')
+        c.level = [2]      # Thief 2, pre-crossover (original was Fighter 5)
+        thaco_dest_only = datalocus.base_thaco(('Thief',), (2,))
+        self.assertEqual(c.class_thaco(), thaco_dest_only)
+
+    def test_thaco_post_crossover_includes_original(self):
+        """Post-crossover: both destination level and frozen original level used."""
+        import datalocus
+        c = self._make_lg_fighter(level=5)
+        orig_level = max(c.level)
+        c.initiate_dual_class('Thief')
+        # Simulate post-crossover: level exceeds original
+        c.level = [orig_level + 1]
+        expected = datalocus.base_thaco(
+            ('Thief', 'Fighter'),
+            (orig_level + 1, orig_level)
+        )
+        self.assertEqual(c.class_thaco(), expected)
+
+    # ---- XP freeze on original class ----------------------------------------
+
+    def test_original_class_level_stays_frozen_after_award_xp(self):
+        """After crossover, award_xp() must not increment the original class.
+
+        Strategy: build a Fighter-5, transition to Thief, place XP just below
+        the Thief-6 threshold (20,000), then award exactly enough to cross it.
+        Crossover fires (Thief 6 > Fighter 5), Fighter reappears in classes,
+        then a second small award confirms Fighter stays frozen.
+        Keeping XP deltas small avoids age-increment side-effects.
+        """
+        import os, json
+        import character as char_mod
+
+        monsters_path = os.path.join(
+            os.path.dirname(os.path.abspath(char_mod.__file__)), 'monsters.json')
+        with open(monsters_path, 'w', encoding='utf-8') as f:
+            json.dump({'Wight': {'Wight': WIGHT_ENTRY}}, f)
+        try:
+            c = self._make_lg_fighter(level=5)
+            orig_level = max(c.level)           # Fighter 5 is the frozen level
+
+            c.initiate_dual_class('Thief')      # Thief 0, Fighter frozen at 5
+
+            # Place XP just below the Thief-6 threshold (20,000).
+            # Thief XP table (1E): 1=1250, 2=2500, 3=5000, 4=10000, 5=20000, 6=40000
+            # Crossover fires when Thief level > Fighter 5, i.e. at Thief 6 (40,000).
+            c.xp = 39_900
+            c.award_xp(200)                     # pushes to 40,100 → Thief 6, crossover fires
+
+            self.assertIn('Fighter', c.classes,
+                          "Fighter should be reinserted into classes post-crossover")
+            idx = c.classes.index('Fighter')
+            self.assertEqual(c.level[idx], orig_level,
+                             "Fighter level must remain frozen at original level after dual-class")
+
+            # Second award: confirm Fighter still doesn't move
+            c.award_xp(5_000)
+            self.assertEqual(c.level[c.classes.index('Fighter')], orig_level,
+                             "Fighter level must remain frozen on subsequent XP awards")
+        finally:
+            if os.path.exists(monsters_path):
+                os.remove(monsters_path)
+
+
+# ---------------------------------------------------------------------------
+
+class TestAutoDualClass(unittest.TestCase):
+    """_apply_auto_dual_class() fires during __init__ when auto_dual_class=True."""
+
+    def test_dual_class_units_appear_in_bulk(self):
+        """With auto_dual_class=True, at least some Human level-9 units should
+        dual-class.  Generate 200 and assert at least one has dual_class set.
+        (Probabilistic — vanishingly unlikely to fail if probs are non-zero.)"""
+        from character import Character
+        found = False
+        for _ in range(200):
+            c = Character(level=9, race='Human', gender='male',
+                          classes=['Fighter'], auto_dual_class=True)
+            if c.dual_class is not None:
+                found = True
+                break
+        self.assertTrue(found,
+                        "Expected at least one dual-class unit in 200 Human Fighter-9s")
+
+    def test_no_dual_class_when_flag_off(self):
+        """With auto_dual_class=False (default), dual_class must always be None."""
+        from character import Character
+        for _ in range(20):
+            c = Character(level=9, race='Human', gender='male', classes=['Fighter'])
+            self.assertIsNone(c.dual_class,
+                              "dual_class must be None when auto_dual_class is False")
+
+    def test_dual_class_unit_has_valid_structure(self):
+        """A dual-classed unit produced by auto_dual_class must have a valid
+        dual_class dict, two classes post-crossover or one pre-crossover,
+        and positive HP."""
+        from character import Character
+        dual = None
+        for _ in range(200):
+            c = Character(level=9, race='Human', gender='male',
+                          classes=['Fighter'], auto_dual_class=True)
+            if c.dual_class is not None:
+                dual = c
+                break
+        if dual is None:
+            self.skipTest("No dual-class unit generated in 200 attempts — increase sample if needed")
+        self.assertIn('original', dual.dual_class)
+        self.assertIn('destination', dual.dual_class)
+        self.assertIn('original_level', dual.dual_class)
+        self.assertIn('original_hp', dual.dual_class)
+        self.assertGreater(dual.hp, 0)
+        self.assertIsInstance(dual.level, list)
 
 
 # ===========================================================================
