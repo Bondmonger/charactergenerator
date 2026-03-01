@@ -13,7 +13,6 @@ The script does NOT depend on pytest — it uses only the stdlib
 unittest module so it can be run anywhere without extra installs.
 """
 
-import json
 import os
 import sys
 import tempfile
@@ -243,20 +242,10 @@ class TestDrainLevel(unittest.TestCase):
     """drain_level() should reduce level and emit LEVEL_CHANGED."""
 
     def setUp(self):
-        import character as char_mod
         from character import CharacterEventType
         self.CharacterEventType = CharacterEventType
         self.bus = StubEventBus()
         self.c = make_fighter(level=3, event_bus=self.bus)
-        self.monsters_path = os.path.join(
-            os.path.dirname(os.path.abspath(char_mod.__file__)), 'monsters.json')
-        monsters_payload = {'Wight': {'Wight': WIGHT_ENTRY}}
-        with open(self.monsters_path, 'w', encoding='utf-8') as f:
-            json.dump(monsters_payload, f)
-
-    def tearDown(self):
-        if os.path.exists(self.monsters_path):
-            os.remove(self.monsters_path)
 
     def test_drain_returns_message(self):
         msg = self.c.drain_level()
@@ -566,13 +555,10 @@ class TestParseSizeFunction(unittest.TestCase):
 # ---------------------------------------------------------------------------
 
 class TestWightificationWithFakeJson(unittest.TestCase):
-    """wightify() end-to-end: writes a real monsters.json next to character.py,
-       runs wightify(), then removes it. This is the only reliable strategy because
-       wightify() imports json and os locally at function scope, making mock.patch
-       on 'character.json' impossible (character is a module, not a package)."""
+    """wightify() end-to-end: requires monsters.json as a permanent fixture
+       in the working directory alongside character.py."""
 
     def setUp(self):
-        import character as char_mod
         from character import CharacterEventType
         self.CharacterEventType = CharacterEventType
         self.bus = StubEventBus()
@@ -584,19 +570,8 @@ class TestWightificationWithFakeJson(unittest.TestCase):
         self.orig_int    = self.c.attributes['Int']
         self.orig_wis    = self.c.attributes['Wis']
 
-        # Write a real monsters.json next to character.py so wightify() finds it
-        self.monsters_path = os.path.join(
-            os.path.dirname(os.path.abspath(char_mod.__file__)), 'monsters.json')
-        monsters_payload = {'Wight': {'Wight': WIGHT_ENTRY}}
-        with open(self.monsters_path, 'w', encoding='utf-8') as f:
-            json.dump(monsters_payload, f)
-
         self.bus.clear()
         self.msg = self.c.wightify()
-
-    def tearDown(self):
-        if os.path.exists(self.monsters_path):
-            os.remove(self.monsters_path)
 
     def test_returns_wight_message(self):
         self.assertIn('WIGHT', self.msg.upper())
@@ -784,10 +759,13 @@ class TestDualClassCharacter(unittest.TestCase):
 
     def test_initiate_sets_dual_class_dict(self):
         c = self._make_lg_fighter(level=5)
+        pre_xp = c.xp
         c.initiate_dual_class('Thief')
         self.assertIsNotNone(c.dual_class)
         self.assertEqual(c.dual_class['original'], 'Fighter')
         self.assertEqual(c.dual_class['destination'], 'Thief')
+        self.assertIn('frozen_xp', c.dual_class)
+        self.assertEqual(c.dual_class['frozen_xp'], pre_xp)
 
     def test_initiate_freezes_original_level(self):
         c = self._make_lg_fighter(level=5)
@@ -800,15 +778,17 @@ class TestDualClassCharacter(unittest.TestCase):
         c.initiate_dual_class('Thief')
         self.assertEqual(c.classes, ['Thief'])
 
-    def test_initiate_destination_level_zero(self):
+    def test_initiate_destination_level_one(self):
+        """Destination class starts at level 1 (not 0) after transition."""
         c = self._make_lg_fighter(level=5)
         c.initiate_dual_class('Thief')
-        self.assertEqual(c.level, [0])
+        self.assertEqual(c.level, [1])
 
     def test_initiate_hp_history_has_zeros_for_destination(self):
+        """hp_history[0] is the destination slot — one zero entry for level 1."""
         c = self._make_lg_fighter(level=5)
         c.initiate_dual_class('Thief')
-        # First list in hp_history is destination zeros
+        # Destination starts at level 1: one zero placeholder
         self.assertEqual(c.hp_history[0], [0])
 
     def test_initiate_requires_single_class(self):
@@ -858,38 +838,27 @@ class TestDualClassCharacter(unittest.TestCase):
         then a second small award confirms Fighter stays frozen.
         Keeping XP deltas small avoids age-increment side-effects.
         """
-        import os, json
-        import character as char_mod
+        c = self._make_lg_fighter(level=5)
+        orig_level = max(c.level)           # Fighter 5 is the frozen level
 
-        monsters_path = os.path.join(
-            os.path.dirname(os.path.abspath(char_mod.__file__)), 'monsters.json')
-        with open(monsters_path, 'w', encoding='utf-8') as f:
-            json.dump({'Wight': {'Wight': WIGHT_ENTRY}}, f)
-        try:
-            c = self._make_lg_fighter(level=5)
-            orig_level = max(c.level)           # Fighter 5 is the frozen level
+        c.initiate_dual_class('Thief')      # Thief 1, Fighter frozen at 5
 
-            c.initiate_dual_class('Thief')      # Thief 0, Fighter frozen at 5
+        # Thief XP table (1E): 1=1250, 2=2500, 3=5000, 4=10000, 5=20000, 6=40000
+        # Crossover fires when Thief level > Fighter 5, i.e. at Thief 6.
+        c.xp = 39_900
+        c.level = [5]                       # sync level to seeded XP so level_before is correct
+        c.award_xp(200)                     # +1 level only: Thief 5→6, crossover fires
 
-            # Place XP just below the Thief-6 threshold (20,000).
-            # Thief XP table (1E): 1=1250, 2=2500, 3=5000, 4=10000, 5=20000, 6=40000
-            # Crossover fires when Thief level > Fighter 5, i.e. at Thief 6 (40,000).
-            c.xp = 39_900
-            c.award_xp(200)                     # pushes to 40,100 → Thief 6, crossover fires
+        self.assertIn('Fighter', c.classes,
+                      "Fighter should be reinserted into classes post-crossover")
+        idx = c.classes.index('Fighter')
+        self.assertEqual(c.level[idx], orig_level,
+                         "Fighter level must remain frozen at original level after dual-class")
 
-            self.assertIn('Fighter', c.classes,
-                          "Fighter should be reinserted into classes post-crossover")
-            idx = c.classes.index('Fighter')
-            self.assertEqual(c.level[idx], orig_level,
-                             "Fighter level must remain frozen at original level after dual-class")
-
-            # Second award: confirm Fighter still doesn't move
-            c.award_xp(5_000)
-            self.assertEqual(c.level[c.classes.index('Fighter')], orig_level,
-                             "Fighter level must remain frozen on subsequent XP awards")
-        finally:
-            if os.path.exists(monsters_path):
-                os.remove(monsters_path)
+        # Second award: confirm Fighter still doesn't move
+        c.award_xp(5_000)
+        self.assertEqual(c.level[c.classes.index('Fighter')], orig_level,
+                         "Fighter level must remain frozen on subsequent XP awards")
 
 
 # ---------------------------------------------------------------------------
@@ -920,6 +889,58 @@ class TestAutoDualClass(unittest.TestCase):
             self.assertIsNone(c.dual_class,
                               "dual_class must be None when auto_dual_class is False")
 
+    def test_auto_dual_class_xp_arithmetic(self):
+        """XP on a dual-classed unit must satisfy two invariants:
+          1. Original class XP is exactly the floor of its transition level
+             (no midpoint inflation).
+          2. Destination XP lands between the floor and 10% into the destination's
+             actual current level (scatter is 1-10% of that level's range).
+        Note: the destination level reached depends on how much XP budget remains
+        after the transition, so we derive bounds from the character's actual state.
+        Runs up to 500 attempts to guarantee a dual-classed unit is found."""
+        import generatecharacter
+        from character import Character
+        dual = None
+        FINAL_LEVEL = 9
+        for _ in range(500):
+            c = Character(level=FINAL_LEVEL, race='Human', gender='male',
+                          classes=['Fighter'], auto_dual_class=True)
+            if c.dual_class is not None:
+                dual = c
+                break
+        if dual is None:
+            self.skipTest("No dual-class unit in 500 attempts — adjust dualprobs if needed")
+
+        orig     = dual.dual_class['original']
+        dest     = dual.dual_class['destination']
+        orig_lvl = dual.dual_class['original_level']
+        # Destination level: post-crossover it's in classes; pre-crossover it's level[0]
+        if dest in dual.classes:
+            dest_lvl = dual.level[dual.classes.index(dest)]
+        else:
+            dest_lvl = dual.level[0]
+
+        attrs_list  = list(dual.attributes.values())
+        orig_bonus  = generatecharacter.bonus_check(orig, attrs_list)
+        dest_bonus  = generatecharacter.bonus_check(dest, attrs_list)
+        def _adj(raw, has_bonus):
+            return int(int(raw) * 10 / 11) if has_bonus else int(raw)
+
+        orig_floor  = _adj(generatecharacter.return_xp(orig)[orig_lvl - 1], orig_bonus)
+        dest_floor  = _adj(generatecharacter.return_xp(dest)[dest_lvl - 1], dest_bonus)
+        dest_ceil   = _adj(generatecharacter.return_xp(dest)[dest_lvl], dest_bonus)
+        max_scatter = int((dest_ceil - dest_floor) * 10 / 100)
+
+        # Invariant 1: original contributes exactly its (bonus-adjusted) floor
+        self.assertGreaterEqual(dual.xp, orig_floor,
+                                "Total XP must be at least the original class floor")
+        # Invariant 2: destination leg sits 1–10% into its current level
+        dest_xp = dual.xp - orig_floor
+        self.assertGreaterEqual(dest_xp, dest_floor + 1,
+                                "Destination XP must be at least 1% into its level")
+        self.assertLessEqual(dest_xp, dest_floor + max_scatter,
+                             "Destination XP must not exceed 10% into its level")
+
     def test_dual_class_unit_has_valid_structure(self):
         """A dual-classed unit produced by auto_dual_class must have a valid
         dual_class dict, two classes post-crossover or one pre-crossover,
@@ -938,9 +959,229 @@ class TestAutoDualClass(unittest.TestCase):
         self.assertIn('destination', dual.dual_class)
         self.assertIn('original_level', dual.dual_class)
         self.assertIn('original_hp', dual.dual_class)
+        self.assertIn('frozen_xp', dual.dual_class)
         self.assertGreater(dual.hp, 0)
         self.assertIsInstance(dual.level, list)
 
+
+# ===========================================================================
+# Display convention tests
+# ===========================================================================
+
+class TestDisplayConvention(unittest.TestCase):
+    """display_classes() and display_level() must format correctly for
+    single-class, multiclass, and dual-class (pre- and post-crossover)."""
+
+    def test_single_class_display(self):
+        import generatecharacter
+        self.assertEqual(generatecharacter.display_classes(['Fighter']), 'Fighter')
+        self.assertEqual(generatecharacter.display_level([6]), '6')
+
+    def test_multiclass_display_sorted(self):
+        """Multiclass: alphabetical sort, slash-separated."""
+        import generatecharacter
+        self.assertEqual(generatecharacter.display_classes(['Thief', 'Fighter']), 'Fighter/Thief')
+        self.assertEqual(generatecharacter.display_level([4, 5]), '4/5')
+
+    def test_dual_class_pre_crossover(self):
+        """Pre-crossover: destination first, original gets asterisk, pipe separator."""
+        import generatecharacter
+        dc = {'destination': 'Thief', 'original': 'Fighter', 'original_level': 5}
+        self.assertEqual(generatecharacter.display_classes(['Thief'], dc), 'Thief|Fighter*')
+        self.assertEqual(generatecharacter.display_level([2], dc), '2|5')
+
+    def test_dual_class_post_crossover(self):
+        """Post-crossover: destination first, no asterisk."""
+        import generatecharacter
+        dc = {'destination': 'Thief', 'original': 'Fighter', 'original_level': 5}
+        self.assertEqual(generatecharacter.display_classes(['Thief', 'Fighter'], dc), 'Thief|Fighter')
+        self.assertEqual(generatecharacter.display_level([7, 5], dc), '7|5')
+
+    def test_dual_class_display_on_character(self):
+        """display_class and display_level on a real Character after
+        initiate_dual_class() must use pipe convention."""
+        c = make_fighter(level=5)
+        c.initiate_dual_class('Thief')
+        self.assertIn('|', c.display_class)
+        self.assertIn('|', c.display_level)
+        self.assertIn('Fighter*', c.display_class)
+
+    def test_multiclass_unchanged_by_dual_class_param_none(self):
+        """Passing dual_class=None must behave identically to omitting it."""
+        import generatecharacter
+        self.assertEqual(
+            generatecharacter.display_classes(['Thief', 'Fighter'], None),
+            'Fighter/Thief')
+
+
+# ===========================================================================
+# Pickle round-trip tests
+# ===========================================================================
+
+class TestPickleRoundTrip(unittest.TestCase):
+    """Character and Party must survive a pickle/unpickle cycle."""
+
+    def test_character_pickles_with_event_bus(self):
+        """A Character with a live event_bus must pickle and unpickle cleanly."""
+        import pickle
+        bus = StubEventBus()
+        c = make_fighter(level=4, event_bus=bus)
+        c.rename('Aldric')
+        restored = pickle.loads(pickle.dumps(c))
+        self.assertEqual(restored.character_name, 'Aldric')
+        self.assertEqual(restored.race, c.race)
+        self.assertEqual(restored.classes, c.classes)
+        self.assertEqual(restored.hp, c.hp)
+        self.assertIsNone(restored.event_bus,
+                          "event_bus must be None immediately after unpickling")
+
+    def test_character_emits_after_bus_reinjection(self):
+        """After re-injecting event_bus, the restored character must emit events."""
+        import pickle
+        from character import CharacterEventType
+        c = make_fighter(level=4, event_bus=StubEventBus())
+        restored = pickle.loads(pickle.dumps(c))
+        new_bus = StubEventBus()
+        restored.event_bus = new_bus
+        restored.rename('Bertram')
+        self.assertIn(CharacterEventType.CHARACTER_RENAMED, new_bus.types())
+
+    def test_party_pickles_with_event_bus(self):
+        """A Party with members and a live event_bus must pickle and unpickle cleanly."""
+        import pickle
+        from party import Party
+        bus = StubEventBus()
+        p = Party(event_bus=bus)
+        p.add_member(make_fighter(level=3))
+        p.add_member(make_thief(level=2))
+        restored = pickle.loads(pickle.dumps(p))
+        self.assertEqual(len(restored.members), 2)
+        self.assertIsNone(restored.event_bus,
+                          "Party event_bus must be None immediately after unpickling")
+
+    def test_dual_class_character_survives_pickle(self):
+        """A dual-classed character must survive a pickle round-trip with
+        dual_class dict intact."""
+        import pickle
+        c = make_fighter(level=5)
+        c.initiate_dual_class('Thief')
+        restored = pickle.loads(pickle.dumps(c))
+        self.assertIsNotNone(restored.dual_class)
+        self.assertEqual(restored.dual_class['original'], 'Fighter')
+        self.assertEqual(restored.dual_class['destination'], 'Thief')
+        self.assertEqual(restored.dual_class['original_level'],
+                         c.dual_class['original_level'])
+
+
+
+
+class TestDualClassDrain(unittest.TestCase):
+    """drain_level() on post-crossover dual-class characters.
+
+    Destination class drops by 1 per drain.
+    Frozen original class never moves.
+    Messages are correct.
+    next_level[0] is always int.
+    Draining destination to 0 triggers _undo_dual_class().
+    """
+
+    _ATTRS = [
+        {'Str': 15, 'Int': 16, 'Wis': 14, 'Dex': 17, 'Con': 12, 'Cha': 15, 'Com': 10, 'Exc': 0},
+        {'Str': 0,  'Int': 0,  'Wis': 0,  'Dex': 0,  'Con': 0,  'Cha': 0,  'Com': 0,  'Exc': 0},
+    ]
+
+    def _make_post_crossover(self, dest_level=8, orig_level=3):
+        """Fighter->Thief, post-crossover: Thief dest_level / Fighter orig_level."""
+        import copy
+        from character import Character
+        c = Character(
+            level=orig_level,
+            race='Human',
+            gender='male',
+            classes=['Fighter'],
+            attrib_list=copy.deepcopy(self._ATTRS),
+        )
+        c.alignment = 'Lawful Good'
+        c.initiate_dual_class('Thief')
+        # Manually advance to post-crossover state without going through award_xp
+        # to keep the test deterministic and fast.
+        c.dual_class['destination'] = 'Thief'
+        c.classes = ['Thief', 'Fighter']
+        c.level = [dest_level, orig_level]
+        # Build a plausible hp_history: dest rolls, frozen orig rolls, con list
+        c.hp_history = (
+            [[3] * dest_level] +
+            [c.dual_class['original_hp'][0]] +
+            [[0, 0]]
+        )
+        # Seed XP in the Thief level dest_level range (×2 for two classes)
+        import generatecharacter
+        c.xp = int(generatecharacter.next_xp(c.classes, c.level, c.attributes, -1)[0])
+        c.next_level = [int(generatecharacter.next_xp(c.classes, c.level, c.attributes)[0]),
+                        'Thief']
+        return c
+
+    def test_drain_drops_destination_by_one(self):
+        c = self._make_post_crossover(dest_level=8, orig_level=3)
+        before = c.level[0]
+        c.drain_level()
+        self.assertEqual(c.level[0], before - 1)
+
+    def test_drain_does_not_change_original_level(self):
+        c = self._make_post_crossover(dest_level=8, orig_level=3)
+        orig_before = c.level[1]
+        c.drain_level()
+        self.assertEqual(c.level[1], orig_before)
+
+    def test_drain_message_is_lost_one_level(self):
+        c = self._make_post_crossover(dest_level=8, orig_level=3)
+        msg = c.drain_level()
+        self.assertIn('lost one level', msg.lower())
+
+    def test_next_level_threshold_is_int_after_drain(self):
+        """next_level[0] must be int even when bonus XP adjustment produces a float."""
+        c = self._make_post_crossover(dest_level=8, orig_level=3)
+        c.drain_level()
+        self.assertIsInstance(c.next_level[0], int)
+
+    def test_drain_at_destination_level_1_triggers_revert(self):
+        """Draining the destination to 0 undoes the dual-class transition."""
+        c = self._make_post_crossover(dest_level=1, orig_level=3)
+        msg = c.drain_level()
+        self.assertIn('reverts', msg.lower())
+        self.assertIsNone(c.dual_class)
+        self.assertEqual(c.classes, ['Fighter'])
+        self.assertEqual(c.level, [3])
+
+    def test_revert_restores_frozen_xp(self):
+        """After revert, xp equals the frozen snapshot value."""
+        c = self._make_post_crossover(dest_level=1, orig_level=3)
+        frozen_xp = c.dual_class['frozen_xp']
+        c.drain_level()
+        self.assertEqual(c.xp, frozen_xp)
+
+    def test_revert_restores_hp_history(self):
+        """After revert, hp_history matches the original_hp snapshot."""
+        c = self._make_post_crossover(dest_level=1, orig_level=3)
+        original_hp = c.dual_class['original_hp']
+        c.drain_level()
+        self.assertEqual(c.hp_history, original_hp)
+
+    def test_drain_after_revert_follows_normal_path(self):
+        """After revert the restored class drains normally (no dual_class guard)."""
+        c = self._make_post_crossover(dest_level=1, orig_level=3)
+        c.drain_level()                     # revert — now Fighter 3
+        before = c.level[0]
+        msg = c.drain_level()               # normal Fighter drain
+        self.assertIsNone(c.dual_class)
+        self.assertEqual(c.level[0], before - 1)
+        self.assertIn('lost one level', msg.lower())
+
+    def test_next_level_int_after_revert(self):
+        """next_level[0] must be int after _undo_dual_class."""
+        c = self._make_post_crossover(dest_level=1, orig_level=3)
+        c.drain_level()
+        self.assertIsInstance(c.next_level[0], int)
 
 # ===========================================================================
 # ENTRY POINT

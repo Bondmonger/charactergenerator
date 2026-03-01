@@ -14,10 +14,8 @@ import os
 
 
 class CharacterEventType(Enum):                         # events emitted by Character operations
-    CHARACTER_RENAMED, XP_AWARDED, LEVEL_CHANGED = \
-        "character_renamed", "xp_awarded", "level_changed"
-    ATTRIBUTE_CHANGED, AGE_CHANGED, CHARACTER_TRANSFORMED = \
-        "attribute_changed", "age_changed", "character_transformed"
+    CHARACTER_RENAMED, XP_AWARDED, LEVEL_CHANGED = "character_renamed", "xp_awarded", "level_changed"
+    ATTRIBUTE_CHANGED, AGE_CHANGED, CHARACTER_TRANSFORMED = "attribute_changed", "age_changed", "character_transformed"
 
 
 def roll(b):  # rolls a single die of "b" sides
@@ -55,7 +53,8 @@ class Character:
         self.display_class = generatecharacter.display_classes(self.classes)
         self.xp = generatecharacter.pc_xp(level)                                    # generates xp from mean
         self.level = generatecharacter.generate_level(self.attributes, self.classes, self.race, self.xp, self.excess)
-        self.level, self.next_level = self.level['level'], self.level.pop('next_level')
+        self.level, next_level_raw = self.level['level'], self.level.pop('next_level')
+        self.next_level = [int(next_level_raw[0]), next_level_raw[1]]
         self.display_level = generatecharacter.display_level(self.level)
         self.hp_history = hitpoints.generate_hp(self.classes, self.level, self.attributes['Con'])
         self.modify_age(0)  # this is to factor in modifiers from the age increments in generate_level()
@@ -201,8 +200,9 @@ class Character:
         if attr in ['Int', 'Dex', 'Com']:           # no special considerations
             self.modify_other_att(adjustment, attr)
         self.calculate_level()
-        self.next_level = generatecharacter.generate_level(self.attributes, self.classes, self.race, self.xp,
+        next_level_raw = generatecharacter.generate_level(self.attributes, self.classes, self.race, self.xp,
                                                            self.excess).pop('next_level')
+        self.next_level = [int(next_level_raw[0]), next_level_raw[1]]
         return
 
     def modify_age(self, adjustment):
@@ -254,66 +254,57 @@ class Character:
     # Dual-class helpers
     # ------------------------------------------------------------------
 
-    def _apply_auto_dual_class(self, final_level: int) -> None:
-        """Retroactively apply probabilistic dual-class transition for bulk /
-        automated character generation.
-
-        Called from __init__ after the character is fully constructed at
-        `final_level`.  Walks levels 1..final_level on the original class,
-        rolling dual_class_transition_prob() at each.  On a hit, picks a
-        random destination from dual_class_options(), calls
-        initiate_dual_class(), then distributes the remaining XP to the
-        destination class via calculate_level().
-
-        Only fires for single-class characters — eligibility rules are
-        enforced inside dual_class_options().
-        """
-        if len(self.classes) != 1:
+    def _apply_auto_dual_class(self, final_level: int) -> None:     # probability for generated NPCs to be dual-class
+        if len(self.classes) != 1:                                  # only fires for single-class units
             return
         import selectclass as sc
-        original_class = self.classes[0]
-        transition_level = None
-        for lvl in range(1, final_level + 1):
+        original_class, transition_level = self.classes[0], None
+        for lvl in range(1, final_level + 1):                       # applies dual-class check at each level-up event
             prob = sc.dual_class_transition_prob(original_class, lvl)
             if prob > 0 and random.random() < prob:
                 transition_level = lvl
-                break                           # first hit wins
+                break                                               # first hit wins
         if transition_level is None:
             return
-        options = sc.dual_class_options(original_class, self.attributes,
-                                        self.alignment, self.race)
-        if not options:
+        options = sc.dual_class_options(original_class, self.attributes, self.alignment, self.race)
+        if not options:                                             # ends if there are no legal target classes
             return
         destination = random.choice(options)
-        # Rebuild character state to exactly the transition point so that
-        # initiate_dual_class() freezes the right HP history.
-        self.level       = [transition_level]
-        self.hp_history  = hitpoints.generate_hp(
-            [original_class], [transition_level], self.attributes['Con'])
-        # Set XP to midpoint of the transition level for the original class
-        orig_xp_floor    = int(generatecharacter.return_xp(original_class)[transition_level - 1])
-        orig_xp_ceil     = int(generatecharacter.return_xp(original_class)[transition_level])
-        self.xp          = (orig_xp_floor + orig_xp_ceil) // 2
-        self.initiate_dual_class(destination)
-        # Award XP appropriate for the requested final_level so the destination
-        # class levels up — use pc_xp(final_level) as the target total
-        target_xp        = generatecharacter.pc_xp(final_level)
-        if target_xp > self.xp:
-            self.xp      = target_xp
-            self.calculate_level(0)
-        self.display_class = generatecharacter.display_classes(self.classes[:])
-        self.display_level = generatecharacter.display_level(self.level)
-        self.hp            = generatecharacter.flatten(self.hp_history)
+        self.level = [transition_level]                             # captures unit state ahead of HP history freeze
+        self.hp_history = hitpoints.generate_hp([original_class], [transition_level], self.attributes['Con'])
+        attrs_list = list(self.attributes.values())
+        orig_bonus = generatecharacter.bonus_check(original_class, attrs_list)
+        dest_bonus = generatecharacter.bonus_check(destination, attrs_list)
+        def _adj(raw, has_bonus):                                   # applies 10/11 if class has bonus, else identity
+            return int(int(raw) * 10 / 11) if has_bonus else int(raw)
+        orig_xp_floor = _adj(generatecharacter.return_xp(original_class)[transition_level - 1], orig_bonus)
+        self.xp = orig_xp_floor                                     # freeze at exact (bonus-adjusted) floor
+        self.initiate_dual_class(destination, starting_xp=orig_xp_floor)
+        dest_xp_floor = _adj(generatecharacter.return_xp(destination)[final_level - 1], dest_bonus)
+        dest_xp_ceil  = _adj(generatecharacter.return_xp(destination)[final_level], dest_bonus)
+        dest_scatter  = int((dest_xp_ceil - dest_xp_floor) * random.randint(1, 10) / 100)
+        self.xp = orig_xp_floor + dest_xp_floor + dest_scatter      # lands 1-10% into the level; excess is sacrificed
+        self.calculate_level(0, uncapped=True)
+        self.display_class = generatecharacter.display_classes(self.classes[:], self.dual_class)
+        self.display_level = generatecharacter.display_level(self.level, self.dual_class)
+        self.hp = generatecharacter.flatten(self.hp_history)
 
-    def initiate_dual_class(self, destination: str) -> None:
+    def initiate_dual_class(self, destination: str, starting_xp: int = 1) -> None:
         """Freeze the current (single) class and start the dual-class
         transition.  Must be called while the character is still single-
         class (len(self.classes) == 1).
 
+        starting_xp controls what the destination class opens with:
+          - UI/manual path: default of 1 — all carryover XP is left behind
+            with the original class and frozen there.
+          - _apply_auto_dual_class: passes orig_xp_floor so the combined XP
+            can be reassembled after the call for NPC placement.
+
         After this call:
           self.dual_class  = populated schema dict
           self.classes     = [destination]          (active class only)
-          self.level       = [0]                    (destination starts at 0)
+          self.xp          = starting_xp            (1 for manual; orig_xp_floor for NPC)
+          self.level       = [1]                    (1 xp = 1st level)
           self.hp_history  = [[0], frozen_rolls, [0]]
                               ^dest zeros  ^original hp  ^con placeholder
         """
@@ -325,16 +316,21 @@ class Character:
             'destination':    destination,
             'original_level': max(self.level),
             'original_hp':    [row[:] for row in self.hp_history],  # deep copy
+            'frozen_xp':      self.xp,                              # xp at moment of transition
         }
-        # Transition: destination becomes the only active class, level 0
+        # Transition: destination becomes the only active class, level 1
+        self.xp          = starting_xp
         self.classes     = [destination]
-        self.level       = [0]
+        self.level       = [1]
         # hp_history: [dest_zeros, frozen_original_rolls, con_placeholder]
         frozen_rolls = self.dual_class['original_hp'][:-1]  # exclude old con list
         self.hp_history  = [[0], *frozen_rolls, [0]]
         self.hp          = generatecharacter.flatten(self.hp_history)
-        self.display_class  = destination
-        self.display_level  = '0'
+        self.display_class  = generatecharacter.display_classes(self.classes[:], self.dual_class)
+        self.display_level  = generatecharacter.display_level(self.level, self.dual_class)
+        next_level_raw      = generatecharacter.generate_level(    # recompute next_level for destination class
+            self.attributes, self.classes, self.race, self.xp, self.excess).pop('next_level')
+        self.next_level     = [int(next_level_raw[0]), next_level_raw[1]]
 
     def _detect_crossover(self) -> bool:
         """Return True if the destination level has just exceeded original_level
@@ -384,42 +380,106 @@ class Character:
         hp_calcs_all = [datalocus.call_hp(c) for c in self.classes]
         hitpoints.con_bonus(self.hp_history, hp_calcs_all, self.attributes['Con'])
         self.hp = generatecharacter.flatten(self.hp_history)
-        self.display_class  = generatecharacter.display_classes(self.classes[:])
-        self.display_level  = generatecharacter.display_level(self.level)
+        self.display_class  = generatecharacter.display_classes(self.classes[:], self.dual_class)
+        self.display_level  = generatecharacter.display_level(self.level, self.dual_class)
 
-    def calculate_level(self, adj=0):                           # adj is either -1 or 0 / also updates hit points
+    def _undo_dual_class(self) -> str:
+        """Reverse a dual-class transition when the destination class is drained to 0.
+        Restores the original class, level, hp_history, and XP from the frozen snapshot.
+        dual_class is cleared — the character is single-class again at their original level.
+        The drain event itself is the restoration; no further XP manipulation occurs.
+        Subsequent drains on the restored class follow the normal path (down to wightify at 0).
+        """
+        original      = self.dual_class['original']
+        original_level = self.dual_class['original_level']
+        self.classes    = [original]
+        self.level      = [original_level]
+        self.hp_history = self.dual_class['original_hp']        # restored deep copy
+        self.xp         = self.dual_class['frozen_xp']
+        self.dual_class = None
+        self.hp           = generatecharacter.flatten(self.hp_history)
+        self.display_class = generatecharacter.display_classes(self.classes[:])
+        self.display_level = generatecharacter.display_level(self.level)
+        next_level_raw     = generatecharacter.generate_level(
+            self.attributes, self.classes, self.race, self.xp, self.excess).pop('next_level')
+        self.next_level    = [int(next_level_raw[0]), next_level_raw[1]]
+        return '{} reverts to {} {}'.format(self.character_name, original, original_level)
+
+    def calculate_level(self, adj=0, uncapped=False):           # adj is either -1 or 0 / also updates hit points
         # Pre-crossover destination is legitimately at level 0 — do not wightify.
         # Only wightify when a fully-levelled character is drained below level 1.
         pre_crossover = (self.dual_class is not None
                          and self.dual_class['original'] not in self.classes)
-        if not pre_crossover and max(self.level) + adj < 1:    # 1st level energy drain → wight
+        post_crossover = (self.dual_class is not None
+                          and self.dual_class['original'] in self.classes)
+        # Dual-class drain at destination level 1: undo the transition entirely.
+        # The character reverts to their original class at their original level.
+        # Wightify only happens if that restored class is then drained to 0.
+        if (pre_crossover or post_crossover) and adj < 0 and self.level[0] + adj < 1:
+            return self._undo_dual_class()
+        if not pre_crossover and not post_crossover and max(self.level) + adj < 1:  # normal wight guard
             return self.wightify()
         message = ''
-        # next_xp(diff=-1) reads xp_table[level-1]; level 0 → index -1 (wraps to end of list).
-        # Guard: if any class is at level 0 (pre-crossover destination), the XP floor is 0.
-        if min(self.level) == 0:
-            current_xp_floor = 0
+        # For post-crossover drain, floor/ceiling are computed against the destination class only.
+        # Using the full class list would pick the frozen original's (much larger) thresholds,
+        # causing the message branch to misfire. The multiplier is still number_of_classes.
+        if post_crossover and adj < 0:
+            current_xp_floor    = generatecharacter.next_xp(self.classes, self.level, self.attributes, -1)[0]
+            current_xp_ceiling  = generatecharacter.next_xp(self.classes, self.level, self.attributes)[0]
         else:
-            current_xp_floor = max(generatecharacter.next_xp(self.classes, self.level, self.attributes, -1))
-        current_xp_ceiling = min(generatecharacter.next_xp(self.classes, self.level, self.attributes))
+            current_xp_floor    = max(generatecharacter.next_xp(self.classes, self.level, self.attributes, -1))
+            current_xp_ceiling  = min(generatecharacter.next_xp(self.classes, self.level, self.attributes))
         if adj < 0:                                             # if the adjustment is negative...
-            upper_thr = max(generatecharacter.next_xp(self.classes, self.level, self.attributes, adj))
-            ind_pos = generatecharacter.next_xp(self.classes, self.level, self.attributes, adj).index(upper_thr)
-            lower_threshold = generatecharacter.next_xp(self.classes, self.level, self.attributes, adj - 1)[ind_pos]
+            # Dual-class drain: target only the destination class (index 0), but pass the full
+            # class/level lists so next_xp()'s number_of_classes multiplier stays consistent
+            # with the increment_xp() call that follows.  We shift the destination level by adj
+            # to find the correct threshold range, leaving the frozen original untouched.
+            if self.dual_class is not None:
+                drain_levels = self.level[:]                     # copy full level list
+                drain_levels[0] += adj                          # shift destination by -1
+                upper_thr   = generatecharacter.next_xp(self.classes, drain_levels, self.attributes)[0]
+                drain_levels[0] -= 1                            # one further for the lower bound
+                lower_threshold = generatecharacter.next_xp(self.classes, drain_levels, self.attributes)[0]
+
+            else:
+                upper_thr = max(generatecharacter.next_xp(self.classes, self.level, self.attributes, adj))
+                ind_pos = generatecharacter.next_xp(self.classes, self.level, self.attributes, adj).index(upper_thr)
+                lower_threshold = generatecharacter.next_xp(self.classes, self.level, self.attributes, adj - 1)[ind_pos]
             self.xp = int((lower_threshold + upper_thr) / 2)    # ...sets xp to midpoint of destination level
         if current_xp_floor <= self.xp < current_xp_ceiling:
             return ''                                           # returns an empty string if no level change
         hp_calcs, number_of_classes = [], len(self.level)
-        # The one-level cap prevents skipping levels on normal characters.
-        # Pre-crossover dual-class: the destination starts at 0 and must be
-        # allowed to jump to wherever the accumulated XP actually puts it.
-        if not pre_crossover:
-            if self.xp >= min(generatecharacter.next_xp(self.classes, self.level, self.attributes, 1)):  # caps level-up
-                self.xp = min(generatecharacter.next_xp(self.classes, self.level, self.attributes, 1)) - 1
+        level_before = self.level[:]                            # snapshot pre-award level for cap check below
         for ch_cl in range(number_of_classes):                  # recalculates level(s) from scratch...
             self.level[ch_cl] = 0                               # ...and populates hp_calcs list
             hp_calcs.append(datalocus.call_hp(self.classes[ch_cl]))
         self.next_level = generatecharacter.increment_xp(self.classes, self.level, self.xp, self.attributes)
+        self.next_level[0] = int(self.next_level[0])            # increment_xp may return float from bonus adjustment
+        # Post-crossover: clamp original class back to its frozen level after increment_xp recalculates.
+        # Without this, the midpoint XP lands both classes wherever the XP table puts them.
+        if post_crossover:
+            orig_idx = self.classes.index(self.dual_class['original'])
+            self.level[orig_idx] = self.dual_class['original_level']
+        # Cap interactive level-ups at +1 per award_xp() call.
+        # uncapped=True is only for _apply_auto_dual_class bulk placement.
+        # Drain (adj < 0) sets XP explicitly to a midpoint and must never be capped.
+        # We compare post-increment levels against pre-award snapshot: if any class
+        # jumped by more than 1, trim XP back to just below that class's +2 threshold.
+        if not uncapped and adj >= 0:
+            for ch_cl in range(number_of_classes):
+                if self.level[ch_cl] > level_before[ch_cl] + 1:
+                    # XP jumped more than one level — clamp to just below the +2 threshold
+                    trim = generatecharacter.next_xp(self.classes, level_before, self.attributes, 1)[ch_cl]
+                    self.xp = int(trim) - 1
+                    # Re-run increment_xp with clamped XP so level and next_level are consistent
+                    for reset in range(number_of_classes):
+                        self.level[reset] = 0
+                    self.next_level = generatecharacter.increment_xp(
+                        self.classes, self.level, self.xp, self.attributes)
+                    self.next_level[0] = int(self.next_level[0])
+                    if post_crossover:
+                        self.level[orig_idx] = self.dual_class['original_level']
+                    break                                       # only one class can trigger per award
         if self.xp < current_xp_floor:                          # if xp are lower than the current floor...
             for ch_cl in range(number_of_classes):              # ...trims off hp
                 self.hp_history[ch_cl] = self.hp_history[ch_cl][0:self.level[ch_cl]]
@@ -452,7 +512,7 @@ class Character:
             for b in range(number_of_classes):
                 self.hp_history[number_of_classes][b] *= 2
         self.hp = generatecharacter.flatten(self.hp_history)
-        self.display_level = generatecharacter.display_level(self.level)
+        self.display_level = generatecharacter.display_level(self.level, self.dual_class)
         if self._detect_crossover():
             self._apply_crossover()
         return message
@@ -492,7 +552,7 @@ class Character:
 
     def calculate_thaco(self):                              # combines class and strength modifiers
         if hasattr(self, 'thac0'):                          # mob units: thac0 set directly, skip calculation
-            return self.thac0 - 20                          # display is 20 + calculate_thaco(), so THAC0 15 → returns -5
+            return self.thac0 - 20                          # display = 20 + calculate_thaco(), so THAC0 15 returns -5
         display, multiplier = self.display_strength(), self.str_multiplier()
         bonus = datalocus.str_thacobonus(self.attributes['Str'], self.attributes['Exc'], display, multiplier)
         final = -(self.class_thaco() + bonus)
@@ -506,6 +566,14 @@ class Character:
             class_modifier = datalocus.class_level_movement(tuple(self.level), tuple(result[1]))    # level modifier
             mv_rate = int(0.5 + (result[0][self.gender == 'female'] * class_modifier / 12))
             return mv_rate                                      # returned value is a rounded race_mod * class_mod
+
+    def __getstate__(self):                          # strip event_bus before pickling (holds tkinter references)
+        state = self.__dict__.copy()
+        state['event_bus'] = None
+        return state
+
+    def __setstate__(self, state):                   # restore from pickle; event_bus left None — caller re-injects
+        self.__dict__.update(state)
 
     def calculate_alignment(self):
         result = datalocus.race_class_alignment(self.race, tuple(self.classes))

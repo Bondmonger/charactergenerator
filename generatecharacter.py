@@ -6,21 +6,42 @@ def roll(a):  # rolls a single die of "a" sides
     return random.randrange(1, a + 1)
 
 
-def display_classes(ch_classes):  # sorts classes and converts list to a slash-separated string
-    displayed_class = ""
-    ch_classes.sort()
-    for ch_class in ch_classes:
-        displayed_class = displayed_class + ch_class + '/'
-    displayed_class = displayed_class.rstrip('/')
-    return displayed_class
+def display_classes(ch_classes, dual_class=None):
+    """Convert class list to a displayable string.
+
+    Single / multiclass: sorted alphabetically, slash-separated.
+        ['Fighter', 'Thief'] -> 'Fighter/Thief'
+
+    Dual-class: reverse-chronological (destination first), pipe-separated.
+    Original class gets an asterisk when still inactive (pre-crossover).
+        active classes=['Thief'], original='Fighter', pre-crossover -> 'Thief|Fighter*'
+        active classes=['Thief','Fighter'], original='Fighter', post -> 'Thief|Fighter'
+    """
+    if dual_class is None:
+        return '/'.join(sorted(ch_classes))
+    destination = dual_class['destination']
+    original    = dual_class['original']
+    crossed     = original in ch_classes        # post-crossover: original reinserted
+    orig_label  = original if crossed else original + '*'
+    return '{}|{}'  .format(destination, orig_label)
 
 
-def display_level(levels):  # converts the list of levels into a displayable string
-    displayed_level = ""
-    for level in levels:
-        displayed_level = displayed_level + str(level) + '/'
-    displayed_level = displayed_level.rstrip('/')
-    return displayed_level
+def display_level(levels, dual_class=None):
+    """Convert level list to a displayable string.
+
+    Single / multiclass: slash-separated, order matches classes list.
+        [4, 5] -> '4/5'
+
+    Dual-class: pipe-separated, destination level first.
+        [6, 5] where classes=['Thief','Fighter'] -> '6|5'
+    """
+    if dual_class is None:
+        return '/'.join(str(lv) for lv in levels)
+    # levels list is [destination_level, original_level] post-crossover,
+    # or [destination_level] pre-crossover (original level lives in dual_class dict).
+    dest_level = levels[0]
+    orig_level = dual_class['original_level']
+    return '{}|{}'  .format(dest_level, orig_level)
 
 
 # regarding attributes.py, here are some improvements we could make down the road
@@ -94,25 +115,33 @@ def display_level(levels):  # converts the list of levels into a displayable str
 #   COMPLETE [replace display_text[0] with log system]
 #   COMPLETE [get wights working, ideally circumventing the rest of the create character steps]
 #   COMPLETE [standardize the 'size' field, converting to letter size (S/M/L), height/length, weight]
-#   COMPLETE [convert mutations to emit events / make Tkinter reactive] / stat blocks from MM
-# 4 & 5) dual-classing and bards - there's no separation, we need to deal with all this leveling stuff together
+#   COMPLETE [MM stat blocks: convert mutations to emit events / make Tkinter reactive]
+#   COMPLETE [stat blocks from MM, MM2 and FF]
+#   COMPLETE [dual-classing: settle on logic for storing legacy xp]
+#   COMPLETE [dual-classing: settle on logic for storing legacy hp]
+#   COMPLETE [define character sheet method/button for dual-classing]
+#   COMPLETE [establish logic for dual-classing in NPCs]
+#   COMPLETE [insert dual-classing toggle in bulk unit generator and party maker]
+# 4 & 5) dual-classing and bards - there's no separation; need to deal with all this leveling stuff together
+#   a)  remove monsters.json destroyer in test.py (TearDown())
+#   b)  review the rest of the new methods in character.py code (this is how we uncovered the xp quirk; do more)
 #   c)  0-level units
 #       1) fix age calculations (under 10 y/o)
 #       2) establish default attribute blocks
-#       3) stat blocks from MM, MM2 and FF
 #   d) eligibility
-#       1) dual-classing - ideally we insert this (as a Boolean) in bulk unit generator for tuning
-#           i. how are xp stored? (zero out xp and store prior-xp with the inactive class?)
-#           ii. how are legacy hp stored?
-#           iii. define a character sheet button & method for dual-classing
-#           iv. need to establish logic for dual-classing in NPCs
-#           v.  custom logic
-#               A. bards (fighter to thief to bard)
+#       1) Bard implementation
+#           v.  other custom dual-class logic
 #               B. cavalier (optional 0-level path, incrementing attributes)
 #                   stored as cavalier-specific array, then applied to atts
 #               C. thief-acrobat (as prestige class, similar to knights, option for mid-level thieves)
-#       2) psionics
-#           calculate psionic strength
+#       2) destination picker: dual-class buttons in char sheet need to allow for class choice
+#       3) fix auto-dual-classing toggle placement in bulk, party maker and character sheet
+#       4) on/off toggle for OA/UA and frequency slider for OA
+#            These need to thread through selectclass.py (race and class eligibility), datalocus.py (CSV reads), and the
+#            character sheet. Non-trivial but well-scoped. Worth deciding upfront whether these are session-global
+#            settings or per-generation toggles.
+#       5) psionic eligibility / calculate psionic strength
+#       6) module schema - some modules are doing double duty and some boundaries are blurry
 # 6) figure out storage/equipment fields
 #   a)	csv all armor
 #   b)  csv all weapons

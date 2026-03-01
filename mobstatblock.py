@@ -10,8 +10,7 @@ ALIGNMENT_MAP = {
 }
 
 # maps die-size keys from the hit_dice JSON field to their integer values
-HIT_DIE_KEYS = {'d2': 2, 'd3': 3, 'd4': 4, 'd5': 5, 'd6': 6,
-                 'd7': 7, 'd8': 8, 'd10': 10, 'd12': 12}
+HIT_DIE_KEYS = {'d2': 2, 'd3': 3, 'd4': 4, 'd5': 5, 'd6': 6, 'd7': 7, 'd8': 8, 'd10': 10, 'd12': 12}
 
 # size letter codes from the JSON → approximate height in inches and weight in lbs
 # used to populate self.size = [height_inches, weight] to match PC layout
@@ -106,9 +105,9 @@ class MobStatblock:
         char.size = _parse_size(size)
 
         # xp fields — mob units don't level up
-        char.xp         = 0
+        char.xp = 0
         char.next_level = [0, char.race]
-        char.level      = [0]
+        char.level = [0]
 
         # store full raw entry for reference (special abilities, attacks, xp value, etc.)
         char.mob_data = entry
@@ -117,15 +116,14 @@ class MobStatblock:
     def from_json(cls, entry: Dict[str, Any], event_bus=None):  # returns a fresh Character-compatible object
         from character import Character                          # local import to avoid circular dependency
         char = Character.__new__(Character)                     # bypasses __init__ entirely
-        char.event_bus      = event_bus
+        char.event_bus = event_bus
         char.character_name = ''
-        char.excess         = {'Str': 0, 'Int': 0, 'Wis': 0, 'Dex': 0,
-                                'Con': 0, 'Cha': 0, 'Com': 0}
-        char.attributes     = {}                               # sparse — display layer uses .get(attr, 10) fallback
-        char.gender         = 'unknown'
-        char.age            = [0, '', '', {}, 0]               # [num, category, max_str, age_adj_dict, max_age]
-        char.hp_history     = [[]]
-        char.hit_dice       = {}
+        char.excess = {'Str': 0, 'Int': 0, 'Wis': 0, 'Dex': 0, 'Con': 0, 'Cha': 0, 'Com': 0}
+        char.attributes = {}                               # sparse — display layer uses .get(attr, 10) fallback
+        char.gender = 'unknown'
+        char.age = [0, '', '', {}, 0]               # [num, category, max_str, age_adj_dict, max_age]
+        char.hp_history = [[]]
+        char.hit_dice = {}
         cls.apply_to(char, entry)
         return char
 

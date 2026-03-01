@@ -95,6 +95,14 @@ class Party:
     def size(self) -> int:
         return len(self.members)                    # returns porty size
 
+    def __getstate__(self):                          # strip event_bus before pickling
+        state = self.__dict__.copy()
+        state['event_bus'] = None
+        return state
+
+    def __setstate__(self, state):                   # restore from pickle; event_bus left None — caller re-injects
+        self.__dict__.update(state)
+
     def __len__(self) -> int:
         return len(self.members)
 

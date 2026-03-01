@@ -142,6 +142,17 @@ class CharacterInterface:
         self.extended_party = tk.Button(self.control_label, command=lambda: self.party_frame_popup(), width=16,
                                         text="Expanded Party", relief=tk.FLAT, underline=9)
 
+        # --- dual-class UI controls ---
+        self.dual_class_mode_var = tk.BooleanVar(value=True)    # True = auto, False = manual
+        self.dual_class_button = tk.Button(self.control_label, text="Dual Class", width=12,
+                                           command=lambda: self.initiate_dual_class_ui(), relief=tk.FLAT)
+        self.dual_class_toggle = tk.Checkbutton(self.control_label, text="auto dual",
+                                                variable=self.dual_class_mode_var,
+                                                command=self._on_dual_class_mode_toggle,
+                                                bg='#000000', fg='#FFFFFF', font=('Courier', 12),
+                                                selectcolor='#000000', activebackground='#000000',
+                                                activeforeground='#FFFFFF')
+
         self.start_label = ''    # establishes all label_text values as strings
 
         self.new_button.pack(side='left')
@@ -153,11 +164,15 @@ class CharacterInterface:
         self.set_name.pack(side='left')
         self.marching_order.pack(side='left')
         self.extended_party.pack(side='left')
+        self.dual_class_button.pack(side='left')
+        self.dual_class_toggle.pack(side='left')
         self.name_slot.pack(side='left')                            # this one is actually a text input field
         self.remove_button.pack_forget()
         self.set_name.pack_forget()
         self.marching_order.pack_forget()
         self.extended_party.pack_forget()
+        self.dual_class_button.pack_forget()
+        self.dual_class_toggle.pack_forget()
         self.name_slot.pack_forget()
 
         self.master.bind('<Escape>', lambda event: self.escape_function())
@@ -352,7 +367,8 @@ class CharacterInterface:
 
     def reroll(self, dummy_val=''):                 # generates a new character and refreshes label text
         self.display_text[0] = dummy_val            # look, I'm just getting rid of that argument warning
-        self.selected_character = character.Character(self.level, event_bus=self.event_bus)
+        self.selected_character = character.Character(self.level, event_bus=self.event_bus,
+                                                      auto_dual_class=self.dual_class_mode_var.get())
         self.nonmember_buttons()
         self.update_charsheet()                     # this is the only char-gen method that doesn't unbind hotkeys
 
@@ -370,10 +386,12 @@ class CharacterInterface:
         if self.selected_character.display_class:   # if the unit's "display_class" field has a non-null value...
             self.drain_button.pack(side='left')
             self.xp_button.pack(side='left')
+            self.dual_class_toggle.pack(side='left')    # always visible alongside xp controls
             self.master.bind('d', lambda event: self.drain())
             self.master.bind('D', lambda event: self.drain())
             self.master.bind('x', lambda event: self.boost())
             self.master.bind('X', lambda event: self.boost())
+        self._pack_dual_class_controls()            # action button: conditional on eligibility
         if len(self.party) > 1:                # re-binds hotkeys
             self.marching_order.pack(side='left')
             self.master.bind('o', lambda event: self.arrange_party(self.selected_character))
@@ -405,10 +423,12 @@ class CharacterInterface:
         if self.selected_character.display_class:   # if the unit's "display_class" field has a non-null value...
             self.drain_button.pack(side='left')
             self.xp_button.pack(side='left')
+            self.dual_class_toggle.pack(side='left')    # always visible alongside xp controls
             self.master.bind('d', lambda event: self.drain())
             self.master.bind('D', lambda event: self.drain())
             self.master.bind('x', lambda event: self.boost())
             self.master.bind('X', lambda event: self.boost())
+        self._pack_dual_class_controls()            # action button: conditional on eligibility
         self.extended_party.pack(side='left')
 
         self.master.bind('c', lambda event: self.make_another_character())
@@ -439,6 +459,7 @@ class CharacterInterface:
         self.display_text[0] = ''
 
     def boost(self):                                        # awards 1,000 xp to current character
+        self.selected_character.auto_dual_class = self.dual_class_mode_var.get()
         self.selected_character.award_xp(1000)
         self.update_charsheet()
         self.member_buttons() if self.selected_character in self.party else self.nonmember_buttons()
@@ -448,6 +469,68 @@ class CharacterInterface:
         attr_list = ['Str', 'Int', 'Wis', 'Dex', 'Con', 'Cha', 'Com']
         self.selected_character.change_attribute(attr_list[attr], adj)
         self.update_charsheet()
+        self.member_buttons() if self.selected_character in self.party else self.nonmember_buttons()
+
+    # --- dual-class UI helpers ---
+
+    def _dual_class_eligible_ui(self):
+        """True when selected_character can still dual-class (not yet done, has valid destinations,
+        and is at least 2nd level — 1st-level characters cannot dual-class even if otherwise eligible)."""
+        c = self.selected_character
+        return (c.dual_class is None
+                and len(c.classes) == 1
+                and max(c.level) >= 2
+                and bool(selectclass.dual_class_options(c.classes[0], c.attributes, c.alignment, c.race)))
+
+    def _pack_dual_class_controls(self):
+        """Pack the Dual Class action button when the current character is manually eligible."""
+        if self._dual_class_eligible_ui():
+            self.dual_class_button.pack(side='left')
+
+    def _on_dual_class_mode_toggle(self):
+        """dual_class_mode_var is read at boost() time; no panel rebuild needed on toggle."""
+        pass
+
+    def initiate_dual_class_ui(self):
+        """Trigger dual-class transition for selected_character; prompt for destination if needed."""
+        c = self.selected_character
+        options = selectclass.dual_class_options(c.classes[0], c.attributes, c.alignment, c.race)
+        if not options:
+            return                                          # eligibility may have changed since button appeared
+        if len(options) == 1:
+            self._apply_dual_class(options[0])
+        else:
+            self._dual_class_picker(options)
+
+    def _apply_dual_class(self, destination):
+        """Call the domain method, then refresh the UI."""
+        self.selected_character.initiate_dual_class(destination)
+        self.display_text[0] = (f"{self.selected_character.character_name} transitions to {destination}")
+        self.update_charsheet()
+        if self.selected_character in self.party:
+            self.member_buttons()
+        else:
+            self.nonmember_buttons()
+
+    def _dual_class_picker(self, options):
+        """Modal dialog letting the player choose a destination class from options list."""
+        dialog = tk.Toplevel(self.master, bg="#000000")
+        dialog.geometry("260x{}".format(60 + 36 * len(options)))
+        dialog.update_idletasks()
+        x = self.master.winfo_rootx() + (self.master.winfo_width() // 2) - 130
+        y = self.master.winfo_rooty() + (self.master.winfo_height() // 2) - 80
+        dialog.geometry(f"+{x}+{y}")
+        dialog.overrideredirect(True)
+        dialog.attributes('-topmost', True)
+        tk.Label(dialog, text="Choose destination class:", bg="#000000", fg="#FFFFFF",
+                 font=('Courier', 12), pady=8).pack()
+        for opt in options:
+            tk.Button(dialog, text=opt, width=20, bg="#000000", fg="#FFFFFF", font=('Courier', 12),
+                      relief=tk.RIDGE, bd=4,
+                      command=lambda dest=opt: (dialog.destroy(), self._apply_dual_class(dest))).pack(pady=2)
+        dialog.bind("<Escape>", lambda e: dialog.destroy())
+        dialog.focus_set()
+        self.master.wait_window(dialog)
 
     def stacked_attrs(self):                    # generates text for display_label
         temp, other_atts = "", ["Int", "Wis", "Dex", "Con", "Cha", "Com"]
@@ -1497,6 +1580,7 @@ class CharacterInterface:
         members = save_file.load_party(name)
         self.party.clear()
         for member in members:
+            member.event_bus = self.event_bus   # re-inject event bus stripped at save time
             self.party.add_member(member)
         self.close_save_screen()
 
