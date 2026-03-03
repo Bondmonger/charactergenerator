@@ -137,7 +137,7 @@ def dual_class_probs(ch_class) -> list:             # accepts 'Fighter'
 
 @lru_cache(maxsize=200)
 def class_alignment_restrictions(ch_class) -> list:  # accepts 'Thief'
-    result = []                                       # returns ['Lawful Neutral', 'Lawful Evil', ...]
+    result = []                                      # returns ['Lawful Neutral', 'Lawful Evil', ...]
     with open(get_resource_path('attributemins.csv')) as f:
         for row in csv.reader(f):
             if row[0] == ch_class and len(row) > 81 and row[81].strip():

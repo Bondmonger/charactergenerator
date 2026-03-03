@@ -250,9 +250,11 @@ class CharacterInterface:
         self.display_text[0] = event.data['message']
         print(f"[EVENT] Level changed: {event.data['message']}")
 
-    def _on_attribute_changed(self, event):         # handles ATTRIBUTE_CHANGED event (silent)
+    def _on_attribute_changed(self, event):         # re-evaluates dual-class eligibility on every attribute change
         print(f"[EVENT] {event.data['name']} {event.data['attr']}: "
               f"{event.data['old_value']} -> {event.data['new_value']}")
+        self.dual_class_button.pack_forget()        # clear first, then re-evaluate
+        self._pack_dual_class_controls()
 
     def _on_age_changed(self, event):               # handles AGE_CHANGED event (silent)
         print(f"[EVENT] {event.data['name']} age category: "

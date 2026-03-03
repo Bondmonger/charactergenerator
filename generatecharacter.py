@@ -122,9 +122,10 @@ def display_level(levels, dual_class=None):
 #   COMPLETE [define character sheet method/button for dual-classing]
 #   COMPLETE [establish logic for dual-classing in NPCs]
 #   COMPLETE [insert dual-classing toggle in bulk unit generator and party maker]
+#   COMPLETE [remove monsters.json destroyer from test.py (TearDown())]
+#   COMPLETE [destination picker: dual-class buttons in char sheet need to allow for class choice]
 # 4 & 5) dual-classing and bards - there's no separation; need to deal with all this leveling stuff together
-#   a)  remove monsters.json destroyer in test.py (TearDown())
-#   b)  review the rest of the new methods in character.py code (this is how we uncovered the xp quirk; do more)
+#   b)  review the rest of the new methods in character.py code (this is how we uncovered the xp quirk; do the rest)
 #   c)  0-level units
 #       1) fix age calculations (under 10 y/o)
 #       2) establish default attribute blocks
@@ -134,7 +135,6 @@ def display_level(levels, dual_class=None):
 #               B. cavalier (optional 0-level path, incrementing attributes)
 #                   stored as cavalier-specific array, then applied to atts
 #               C. thief-acrobat (as prestige class, similar to knights, option for mid-level thieves)
-#       2) destination picker: dual-class buttons in char sheet need to allow for class choice
 #       3) fix auto-dual-classing toggle placement in bulk, party maker and character sheet
 #       4) on/off toggle for OA/UA and frequency slider for OA
 #            These need to thread through selectclass.py (race and class eligibility), datalocus.py (CSV reads), and the
@@ -212,12 +212,14 @@ def increment_xp(classes, levels, xp, atts):                    # increments lev
     return nextxp_class                                         # ...and returns the impending level threshold
 
 
-def flatten(hp_batches):                                        # adds up the elements in nested HP list(s)
+def flatten(hp_batches, divisor=None):                          # adds up the elements in nested HP list(s)
     temp = 0
     for hp_batch in hp_batches:
         for value in hp_batch:
             temp += value
-    return round(temp/(len(hp_batches)-1))
+    if divisor is None:
+        divisor = len(hp_batches) - 1
+    return round(temp / divisor)
 
 
 def generate_level(attrs, ch_classes, race, xp, excess):        # creates and updates levels and xp thresholds
