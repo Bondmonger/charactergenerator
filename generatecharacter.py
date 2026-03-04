@@ -124,24 +124,24 @@ def display_level(levels, dual_class=None):
 #   COMPLETE [insert dual-classing toggle in bulk unit generator and party maker]
 #   COMPLETE [remove monsters.json destroyer from test.py (TearDown())]
 #   COMPLETE [destination picker: dual-class buttons in char sheet need to allow for class choice]
+#   CANCELED [thief-acrobat (as prestige class, similar to knights, option for mid-level thieves)]
+#   COMPLETE [review new methods in character.py code]
+#   COMPLETE [module schema]
+#   COMPLETE [0-level units - fix age calculations (under 10 y/o)]
+#   COMPLETE [0-level units - establish default attribute blocks]
+#   COMPLETE [refactor character.py's calculate_level() method]
 # 4 & 5) dual-classing and bards - there's no separation; need to deal with all this leveling stuff together
-#   b)  review the rest of the new methods in character.py code (this is how we uncovered the xp quirk; do the rest)
-#   c)  0-level units
-#       1) fix age calculations (under 10 y/o)
-#       2) establish default attribute blocks
-#   d) eligibility
+#   e) eligibility
 #       1) Bard implementation
 #           v.  other custom dual-class logic
 #               B. cavalier (optional 0-level path, incrementing attributes)
 #                   stored as cavalier-specific array, then applied to atts
-#               C. thief-acrobat (as prestige class, similar to knights, option for mid-level thieves)
 #       3) fix auto-dual-classing toggle placement in bulk, party maker and character sheet
 #       4) on/off toggle for OA/UA and frequency slider for OA
 #            These need to thread through selectclass.py (race and class eligibility), datalocus.py (CSV reads), and the
 #            character sheet. Non-trivial but well-scoped. Worth deciding upfront whether these are session-global
 #            settings or per-generation toggles.
 #       5) psionic eligibility / calculate psionic strength
-#       6) module schema - some modules are doing double duty and some boundaries are blurry
 # 6) figure out storage/equipment fields
 #   a)	csv all armor
 #   b)  csv all weapons
