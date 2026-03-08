@@ -143,15 +143,9 @@ class CharacterInterface:
                                         text="Expanded Party", relief=tk.FLAT, underline=9)
 
         # --- dual-class UI controls ---
-        self.dual_class_mode_var = tk.BooleanVar(value=True)    # True = auto, False = manual
+        self.dual_class_var = tk.BooleanVar(value=self.bulk_attributes["dual_class"])   # shared across all screens
         self.dual_class_button = tk.Button(self.control_label, text="Dual Class", width=12,
                                            command=lambda: self.initiate_dual_class_ui(), relief=tk.FLAT)
-        self.dual_class_toggle = tk.Checkbutton(self.control_label, text="auto dual",
-                                                variable=self.dual_class_mode_var,
-                                                command=self._on_dual_class_mode_toggle,
-                                                bg='#000000', fg='#FFFFFF', font=('Courier', 12),
-                                                selectcolor='#000000', activebackground='#000000',
-                                                activeforeground='#FFFFFF')
 
         self.start_label = ''    # establishes all label_text values as strings
 
@@ -165,14 +159,12 @@ class CharacterInterface:
         self.marching_order.pack(side='left')
         self.extended_party.pack(side='left')
         self.dual_class_button.pack(side='left')
-        self.dual_class_toggle.pack(side='left')
         self.name_slot.pack(side='left')                            # this one is actually a text input field
         self.remove_button.pack_forget()
         self.set_name.pack_forget()
         self.marching_order.pack_forget()
         self.extended_party.pack_forget()
         self.dual_class_button.pack_forget()
-        self.dual_class_toggle.pack_forget()
         self.name_slot.pack_forget()
 
         self.master.bind('<Escape>', lambda event: self.escape_function())
@@ -206,6 +198,7 @@ class CharacterInterface:
         self.frameleft = tk.Frame()                 # left frame of bulk generation report
         self.frameright = tk.Frame()                # right frame of bulk generation report
         self.save_frame = tk.Frame()                # save/load screen
+        self.settings_panel = tk.Frame()            # header_controls() settings panel
         self.method_info_label = tk.Label()         # the small, gray-text method labels
 
         self.button = tk.Button()
@@ -370,7 +363,7 @@ class CharacterInterface:
     def reroll(self, dummy_val=''):                 # generates a new character and refreshes label text
         self.display_text[0] = dummy_val            # look, I'm just getting rid of that argument warning
         self.selected_character = character.Character(self.level, event_bus=self.event_bus,
-                                                      auto_dual_class=self.dual_class_mode_var.get())
+                                                      auto_dual_class=False)
         self.nonmember_buttons()
         self.update_charsheet()                     # this is the only char-gen method that doesn't unbind hotkeys
 
@@ -388,7 +381,6 @@ class CharacterInterface:
         if self.selected_character.display_class:   # if the unit's "display_class" field has a non-null value...
             self.drain_button.pack(side='left')
             self.xp_button.pack(side='left')
-            self.dual_class_toggle.pack(side='left')    # always visible alongside xp controls
             self.master.bind('d', lambda event: self.drain())
             self.master.bind('D', lambda event: self.drain())
             self.master.bind('x', lambda event: self.boost())
@@ -425,7 +417,6 @@ class CharacterInterface:
         if self.selected_character.display_class:   # if the unit's "display_class" field has a non-null value...
             self.drain_button.pack(side='left')
             self.xp_button.pack(side='left')
-            self.dual_class_toggle.pack(side='left')    # always visible alongside xp controls
             self.master.bind('d', lambda event: self.drain())
             self.master.bind('D', lambda event: self.drain())
             self.master.bind('x', lambda event: self.boost())
@@ -461,7 +452,7 @@ class CharacterInterface:
         self.display_text[0] = ''
 
     def boost(self):                                        # awards 1,000 xp to current character
-        self.selected_character.auto_dual_class = self.dual_class_mode_var.get()
+        self.selected_character.auto_dual_class = False
         self.selected_character.award_xp(1000)
         self.update_charsheet()
         self.member_buttons() if self.selected_character in self.party else self.nonmember_buttons()
@@ -488,10 +479,6 @@ class CharacterInterface:
         """Pack the Dual Class action button when the current character is manually eligible."""
         if self._dual_class_eligible_ui():
             self.dual_class_button.pack(side='left')
-
-    def _on_dual_class_mode_toggle(self):
-        """dual_class_mode_var is read at boost() time; no panel rebuild needed on toggle."""
-        pass
 
     def initiate_dual_class_ui(self):
         """Trigger dual-class transition for selected_character; prompt for destination if needed."""
@@ -838,17 +825,10 @@ class CharacterInterface:
         self.selection_body.destroy()
         self.selection_body = tk.Frame(master=self.selection_frame)
         self.selection_body.grid(row=0, column=0, sticky="nsew")
-        self.frame = tk.Frame(master=self.selection_body, background='green')
-        self.frame.grid(row=0, column=2, rowspan=12, columnspan=7, sticky='nsew')   # kurek
-        self.frame.grid_propagate(False)                            # this is the panel frame containing the dropdowns
         for i in range(20):
             self.selection_body.grid_columnconfigure(i, weight=1, uniform=1)
-        for i in range(12):
+        for i in range(13):
             self.selection_body.grid_rowconfigure(i, weight=1, uniform=1)
-            self.frame.grid_rowconfigure(i, weight=1, uniform=1)    # this matches self.frame's partitions to self.s_b
-        for location, text in enumerate(["Level:", "Race:", "Character Class:", "Gender:", "Sample Size:"], 1):
-            self.method_label = tk.Label(master=self.selection_body, justify="left", text=text)
-            self.method_label.grid(row=location * 2, column=0, columnspan=2, sticky='nse')
         option_levels = list(range(1, 17))                          # we begin populating the 5 dropdown arrays
         eligibility_object, maximums = selectclass.IsEligible(), [18, 18, 18, 18, 18, 18]
         eligibility_object.eligible(maximums)
@@ -868,22 +848,26 @@ class CharacterInterface:
         option_genders = ["ANY", "male", "female"]                  # we create the labels and dropdowns
         dropdown_values = [option_levels, option_races, option_classes, option_genders, option_samplesizes]
         label_values = ["level", "race", "charclass", "gender", "samplesize"]
+        label_texts = ["Level:", "Race:", "Character Class:", "Gender:", "Sample Size:"]
         command_values = [self.bulklevelset, self.bulkraceset, self.bulkclassset, self.bulkgenderset, self.bulksample]
-        for order, (dropdown, label, command) in enumerate(zip(dropdown_values, label_values, command_values), 1):
-            self.tk_variable = tk.IntVar(self.frame, self.bulk_attributes[label])
-            class_dropdown = tk.OptionMenu(self.frame, self.tk_variable, *dropdown, command=command)
+        for order, (dropdown, label, text, command) in \
+                enumerate(zip(dropdown_values, label_values, label_texts, command_values), 1):
+            self.method_label = tk.Label(master=self.selection_body, justify="right", text=text)
+            self.method_label.grid(row=order * 2 - 1, column=1, columnspan=3, sticky='nse')
+            self.tk_variable = tk.IntVar(self.selection_body, self.bulk_attributes[label])
+            class_dropdown = tk.OptionMenu(self.selection_body, self.tk_variable, *dropdown, command=command)
             class_dropdown.config(bg='#000000', fg='#FFFFFF', font=('Courier', 12), activebackground='#000000',
                                   activeforeground='#FFFFFF', width=24)
             class_dropdown["menu"].config(bg='#000000', fg='#FFFFFF', font=('Courier', 12))
-            class_dropdown.grid(row=order*2, column=0)
-        self.dual_class_var = tk.BooleanVar(value=self.bulk_attributes["dual_class"])
-        dual_class_check = tk.Checkbutton(self.frame, text="dual classing",
+            class_dropdown.grid(row=order * 2 - 1, column=4, columnspan=4, sticky='w')
+        self.dual_class_var.set(self.bulk_attributes["dual_class"])
+        dual_class_check = tk.Checkbutton(self.selection_body, text="auto dual-class",
                                           variable=self.dual_class_var,
                                           command=self.bulkdualclassset,
                                           bg='#000000', fg='#FFFFFF', font=('Courier', 12),
                                           selectcolor='#000000', activebackground='#000000',
                                           activeforeground='#FFFFFF')
-        dual_class_check.grid(row=11, column=0, sticky='w')
+        dual_class_check.grid(row=12, column=2, columnspan=3, sticky='sw', padx=(4, 0))     # padx to judge 1px right
         self.button = tk.Button(self.selection_body, text="GENERATE UNITS", relief=tk.FLAT,
                                 command=lambda: self.bulk_outcome())
         self.button.grid(row=5, column=13, columnspan=2, sticky='nsew')
@@ -1051,7 +1035,7 @@ class CharacterInterface:
         for i, width in enumerate([1, 1]):
             self.selection_body.grid_columnconfigure(i, weight=width, uniform=1)
         self.selection_body.grid_rowconfigure(0, weight=1, uniform=1)
-        self.frame = tk.Frame(master=self.selection_body, relief=tk.FLAT, background='green')
+        self.frame = tk.Frame(master=self.selection_body, relief=tk.FLAT)
         self.frame.grid(row=0, column=0, sticky='nsew')
         self.frame.grid_propagate(False)
         for i in range(12):
@@ -1141,14 +1125,14 @@ class CharacterInterface:
     def party_maker(self):          # this generates the "Full Party" control frame
         self.party.clear()
         self.selection_body.destroy()
-        self.selection_body = tk.Frame(master=self.selection_frame, bd=4)
+        self.selection_body = tk.Frame(master=self.selection_frame)
         self.selection_body.grid(row=0, column=0, sticky="nsew")
         self.selection_body.grid_propagate(False)
         for i in range(20):
             self.selection_body.grid_columnconfigure(i, weight=1, uniform=1)
-        for i in range(12):
+        for i in range(13):
             self.selection_body.grid_rowconfigure(i, weight=1, uniform=1)
-        self.method_label = tk.Label(master=self.selection_body, bd=4, justify="left", text="Level Range")
+        self.method_label = tk.Label(master=self.selection_body, justify="left", text="Level Range")
         self.method_label.grid(row=2, column=2, columnspan=3, sticky='sw')
         options = list(range(1, 17))
         self.tk_variable = tk.IntVar(self.selection_body, self.minmaxlevel['min'])
@@ -1157,7 +1141,7 @@ class CharacterInterface:
                               activeforeground='#FFFFFF')
         level_dropdown["menu"].config(bg='#000000', fg='#FFFFFF', font=('Courier', 12))
         level_dropdown.grid(row=3, column=2, sticky='new')
-        self.method_label = tk.Label(master=self.selection_body, bd=4, text="to")
+        self.method_label = tk.Label(master=self.selection_body, text="to")
         self.method_label.grid(row=3, column=3, sticky='new')
         self.tk_variable = tk.IntVar(self.selection_body, self.minmaxlevel['max'])
         level_dropdown = tk.OptionMenu(self.selection_body, self.tk_variable, *options, command=self.maxlevelset)
@@ -1170,8 +1154,8 @@ class CharacterInterface:
         self.frame.grid(row=3, column=6, columnspan=4, sticky='nsew')
         self.button = tk.Button(self.frame, text="GENERATE PARTY", relief=tk.FLAT, command=lambda: self.make_party())
         self.button.pack(expand=True, fill='both')
-        self.dual_class_var = tk.BooleanVar(value=self.bulk_attributes["dual_class"])
-        dual_class_check = tk.Checkbutton(self.selection_body, text="dual classing",
+        self.dual_class_var.set(self.bulk_attributes["dual_class"])
+        dual_class_check = tk.Checkbutton(self.selection_body, text="auto dual-class",
                                           variable=self.dual_class_var,
                                           command=self.bulkdualclassset,
                                           bg='#000000', fg='#FFFFFF', font=('Courier', 12),
@@ -1396,7 +1380,7 @@ class CharacterInterface:
     def header_controls(self, rr=True):
         self.header_control_frame = tk.Frame(master=self.hcontrol_fr)
         self.header_control_frame.grid(row=0, column=1, sticky='nsew')
-        for k in range(5):
+        for k in range(6):
             self.header_control_frame.grid_rowconfigure(k, weight=1, uniform=1)
         for m in range(2):
             self.header_control_frame.grid_columnconfigure(m, weight=1, uniform=1)
@@ -1421,6 +1405,18 @@ class CharacterInterface:
         self.button = tk.Button(master=self.header_control_frame, relief=tk.RIDGE, justify="left", bd=4,
                                 text="view party", command=lambda: self.party_frame_popup(top_button=True))
         self.button.grid(row=3, column=0, columnspan=2, sticky='nsew')
+        self.settings_panel = tk.Frame(master=self.header_control_frame, bd=2, relief=tk.FLAT)
+        self.settings_panel.grid(row=4, column=0, columnspan=2, rowspan=2, sticky='nsew')
+        self.settings_panel.grid_columnconfigure(0, weight=1, uniform=1)
+        for r in range(3):                          # 3 rows: dual classing, UA toggle (future), OA toggle (future)
+            self.settings_panel.grid_rowconfigure(r, weight=1, uniform=1)
+        self.dual_class_var.set(self.bulk_attributes["dual_class"])
+        tk.Checkbutton(self.settings_panel, text="auto dual-class",
+                       variable=self.dual_class_var,
+                       command=self.bulkdualclassset,
+                       bg='#000000', fg='#FFFFFF', font=('Courier', 12),
+                       selectcolor='#000000', activebackground='#000000',
+                       activeforeground='#FFFFFF').grid(row=0, column=0, sticky='w')
 
     def party_frame_popup(self, top_button=False):
         self.temp_frame = tk.Frame(master=self.master, bd=4)
