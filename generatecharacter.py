@@ -131,12 +131,8 @@ def display_level(levels, dual_class=None):
 #   COMPLETE [0-level units - establish default attribute blocks]
 #   COMPLETE [refactor character.py's calculate_level() method]
 #   COMPLETE [fix auto-dual-classing toggle placement in bulk, party maker and character sheet]
+#   COMPLETE [Bard eligibility and implementation]
 # 4 & 5) dual-classing and bards - there's no separation; need to deal with all this leveling stuff together
-#   e) eligibility
-#       1) Bard implementation
-#           v.  other custom dual-class logic
-#               B. cavalier (optional 0-level path, incrementing attributes)
-#                   stored as cavalier-specific array, then applied to atts
 #       4) on/off toggle for OA/UA and frequency slider for OA
 #            These need to thread through selectclass.py (race and class eligibility), datalocus.py (CSV reads), and the
 #            character sheet. Non-trivial but well-scoped. Worth deciding upfront whether these are session-global

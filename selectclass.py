@@ -374,11 +374,39 @@ def dual_class_eligible(original: str, destination: str, attributes: dict, align
             return False
     orig_permitted = set(datalocus.class_alignment_restrictions(original))  # alignment legal for both classes
     dest_permitted = set(datalocus.class_alignment_restrictions(destination))
-    if bard_track and original == 'Fighter' and destination == 'Thief':     # alignment exception for bard track
-        dest_permitted.add('Neutral Good')
+    if bard_track and original == 'Fighter' and destination == 'Thief':     # bard track alignment exception:
+        # Bard-eligible alignments are any partially-neutral (LN, NG, N, NE, CN).
+        # These supersede normal Thief destination minimums for bard-track transitions.
+        dest_permitted.update({'Lawful Neutral', 'Neutral Good', 'Neutral',
+                               'Neutral Evil', 'Chaotic Neutral'})
     if alignment not in orig_permitted:
         return False
     if alignment not in dest_permitted:
+        return False
+    return True
+
+
+BARD_TRACK_ALIGNMENTS = {'Lawful Neutral', 'Neutral Good', 'Neutral',
+                         'Neutral Evil', 'Chaotic Neutral'}
+
+
+def bard_track_eligible(original: str, attributes: dict, alignment: str,
+                        race: str, level: int) -> bool:
+    """Return True if a character qualifies to enter the bard career path.
+
+    Gates: Human or Half-elf, partially-neutral alignment, Bard attribute
+    minimums, Fighter level 5–7 (first transition window).
+    Used by the interactive UI to decide whether 'Bard' appears in the picker.
+    """
+    if original != 'Fighter':
+        return False
+    if race not in ('Human', 'Half-elf'):
+        return False
+    if alignment not in BARD_TRACK_ALIGNMENTS:
+        return False
+    if not bard_eligible(attributes):
+        return False
+    if not (5 <= level <= 7):
         return False
     return True
 
@@ -395,6 +423,23 @@ def dual_class_transition_prob(ch_class: str, level: int) -> float:     # return
     if not probs or level < 1 or level > len(probs):
         return 0.0                                                      # returns a zero for level 1 or 'out of range'
     return probs[level - 1]
+
+
+# Bard minimum attributes (PHB p.117). These supersede normal dual-class
+# destination minimums for both bard-track transitions.
+BARD_MINS = {'Str': 15, 'Int': 12, 'Wis': 15, 'Dex': 15, 'Con': 10, 'Cha': 15}
+
+
+def bard_eligible(attributes: dict) -> bool:
+    """Return True if attributes meet all Bard career-path minimums.
+
+    Used at character creation (to decide whether a Fighter can be on the
+    bard track) and again at each transition point (Fighter→Thief,
+    Thief→Bard).  Bard minimums are the sole eligibility gate for both
+    transitions — normal dual-class destination minimums do not apply.
+    """
+    return all(attributes.get(attr, 0) >= minimum
+               for attr, minimum in BARD_MINS.items())
 
 
 # char_classes = ()

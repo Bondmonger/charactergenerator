@@ -467,13 +467,30 @@ class CharacterInterface:
     # --- dual-class UI helpers ---
 
     def _dual_class_eligible_ui(self):
-        """True when selected_character can still dual-class (not yet done, has valid destinations,
-        and is at least 2nd level — 1st-level characters cannot dual-class even if otherwise eligible)."""
+        """True when selected_character can dual-class interactively.
+
+        Bard stage 2→3: Thief|Fighter with intended_class='Bard', Thief level 5–8.
+        Standard + bard stage 1→2: single class, level >= 2, has any valid destinations
+            (bard_track_eligible() adds 'Bard' to the picker when applicable).
+        """
         c = self.selected_character
-        return (c.dual_class is None
-                and len(c.classes) == 1
-                and max(c.level) >= 2
-                and bool(selectclass.dual_class_options(c.classes[0], c.attributes, c.alignment, c.race)))
+        lvl = max(c.level)
+        # --- Bard stage 2→3: Thief|Fighter → Bard --------------------------------
+        if (c.intended_class == 'Bard'
+                and c.dual_class is not None
+                and 'fighter_level' not in c.dual_class
+                and 'Thief' in c.classes
+                and 5 <= lvl <= 8
+                and selectclass.bard_eligible(c.attributes)):
+            return True
+        # --- Standard + bard stage 1→2 ------------------------------------------
+        if c.dual_class is not None or len(c.classes) != 1 or lvl < 2:
+            return False
+        if bool(selectclass.dual_class_options(c.classes[0], c.attributes, c.alignment, c.race)):
+            return True
+        if selectclass.bard_track_eligible(c.classes[0], c.attributes, c.alignment, c.race, lvl):
+            return True
+        return False
 
     def _pack_dual_class_controls(self):
         """Pack the Dual Class action button when the current character is manually eligible."""
@@ -483,9 +500,26 @@ class CharacterInterface:
     def initiate_dual_class_ui(self):
         """Trigger dual-class transition for selected_character; prompt for destination if needed."""
         c = self.selected_character
+        lvl = max(c.level)
+        # --- Bard stage 2→3: Thief|Fighter → Bard --------------------------------
+        if (c.intended_class == 'Bard'
+                and c.dual_class is not None
+                and 'fighter_level' not in c.dual_class
+                and 'Thief' in c.classes):
+            c.initiate_dual_class('Bard', starting_xp=0)
+            self.display_text[0] = (f"{c.character_name} becomes a Bard")
+            self.update_charsheet()
+            if c in self.party:
+                self.member_buttons()
+            else:
+                self.nonmember_buttons()
+            return
+        # --- Standard + bard stage 1→2 ------------------------------------------
         options = selectclass.dual_class_options(c.classes[0], c.attributes, c.alignment, c.race)
+        if selectclass.bard_track_eligible(c.classes[0], c.attributes, c.alignment, c.race, lvl):
+            options = options + ['Bard']    # Bard appears alongside other destinations
         if not options:
-            return                                          # eligibility may have changed since button appeared
+            return
         if len(options) == 1:
             self._apply_dual_class(options[0])
         else:
@@ -493,13 +527,20 @@ class CharacterInterface:
 
     def _apply_dual_class(self, destination):
         """Call the domain method, then refresh the UI."""
-        self.selected_character.initiate_dual_class(destination)
-        self.display_text[0] = (f"{self.selected_character.character_name} transitions to {destination}")
+        c = self.selected_character
+        if destination == 'Bard':
+            # 'Bard' in the picker means: enter bard track → transition to Thief
+            c.intended_class = 'Bard'
+            destination = 'Thief'
+        c.initiate_dual_class(destination)
+        self.display_text[0] = (f"{c.character_name} transitions to {destination}")
         self.update_charsheet()
-        if self.selected_character in self.party:
+        if c in self.party:
             self.member_buttons()
         else:
             self.nonmember_buttons()
+
+
 
     def _dual_class_picker(self, options):
         """Modal dialog letting the player choose a destination class from options list."""
@@ -827,7 +868,7 @@ class CharacterInterface:
         self.selection_body.grid(row=0, column=0, sticky="nsew")
         for i in range(20):
             self.selection_body.grid_columnconfigure(i, weight=1, uniform=1)
-        for i in range(13):
+        for i in range(12):
             self.selection_body.grid_rowconfigure(i, weight=1, uniform=1)
         option_levels = list(range(1, 17))                          # we begin populating the 5 dropdown arrays
         eligibility_object, maximums = selectclass.IsEligible(), [18, 18, 18, 18, 18, 18]
@@ -1130,7 +1171,7 @@ class CharacterInterface:
         self.selection_body.grid_propagate(False)
         for i in range(20):
             self.selection_body.grid_columnconfigure(i, weight=1, uniform=1)
-        for i in range(13):
+        for i in range(12):
             self.selection_body.grid_rowconfigure(i, weight=1, uniform=1)
         self.method_label = tk.Label(master=self.selection_body, justify="left", text="Level Range")
         self.method_label.grid(row=2, column=2, columnspan=3, sticky='sw')

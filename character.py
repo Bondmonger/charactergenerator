@@ -28,21 +28,34 @@ class Character:
         # start = time.time()
         self.event_bus = event_bus                      # optional EventBus for domain event emission
         self.dual_class = None                          # populated at transition; see brief for schema
+        self.intended_class = None                      # 'Bard' for bard-track chars only; else None
         self.character_name = ''
         # print("classes: ", classes)
-        self.race = selectclass.race_from_class(classes) if len(race) == 0 else race            # 'Gray Elf'
-        self.classes = selectclass.random_class(self.race) if len(classes) == 0 else classes    # ['Fighter', 'Thief']
+        _designated_bard = (list(classes) == ['Bard'])     # captured before anything mutates classes
+        if _designated_bard:
+            # Bard is not in the race/class CSV — must be Human or Half-elf.
+            # Use the Fighter weighted race distribution, filtered to eligible races,
+            # so the Human/Half-elf ratio reflects the same proportions as bulk_maker.
+            if len(race) > 0:
+                self.race = race
+            else:
+                bard_race_weights = selectclass.weighted_race('Fighter')
+                eligible = {r: w for r, w in bard_race_weights.items()
+                            if r in ('Human', 'Half-elf')}
+                self.race = random.choices(list(eligible.keys()),
+                                           weights=list(eligible.values()), k=1)[0]
+            self.classes = ['Fighter']
+        else:
+            self.race = selectclass.race_from_class(classes) if len(race) == 0 else race            # 'Gray Elf'
+            self.classes = selectclass.random_class(self.race) if len(classes) == 0 else list(classes)  # ['Fighter', 'Thief']
         intended_classes = self.classes[:]          # snapshot before methodvi can mutate self.classes via _demotion
         self.alignment = self.calculate_alignment()
-        # end = time.time()
-        # print('character generation duration:', end - start)
-        self.attributes = attributes.methodvi(self.race, self.classes) if len(attrib_list) == 0 else attrib_list
-        # [{'Str': 14, 'Int': 13, ...
+        # Designated bards: roll attributes against Bard minimums (Str15 Int12 Wis15 Dex15 Con10 Cha15).
+        # self.classes is already ['Fighter'] but methodvi must see ['Bard'] to target the right minimums.
+        methodvi_classes = ['Bard'] if _designated_bard else self.classes
+        self.attributes = attributes.methodvi(self.race, methodvi_classes) if len(attrib_list) == 0 else attrib_list
         self.excess, self.attributes = self.attributes.pop(1), self.attributes[0]   # excess = same format as attributes
         self.gender = heightweight.random_gender() if gender == "random" else gender            # female
-        # attribs zipper: attributes.apply_race_modifiers('Grugach', [20, 12, 12, 12, 12, 12, 12])
-        #                  ^^^ applies racial modifier and returns an excess dict
-        # class_string converter: selectclass.string_to_list('Fighter/Thief', '/')
         if self.classes[0] == '0-level':    # these units throw an error when AC/THAC0/movement are calculated
             self.age = agevalues.generate_age(self.race, intended_classes, level)
             for k in self.attributes:       # set all attributes to 10 pending monsters.json integration
@@ -52,8 +65,29 @@ class Character:
             self.size = heightweight.size(self.race, self.gender)
             return
         self.age = agevalues.generate_age(self.race, self.classes, level)
+        pre_age_attrs = dict(self.attributes)               # snapshot for probabilistic bard eligibility check
         for k, v in self.attributes.items():
             self.attributes[k] = self.attributes[k] + self.age[3][k]
+        # ------------------------------------------------------------------
+        # Bard interception — must run after attributes are rolled.
+        # Designated path: always set the flag; eligibility is re-checked at
+        # the transition point (level 5–7) by which time age penalties will
+        # have resolved.
+        # Probabilistic path: checked against pre-age attributes so that age
+        # penalties don't silently disqualify a qualifying roll.
+        # ------------------------------------------------------------------
+        if _designated_bard:
+            self.intended_class = 'Bard'                    # unconditional — check deferred to transition point
+        elif (self.classes == ['Fighter']
+              and self.race in ('Human', 'Half-elf')
+              and selectclass.bard_eligible(pre_age_attrs)):
+            # Plain Fighter who qualifies: bard track competes equally with
+            # all other dual-class destinations available to this character.
+            bard_options = selectclass.dual_class_options(
+                'Fighter', self.attributes, self.alignment, self.race,
+                bard_track=True)
+            if bard_options and random.random() < 1 / len(bard_options):
+                self.intended_class = 'Bard'
         self.display_class = generatecharacter.display_classes(self.classes)
         self.xp = generatecharacter.pc_xp(level)                                    # generates xp from mean
         self.level = generatecharacter.generate_level(self.attributes, self.classes, self.race, self.xp, self.excess)
@@ -65,7 +99,7 @@ class Character:
         self.size = heightweight.size(self.race, self.gender)
         self.hp = generatecharacter.flatten(self.hp_history)
         if auto_dual_class:
-            self._apply_auto_dual_class(max(self.level))
+            self._apply_auto_dual_class(max(self.level), self.xp)
         return
 
     def change_attribute(self, attr: str, adjustment: int) -> None:  # public domain wrapper for modify_attribute
@@ -154,7 +188,9 @@ class Character:
         if self.attributes['Con'] > max_constitution:
             self.excess['Con'] += self.attributes['Con'] - max_constitution
             self.attributes['Con'] = max_constitution
-        if self.dual_class is not None:
+        if self.dual_class is not None and 'fighter_level' in self.dual_class:
+            self._recompute_bard_con()                          # Bard stage 3: three-slot con
+        elif self.dual_class is not None:
             self._recompute_dual_class_con()
         else:
             hpcalcs = [datalocus.call_hp(c) for c in self.classes]
@@ -181,6 +217,38 @@ class Character:
         dest_con = max(0, _class_con(dest_class, dest_level) - _class_con(dest_class, orig_level))
         orig_con = _class_con(orig_class, orig_level)
         self.hp_history[-1] = [dest_con, orig_con]
+
+    def _recompute_bard_con(self):                              # recomputes three-slot con list for Bard stage 3
+        """Bard con rules:
+        - Bard slot: 0 until Bard level exceeds original_level (frozen Thief level); then accrues normally.
+        - Thief slot: frozen at original_level (same as standard dual-class original).
+        - Fighter slot: frozen at fighter_level.
+        """
+        con = self.attributes['Con']
+        bonus = datalocus.con_hpbonus(con)
+
+        def _class_con(ch_class, absolute_level):
+            hpcalcs = datalocus.call_hp(ch_class)
+            cap = hpcalcs[6]
+            temp = cap if bonus > cap else bonus
+            temp *= hpcalcs[7]
+            raw_mult = hpcalcs[1] + absolute_level - 1
+            multiplier = min(raw_mult, hpcalcs[4])
+            return temp * multiplier
+
+        bard_level    = self.level[0]
+        thief_level   = self.dual_class['original_level']       # frozen Thief level
+        fighter_level = self.dual_class['fighter_level']        # frozen Fighter level
+
+        # Bard con: 0 until bard_level > thief_level, then accrues for levels above thief_level
+        if bard_level > thief_level:
+            bard_con = max(0, _class_con('Bard', bard_level) - _class_con('Bard', thief_level))
+        else:
+            bard_con = 0
+
+        thief_con   = _class_con('Thief', thief_level)
+        fighter_con = _class_con('Fighter', fighter_level)
+        self.hp_history[-1] = [bard_con, thief_con, fighter_con]
 
     def modify_wis(self, adjustment):
         max_wisdom = 25                                                                 # removes Wis max in all cases
@@ -285,20 +353,51 @@ class Character:
     # Dual-class helpers
     # ------------------------------------------------------------------
 
-    def _apply_auto_dual_class(self, final_level: int) -> None:     # probability for generated NPCs to be dual-class
+    def _apply_auto_dual_class(self, final_level: int, total_xp: int) -> None:     # probability for generated NPCs to be dual-class
         if len(self.classes) != 1:                                  # only fires for single-class units
             return
         import selectclass as sc
-        original_class, transition_level = self.classes[0], None
-        for lvl in range(1, final_level + 1):                       # applies dual-class check at each level-up event
-            prob = sc.dual_class_transition_prob(original_class, lvl)
+        original_class = self.classes[0]
+        is_bard_track = (self.intended_class == 'Bard')
+
+        # ---- Determine valid transition window and per-level probability -------
+        # Bard-track windows are strict: Fighter 5–7, Thief 5–8.
+        # Bard-track probabilities are hardcoded: 60% per Fighter level (93.6%
+        # combined), 50% per Thief level (93.8% combined), giving ~87.8% overall.
+        # Standard dual-class: any level >= 2, probability from dualprobs CSV.
+        if is_bard_track and original_class == 'Fighter':
+            window = range(5, 8)        # levels 5, 6, 7
+            per_level_prob = 0.60
+        elif is_bard_track and original_class == 'Thief':
+            window = range(5, 9)        # levels 5, 6, 7, 8
+            per_level_prob = 0.50
+        else:
+            window = range(2, final_level + 1)
+            per_level_prob = None       # use dual_class_transition_prob() from CSV
+
+        transition_level = None
+        for lvl in range(1, final_level + 1):
+            if lvl not in window:
+                continue
+            if per_level_prob is not None:
+                # Bard track: last level in window is always a guaranteed transition if eligible
+                prob = 1.0 if lvl == window[-1] else per_level_prob
+            else:
+                prob = sc.dual_class_transition_prob(original_class, lvl)
             if prob > 0 and random.random() < prob:
                 transition_level = lvl
-                break                                               # first hit wins
+                break
+
         if transition_level is None:
             return
-        options = sc.dual_class_options(original_class, self.attributes, self.alignment, self.race)
-        if not options:                                             # ends if there are no legal target classes
+
+        # ---- For bard track: destination is always Thief (stage 1→2) ---------
+        if is_bard_track:
+            options = ['Thief'] if sc.bard_eligible(self.attributes) else []
+        else:
+            options = sc.dual_class_options(
+                original_class, self.attributes, self.alignment, self.race)
+        if not options:
             return
         destination = random.choice(options)
         self.level = [transition_level]                             # captures unit state ahead of HP history freeze
@@ -311,14 +410,66 @@ class Character:
             return int(int(raw) * 10 / 11) if has_bonus else int(raw)
         orig_xp_floor = _adj(generatecharacter.return_xp(original_class)[transition_level - 1], orig_bonus)
         self.initiate_dual_class(destination, starting_xp=orig_xp_floor)
+
+        # ---- Bard track: second transition (Thief → Bard) --------------------
+        # Determine whether and at what Thief level the second transition fires.
+        # The remaining XP budget after the first transition is used for the
+        # Thief leg; we simulate level-ups within the Thief window (5–8).
+        if is_bard_track and destination == 'Thief':
+            thief_window = range(5, 9)          # levels 5, 6, 7, 8
+            thief_transition_level = None
+            for lvl in range(1, final_level + 1):
+                if lvl not in thief_window:
+                    continue
+                # Last level in window (8) is always a guaranteed transition if eligible
+                prob = 1.0 if lvl == thief_window[-1] else 0.50
+                if random.random() < prob:
+                    thief_transition_level = lvl
+                    break
+            if thief_transition_level is not None and sc.bard_eligible(self.attributes):
+                thief_xp_floor = _adj(generatecharacter.return_xp('Thief')[thief_transition_level - 1],
+                                      generatecharacter.bonus_check('Thief', attrs_list))
+                combined_xp = orig_xp_floor + thief_xp_floor
+                self.xp = combined_xp
+                self.calculate_level(0, uncapped=True)
+                if self.dual_class is not None and 'Thief' in self.classes:
+                    # Bard gets whatever XP remains from the total pool after
+                    # Fighter and Thief legs are consumed.
+                    bard_dest_bonus = generatecharacter.bonus_check('Bard', attrs_list)
+                    bard_xp_available = max(0, total_xp - combined_xp)
+                    bard_xp_table = generatecharacter.return_xp('Bard')
+                    # Walk the table to find the highest Bard level affordable.
+                    # bard_xp_table[N-1] = XP floor of level N.
+                    bard_target_level = 1
+                    for bard_lvl in range(2, len(bard_xp_table)):
+                        if bard_xp_available >= _adj(bard_xp_table[bard_lvl - 1], bard_dest_bonus):
+                            bard_target_level = bard_lvl
+                        else:
+                            break
+                    if bard_target_level >= 2:
+                        bard_lvl_floor = _adj(bard_xp_table[bard_target_level - 1], bard_dest_bonus)
+                        if bard_target_level < len(bard_xp_table) - 1:
+                            bard_lvl_ceil = _adj(bard_xp_table[bard_target_level], bard_dest_bonus)
+                        else:
+                            bard_lvl_ceil = bard_lvl_floor + 1
+                        bard_scatter = int((bard_lvl_ceil - bard_lvl_floor)
+                                          * random.randint(1, 10) / 100)
+                        self.initiate_dual_class('Bard', starting_xp=combined_xp)
+                        self.xp = combined_xp + min(bard_lvl_floor + bard_scatter,
+                                                    bard_lvl_ceil - 1)
+                        self.calculate_level(0, uncapped=True)
+                        self.display_class = 'Bard'
+                        self.display_level = generatecharacter.display_level(self.level)
+                        self.hp = self._flatten()
+                        return
+
+        # ---- Standard XP resolution (non-bard or bard track that didn't reach stage 3) ---
         # XP legs are independent. Destination is always single-class — no doubling.
         dest_xp_floor = _adj(generatecharacter.return_xp(destination)[final_level - 1], dest_bonus)
         dest_xp_ceil  = _adj(generatecharacter.return_xp(destination)[final_level], dest_bonus)
         dest_scatter  = int((dest_xp_ceil - dest_xp_floor) * random.randint(1, 10) / 100)
         dest_xp       = dest_xp_floor + dest_scatter
         # Clamp total XP so the character never resolves beyond final_level.
-        # Must clamp self.xp (orig + dest combined) — orig_xp_floor alone can push
-        # the total past dest_xp_ceil even when dest_xp is within range.
         self.xp = min(orig_xp_floor + dest_xp, orig_xp_floor + dest_xp_ceil - 1)
         self.calculate_level(0, uncapped=True)
         self.display_class = generatecharacter.display_classes(self.classes[:], self.dual_class)
@@ -326,9 +477,52 @@ class Character:
         self.hp = self._flatten()
 
     def initiate_dual_class(self, destination: str, starting_xp: int = 1) -> None:
-        if len(self.classes) != 1:
+        # Bard second transition fires when post-crossover (two classes); all others require one class.
+        is_bard_second = (destination == 'Bard'
+                          and self.intended_class == 'Bard'
+                          and self.dual_class is not None)
+        if not is_bard_second and len(self.classes) != 1:
             raise ValueError("initiate_dual_class() requires exactly one active class.")
         original = self.classes[0]      # we freeze and capture hp and xp at the moment of transition
+
+        # ---- Thief → Bard (second bard-track transition) ----------------------
+        # The existing dual_class dict holds the frozen Fighter history from
+        # stage 1.  We carry it forward into the new dict.
+        if destination == 'Bard' and self.intended_class == 'Bard' and self.dual_class is not None:
+            fighter_level = self.dual_class['original_level']          # Fighter level frozen at stage 1
+            thief_level   = max(self.level)                            # Thief level at transition
+            # Post-crossover layout: hp_history = [thief_rolls, fighter_rolls, [thief_con, fighter_con]]
+            thief_rolls   = self.hp_history[0][:]                      # Thief destination rolls
+            fighter_rolls = self.hp_history[1][:]                      # frozen Fighter rolls (already in hp_history)
+            con_list      = self.hp_history[-1]                        # [thief_con, fighter_con]
+            thief_con     = con_list[0]
+            fighter_con   = con_list[1]
+            self.dual_class = {
+                'original':       'Thief',
+                'destination':    'Bard',
+                'original_level': thief_level,
+                'original_hp':    [thief_rolls, fighter_rolls, [thief_con, fighter_con]],
+                'fighter_level':  fighter_level,
+                'intended_class': 'Bard',
+                'frozen_xp':      self.xp,
+            }
+            # Bard starts at level 1; first roll is always 0 (accrual begins at 2nd level)
+            self.xp, self.classes, self.level = starting_xp, ['Bard'], [1]
+            self.hp_history = [
+                [0],                                                   # Bard slot: level 1 = 0
+                thief_rolls,                                           # frozen Thief rolls
+                fighter_rolls,                                         # frozen Fighter rolls
+                [0, thief_con, fighter_con],                           # con: Bard=0, Thief frozen, Fighter frozen
+            ]
+            self.hp = self._flatten()
+            self.display_class = 'Bard'             # stage 3 displays as 'Bard' only — not 'Bard|Thief'
+            self.display_level = generatecharacter.display_level(self.level)
+            next_level_raw = generatecharacter.generate_level(
+                self.attributes, self.classes, self.race, self.xp, self.excess).pop('next_level')
+            self.next_level = [int(next_level_raw[0]), next_level_raw[1]]
+            return
+
+        # ---- Standard first dual-class transition -----------------------------
         self.dual_class = {'original': original, 'destination': destination, 'original_level': max(self.level),
                            'original_hp': [row[:] for row in self.hp_history], 'frozen_xp': self.xp}
         self.xp, self.classes, self.level = starting_xp, [destination], [1]     # destination becomes only class
@@ -393,7 +587,11 @@ class Character:
             for b in range(number_of_classes):
                 self.hp_history[number_of_classes][b] *= 2
         self.hp = self._flatten()
-        self.display_level = generatecharacter.display_level(self.level, self.dual_class)
+        if 'Bard' in self.classes and self.dual_class is not None and 'fighter_level' in self.dual_class:
+            self.display_class = 'Bard'
+            self.display_level = generatecharacter.display_level(self.level)
+        else:
+            self.display_level = generatecharacter.display_level(self.level, self.dual_class)
         if self._detect_crossover():
             self._apply_crossover()
         return message
@@ -453,13 +651,27 @@ class Character:
 
     def _rebuild_hp_rolls(self, hp_calcs, number_of_classes, current_xp_floor, current_xp_ceiling):
         message = ''
+        is_bard = ('Bard' in self.classes
+                   and self.dual_class is not None
+                   and 'fighter_level' in self.dual_class)
         if self.xp < current_xp_floor:                          # if xp are lower than the current floor...
             for ch_cl in range(number_of_classes):              # ...trims off hp
                 self.hp_history[ch_cl] = self.hp_history[ch_cl][0:self.level[ch_cl]]
                 message = '{} lost one level!'.format(self.character_name)
         if self.xp >= current_xp_ceiling:                       # if xp are greater than the current ceiling...
             for ch_cl in range(number_of_classes):              # ...calculates additional hp
-                if (self.dual_class is not None                 # pre-crossover destination class accumulates zero hps
+                if is_bard and self.classes[ch_cl] == 'Bard':
+                    # Bard exception: accrual starts at 2nd level Bard (not post-crossover).
+                    # Level 1 is always 0; rolls begin at level 2 regardless of original_level.
+                    current_len = len(self.hp_history[ch_cl])
+                    for slot in range(current_len, self.level[ch_cl]):
+                        if slot == 0:                           # 1st level Bard: always zero
+                            self.hp_history[ch_cl].append(0)
+                        else:                                   # 2nd level onwards: real rolls
+                            hitpoints.hp_compute_mid(hp_calcs[ch_cl], self.hp_history[ch_cl],
+                                                     slot + 1, len(self.hp_history[ch_cl]))
+                            hitpoints.hp_compute_top(hp_calcs[ch_cl], self.hp_history[ch_cl], slot + 1)
+                elif (self.dual_class is not None               # pre-crossover destination accumulates zeros
                         and self.classes[ch_cl] == self.dual_class['destination']):
                     orig_level = self.dual_class['original_level']
                     current_len = len(self.hp_history[ch_cl])
@@ -478,15 +690,27 @@ class Character:
         return message
 
     def _rebuild_con_bonus(self, hp_calcs, number_of_classes):      # reattaches and recalculates trailing con bonus
-        if self.dual_class is not None and self.dual_class['original'] not in self.classes:     # pre-crossover
-            frozen_rolls = self.dual_class['original_hp'][:-1]                                  # strips old con list
+        is_bard = ('Bard' in self.classes
+                   and self.dual_class is not None
+                   and 'fighter_level' in self.dual_class)
+        if is_bard:
+            # Bard stage 3: hp_history = [bard_rolls, thief_rolls, fighter_rolls, con_list]
+            # Preserve the three roll lists and recompute the con list.
+            existing_con = self.hp_history[-1]
+            bard_rolls   = self.hp_history[0]
+            thief_rolls  = self.dual_class['original_hp'][0]
+            fighter_rolls = self.dual_class['original_hp'][1]
+            self.hp_history = [bard_rolls, thief_rolls, fighter_rolls, existing_con]
+            self._recompute_bard_con()
+        elif self.dual_class is not None and self.dual_class['original'] not in self.classes:  # pre-crossover
+            frozen_rolls = self.dual_class['original_hp'][:-1]                                 # strips old con list
             self.hp_history = [self.hp_history[0]] + frozen_rolls + [self.hp_history[-1]]
             self._recompute_dual_class_con()
-        elif self.dual_class is not None:                                                       # post-crossover
+        elif self.dual_class is not None:                                                      # post-crossover
             existing_con = self.hp_history[-1]
             self.hp_history = self.hp_history[0:number_of_classes] + [existing_con]
             self._recompute_dual_class_con()
-        else:                                                                                   # standard path
+        else:                                                                                  # standard path
             self.hp_history = self.hp_history[0:number_of_classes]
             hitpoints.con_bonus(self.hp_history, hp_calcs, self.attributes['Con'])
 
@@ -520,6 +744,12 @@ class Character:
         else:
             classes = tuple(self.classes)
             levels  = tuple(self.level)
+        # Bard stage 3: also consider Fighter at its terminal level
+        if ('Bard' in self.classes
+                and self.dual_class is not None
+                and 'fighter_level' in self.dual_class):
+            classes += ('Fighter',)
+            levels  += (self.dual_class['fighter_level'],)
         thaco = datalocus.base_thaco(classes, levels)
         return thaco                                        # (tuple['Fighter', 'Thief'], tuple[3, 4]) returns a 2
 

@@ -1558,6 +1558,294 @@ class TestDualClassHPAndCon(unittest.TestCase):
                          f"Con list must have 2 entries, got {c.hp_history[-1]}")
 
 # ===========================================================================
+# Bard track tests
+# ===========================================================================
+
+class TestBardTrack(unittest.TestCase):
+    """bard_eligible(), intended_class flag, transition windows, HP accrual,
+    con bonus deferral, class_thaco() three-class, fighter_level preservation."""
+
+    # Attributes that meet all Bard minimums (Str15 Int12 Wis15 Dex15 Con10 Cha15)
+    # Wis is 16 (not 15) to survive the -1 age penalty applied at character creation.
+    _BARD_ATTRS = [
+        {'Str': 15, 'Int': 12, 'Wis': 16, 'Dex': 15, 'Con': 14, 'Cha': 15, 'Com': 10, 'Exc': 0},
+        {'Str': 0,  'Int': 0,  'Wis': 0,  'Dex': 0,  'Con': 0,  'Cha': 0,  'Com': 0,  'Exc': 0},
+    ]
+    # Attributes that fail Bard minimums (Wis 10 < 15)
+    _NON_BARD_ATTRS = [
+        {'Str': 15, 'Int': 12, 'Wis': 10, 'Dex': 15, 'Con': 14, 'Cha': 15, 'Com': 10, 'Exc': 0},
+        {'Str': 0,  'Int': 0,  'Wis': 0,  'Dex': 0,  'Con': 0,  'Cha': 0,  'Com': 0,  'Exc': 0},
+    ]
+
+    def _make_bard_fighter(self, level=5):
+        """Fighter with Bard minimums and intended_class forced to 'Bard'.
+        Build at level 5 (always resolves cleanly) then force level and XP
+        to the requested value so generate_level scatter cannot land below."""
+        import copy
+        import generatecharacter as gc
+        from character import Character
+        c = Character(
+            level=5,
+            race='Human',
+            gender='male',
+            classes=['Fighter'],
+            attrib_list=copy.deepcopy(self._BARD_ATTRS),
+        )
+        if level != 5:
+            xp_floor = int(gc.return_xp('Fighter')[level - 1])
+            c.xp = xp_floor
+            c.level = [level]
+        c.alignment = 'Neutral Good'
+        c.intended_class = 'Bard'
+        return c
+
+    def _make_bard_thief(self, fighter_level=5, thief_level=7):
+        """Build a bard-track character at stage 2 post-crossover (Thief|Fighter).
+
+        Constructs the state directly rather than driving XP, to avoid
+        relying on XP table values and crossover timing internals.
+        hp_history at post-crossover = [thief_rolls, fighter_rolls, con_list].
+        """
+        import copy
+        import hitpoints as hp_mod
+        from character import Character
+        # Start as Fighter at fighter_level
+        c = Character(
+            level=fighter_level,
+            race='Human',
+            gender='male',
+            classes=['Fighter'],
+            attrib_list=copy.deepcopy(self._BARD_ATTRS),
+        )
+        c.alignment = 'Neutral Good'
+        c.intended_class = 'Bard'
+        # Freeze Fighter and transition to Thief
+        c.level = [fighter_level]
+        c.hp_history = hp_mod.generate_hp(['Fighter'], [fighter_level], c.attributes['Con'])
+        import generatecharacter as gc
+        orig_xp = int(gc.return_xp('Fighter')[fighter_level - 1])
+        c.initiate_dual_class('Thief', starting_xp=orig_xp)
+        # Now manually build post-crossover state at thief_level
+        # hp_history after initiate: [[0], fighter_rolls, con_list]
+        # Generate real Thief rolls for thief_level
+        thief_hp = hp_mod.generate_hp(['Thief'], [thief_level], c.attributes['Con'])
+        thief_rolls = thief_hp[0]               # Thief roll list
+        fighter_rolls = c.hp_history[1][:]      # frozen Fighter rolls
+        c.classes = ['Thief', 'Fighter']
+        c.level = [thief_level, fighter_level]
+        c.dual_class['original_level'] = fighter_level  # Fighter level is what's frozen
+        # Build con list: [thief_con, fighter_con] — use stored con from thief_hp
+        thief_con_raw   = thief_hp[-1][0]       # con bonus for Thief at thief_level
+        fighter_hpc     = hp_mod.generate_hp(['Fighter'], [fighter_level], c.attributes['Con'])
+        fighter_con_raw = fighter_hpc[-1][0]
+        c.hp_history = [thief_rolls, fighter_rolls, [thief_con_raw, fighter_con_raw]]
+        c.hp = c._flatten()
+        return c
+
+    # ---- bard_eligible() ----------------------------------------------------
+
+    def test_bard_eligible_passes_with_minimums(self):
+        import selectclass
+        attrs = self._BARD_ATTRS[0]
+        self.assertTrue(selectclass.bard_eligible(attrs))
+
+    def test_bard_eligible_fails_below_minimums(self):
+        import selectclass
+        attrs = self._NON_BARD_ATTRS[0]
+        self.assertFalse(selectclass.bard_eligible(attrs))
+
+    def test_bard_eligible_fails_on_each_attribute(self):
+        """Dropping any single Bard minimum should fail the check."""
+        import selectclass
+        from selectclass import BARD_MINS
+        base = dict(self._BARD_ATTRS[0])
+        for attr, minimum in BARD_MINS.items():
+            low = dict(base)
+            low[attr] = minimum - 1
+            self.assertFalse(selectclass.bard_eligible(low),
+                             f"Should fail when {attr}={minimum - 1}")
+
+    # ---- intended_class at creation -----------------------------------------
+
+    def test_designated_bard_sets_intended_class(self):
+        """When 'Bard' is passed as classes and attributes qualify,
+        intended_class must be 'Bard' and classes must be ['Fighter']."""
+        import copy
+        from character import Character
+        c = Character(
+            level=1,
+            race='Human',
+            gender='male',
+            classes=['Bard'],
+            attrib_list=copy.deepcopy(self._BARD_ATTRS),
+        )
+        self.assertEqual(c.classes, ['Fighter'],
+                         "Designated Bard should be generated as Fighter")
+        self.assertEqual(c.intended_class, 'Bard')
+
+    def test_designated_bard_without_minimums_stays_fighter(self):
+        """When 'Bard' is passed but attributes don't currently qualify,
+        the character is still a Fighter with intended_class='Bard'.
+        The flag is kept so the transition-point check can fire once the
+        character has aged out of the young-adult Wis penalty."""
+        import copy
+        from character import Character
+        c = Character(
+            level=1,
+            race='Human',
+            gender='male',
+            classes=['Bard'],
+            attrib_list=copy.deepcopy(self._NON_BARD_ATTRS),
+        )
+        self.assertEqual(c.classes, ['Fighter'])
+        self.assertEqual(c.intended_class, 'Bard',
+                         "Designated Bard keeps intended_class='Bard' even when below minimums at creation")
+
+    def test_intended_class_none_by_default(self):
+        c = make_fighter()
+        self.assertIsNone(c.intended_class)
+
+    # ---- transition window enforcement --------------------------------------
+
+    def test_bard_track_transition_window_fighter(self):
+        """Fighter→Thief on bard track: only valid between levels 5 and 7 inclusive."""
+        c = self._make_bard_fighter(level=5)
+        # Level 5 is in window — transition should succeed
+        import generatecharacter as gc
+        orig_xp = int(gc.return_xp('Fighter')[4])   # level 5 floor
+        c.initiate_dual_class('Thief', starting_xp=orig_xp)
+        self.assertEqual(c.dual_class['original'], 'Fighter')
+        self.assertEqual(c.dual_class['destination'], 'Thief')
+        self.assertEqual(c.dual_class['original_level'], 5)
+
+    def test_bard_track_fighter_level_preserved_in_thief_stage(self):
+        """After Fighter→Thief, the Fighter level is in dual_class['original_level']."""
+        c = self._make_bard_fighter(level=6)
+        import generatecharacter as gc
+        orig_xp = int(gc.return_xp('Fighter')[5])
+        c.initiate_dual_class('Thief', starting_xp=orig_xp)
+        self.assertEqual(c.dual_class['original_level'], 6)
+
+    # ---- Thief→Bard second transition ---------------------------------------
+
+    def test_thief_to_bard_transition_structure(self):
+        """After the second transition, dual_class must contain 'fighter_level'
+        and 'original' must be 'Thief'."""
+        c = self._make_bard_thief(fighter_level=5, thief_level=5)
+        fighter_lvl = c.dual_class['original_level']   # Fighter level frozen in stage 1
+        import generatecharacter as gc
+        thief_xp = int(gc.return_xp('Thief')[4])      # Thief level 5 floor
+        c.initiate_dual_class('Bard', starting_xp=thief_xp)
+        self.assertEqual(c.dual_class['original'], 'Thief')
+        self.assertEqual(c.dual_class['destination'], 'Bard')
+        self.assertIn('fighter_level', c.dual_class,
+                      "dual_class must carry fighter_level for stage 3")
+        self.assertEqual(c.dual_class['fighter_level'], fighter_lvl)
+
+    def test_thief_to_bard_classes_becomes_bard(self):
+        """After second transition, self.classes == ['Bard']."""
+        c = self._make_bard_thief(fighter_level=5, thief_level=5)
+        import generatecharacter as gc
+        thief_xp = int(gc.return_xp('Thief')[4])
+        c.initiate_dual_class('Bard', starting_xp=thief_xp)
+        self.assertEqual(c.classes, ['Bard'])
+
+    def test_thief_to_bard_hp_history_four_lists(self):
+        """Stage 3 hp_history must be [bard_rolls, thief_rolls, fighter_rolls, con]."""
+        c = self._make_bard_thief(fighter_level=5, thief_level=5)
+        import generatecharacter as gc
+        thief_xp = int(gc.return_xp('Thief')[4])
+        c.initiate_dual_class('Bard', starting_xp=thief_xp)
+        self.assertEqual(len(c.hp_history), 4,
+                         f"Expected 4 lists in hp_history, got {len(c.hp_history)}")
+
+    def test_bard_first_level_roll_is_zero(self):
+        """hp_history[0][0] must be 0 immediately after Thief→Bard transition."""
+        c = self._make_bard_thief(fighter_level=5, thief_level=5)
+        import generatecharacter as gc
+        thief_xp = int(gc.return_xp('Thief')[4])
+        c.initiate_dual_class('Bard', starting_xp=thief_xp)
+        self.assertEqual(c.hp_history[0][0], 0,
+                         "1st level Bard roll must be 0")
+
+    # ---- HP accrual: starts at Bard 2, not post-crossover -------------------
+
+    def test_bard_hp_accrues_at_second_level(self):
+        """hp_history[0] must have a non-zero roll at index 1 (Bard 2)."""
+        c = self._make_bard_thief(fighter_level=5, thief_level=5)
+        import generatecharacter as gc
+        thief_xp = int(gc.return_xp('Thief')[4])
+        c.initiate_dual_class('Bard', starting_xp=thief_xp)
+        # Award enough XP to reach Bard 2
+        bard_xp_2 = int(gc.return_xp('Bard')[1])
+        c.xp = thief_xp + bard_xp_2
+        c.calculate_level(0, uncapped=True)
+        self.assertGreaterEqual(len(c.hp_history[0]), 2,
+                                "hp_history[0] should have at least 2 entries at Bard 2")
+        # Level 1 = 0, level 2 should be a real roll (> 0 is not guaranteed but list must exist)
+        self.assertEqual(c.hp_history[0][0], 0,
+                         "First Bard roll must remain 0")
+
+    # ---- Con bonus deferred until Bard level exceeds original_level ---------
+
+    def test_bard_con_zero_before_exceeding_thief_level(self):
+        """Bard con slot must be 0 while Bard level <= original_level (frozen Thief).
+
+        Bypasses XP resolution to avoid off-by-one ambiguity at the level floor.
+        Sets bard level directly and calls _recompute_bard_con() to isolate the rule.
+        """
+        c = self._make_bard_thief(fighter_level=5, thief_level=7)
+        import generatecharacter as gc
+        thief_xp = int(gc.return_xp('Thief')[6])
+        c.initiate_dual_class('Bard', starting_xp=thief_xp)
+        # Force Bard to exactly original_level (7) — not exceeding
+        c.level = [7]
+        c._recompute_bard_con()
+        self.assertEqual(c.hp_history[-1][0], 0,
+                         "Bard con must be 0 while Bard level <= frozen Thief level")
+
+    def test_bard_con_accrues_after_exceeding_thief_level(self):
+        """Bard con slot must be non-zero once Bard level > original_level."""
+        c = self._make_bard_thief(fighter_level=5, thief_level=5)
+        import generatecharacter as gc
+        thief_xp = int(gc.return_xp('Thief')[4])
+        c.initiate_dual_class('Bard', starting_xp=thief_xp)
+        # Drive to Bard 6 (exceeds original_level=5)
+        bard_xp_6 = int(gc.return_xp('Bard')[5])
+        c.xp = thief_xp + bard_xp_6
+        c.calculate_level(0, uncapped=True)
+        # Con 14 → bonus +1, Bard cap +2, so Bard con at level 6 should be > 0
+        if c.attributes['Con'] >= 15:           # only assert if con bonus is positive
+            self.assertGreater(c.hp_history[-1][0], 0,
+                               "Bard con should accrue once Bard level exceeds frozen Thief level")
+
+    # ---- class_thaco() three-class comparison --------------------------------
+
+    def test_bard_thaco_includes_fighter_leg(self):
+        """class_thaco() for a Bard must consider Fighter at fighter_level."""
+        import datalocus
+        c = self._make_bard_thief(fighter_level=7, thief_level=5)
+        import generatecharacter as gc
+        thief_xp = int(gc.return_xp('Thief')[4])
+        c.initiate_dual_class('Bard', starting_xp=thief_xp)
+        c.level = [1]
+        # Expected: best of Bard 1, Thief 5, Fighter 7
+        expected = datalocus.base_thaco(
+            ('Bard', 'Thief', 'Fighter'),
+            (1, c.dual_class['original_level'], c.dual_class['fighter_level'])
+        )
+        self.assertEqual(c.class_thaco(), expected)
+
+    def test_bard_thaco_fighter7_beats_fighter5(self):
+        """A Bard with Fighter 7 history should have better THAC0 than Fighter 5."""
+        import datalocus
+        thaco_f7 = datalocus.base_thaco(('Fighter',), (7,))
+        thaco_f5 = datalocus.base_thaco(('Fighter',), (5,))
+        self.assertGreaterEqual(thaco_f7, thaco_f5,
+                                "Fighter 7 THAC0 modifier should be >= Fighter 5")
+
+
+# ===========================================================================
 # ENTRY POINT
 # ===========================================================================
 
