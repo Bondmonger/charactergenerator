@@ -1657,13 +1657,13 @@ class TestBardTrack(unittest.TestCase):
     def test_bard_eligible_fails_on_each_attribute(self):
         """Dropping any single Bard minimum should fail the check."""
         import selectclass
-        from selectclass import BARD_MINS
+        from selectclass import bard_mins
         base = dict(self._BARD_ATTRS[0])
-        for attr, minimum in BARD_MINS.items():
+        for attr, val in bard_mins().items():
             low = dict(base)
-            low[attr] = minimum - 1
+            low[attr] = val - 1
             self.assertFalse(selectclass.bard_eligible(low),
-                             f"Should fail when {attr}={minimum - 1}")
+                             f"Should fail when {attr}={val - 1}")
 
     # ---- intended_class at creation -----------------------------------------
 

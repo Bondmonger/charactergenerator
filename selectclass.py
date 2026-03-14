@@ -235,14 +235,72 @@ class IsEligible:
 # column_dict = dict(zip(some_df.column_header_1, race_df.column_header_2))
 #
 
+# ---------------------------------------------------------------------------
+# OA frequency multiplier
+# ---------------------------------------------------------------------------
+# Controls how often Oriental Adventures races and classes appear during
+# random generation relative to PH/UA content.
+#
+# Interpretation: non-OA entries receive weightedprob * _oa_multiplier,
+# while OA entries keep their raw weightedprob.  At the default of 39 that
+# gives OA entries roughly 1/40 (≈2.5%) of the total pool.
+#
+# Special sentinels:
+#   _oa_multiplier == 0          → OA + Human only  (non-OA suppressed)
+#   _oa_multiplier == float('inf') → non-OA + Human only  (OA suppressed)
+#
+# Human is always included regardless of direction, because it is the one
+# race that exists in both PH and OA settings.
+#
+# Never modify _oa_multiplier directly; always call set_oa_multiplier() so
+# that the full cache-invalidation cascade fires.
+# ---------------------------------------------------------------------------
+
+_oa_multiplier: float = 39.0    # default ≈ 2.5 %
+
+# Preset labels → multiplier values (used by the UI dropdown)
+OA_FREQ_OPTIONS = {
+    "0% (OA only)":    0.0,
+    "1%":              99.0,
+    "2.5% (default)":  39.0,
+    "10%":              9.0,
+    "50%":              1.0,
+    "100% (non-OA only)": float('inf'),
+}
+
+
+def set_oa_multiplier(value: float) -> None:
+    """Set the OA frequency multiplier and invalidate all dependent caches.
+
+    Always call this instead of writing _oa_multiplier directly.  The full
+    downstream cache chain is cleared so the next generation call picks up
+    the new value cleanly.
+    """
+    global _oa_multiplier
+    _oa_multiplier = value
+    race_class_data.cache_clear()
+    race_only_data.cache_clear()
+    weighted_multi.cache_clear()
+    multiclass_prob.cache_clear()
+    weighted_class.cache_clear()
+    class_denominators.cache_clear()
+    weighted_race.cache_clear()
+
+
 @lru_cache(maxsize=10)
 def race_class_data():
     min_df = pd.read_csv(get_resource_path("attributemins.csv"))           # loads the csv data into memory
     min_cols = [0, 1, 2, 3, 4, 5, 6, 10, 26, 27, 28, 29, 30, 31, 32, 70, 71, 73, 74]
     min_df = min_df[min_df.columns[min_cols]]           # creates a dataframe using only the specified columns
     min_df['modifiedfreq'] = min_df['weightedprob']     # creates a new column, 'modifiedfreq'
-    mask = min_df['source'] != 'OA'
-    min_df.loc[mask, 'modifiedfreq'] = min_df['weightedprob'] * 39
+    is_oa    = min_df['source'] == 'OA'
+    is_human = min_df['charclass'] == 'Human'
+    if _oa_multiplier == 0:                             # OA + Human only: suppress all non-OA except Human
+        min_df.loc[~is_oa & ~is_human, 'modifiedfreq'] = 0
+    elif _oa_multiplier == float('inf'):                # non-OA + Human only: suppress all OA except Human
+        min_df.loc[is_oa & ~is_human, 'modifiedfreq'] = 0
+    else:                                               # normal case: scale non-OA entries upward
+        min_df.loc[~is_oa, 'modifiedfreq'] = min_df['weightedprob'] * _oa_multiplier
     return min_df
 
 
@@ -294,10 +352,12 @@ def weighted_class(race):           # returns {'single': {'Acrobat': 78.0, 'Assa
 
 def random_class(race_is):                              # accepts 'High Elf', returns ['Fighter', 'Magic User']
     multi_rand, proportions = random.uniform(0, 1), weighted_class(race_is)
-    if multi_rand > proportions["multiclass_prob"]:     # if single-class, select from the proportional dictionary
-        return random.choices(list(proportions["single"].keys()), weights=proportions["single"].values(), k=1)
+    single = {k: v for k, v in proportions["single"].items() if v > 0}
+    multi  = {k: v for k, v in proportions["multiclass"].items() if v > 0}
+    if multi_rand > proportions["multiclass_prob"] or not multi:  # single-class, or no valid multi options
+        return random.choices(list(single.keys()), weights=single.values(), k=1)
     else:                                               # otherwise select from the proportional multi-dict
-        final = random.choices(list(proportions["multiclass"].keys()), weights=proportions["multiclass"].values(), k=1)
+        final = random.choices(list(multi.keys()), weights=multi.values(), k=1)
         return string_to_list(final[0], "/")
 
 
@@ -386,8 +446,7 @@ def dual_class_eligible(original: str, destination: str, attributes: dict, align
     return True
 
 
-BARD_TRACK_ALIGNMENTS = {'Lawful Neutral', 'Neutral Good', 'Neutral',
-                         'Neutral Evil', 'Chaotic Neutral'}
+BARD_TRACK_ALIGNMENTS = set(datalocus.class_alignment_restrictions('Bard'))
 
 
 def bard_track_eligible(original: str, attributes: dict, alignment: str,
@@ -425,21 +484,25 @@ def dual_class_transition_prob(ch_class: str, level: int) -> float:     # return
     return probs[level - 1]
 
 
-# Bard minimum attributes (PHB p.117). These supersede normal dual-class
-# destination minimums for both bard-track transitions.
-BARD_MINS = {'Str': 15, 'Int': 12, 'Wis': 15, 'Dex': 15, 'Con': 10, 'Cha': 15}
+_ATTR_KEYS = ('Str', 'Int', 'Wis', 'Dex', 'Con', 'Cha', 'Com')
+
+
+def bard_mins() -> dict:
+    """Return Bard attribute minimums as a dict, sourced from attributemins.csv via datalocus."""
+    return dict(zip(_ATTR_KEYS, datalocus.minimums('Bard')))
 
 
 def bard_eligible(attributes: dict) -> bool:
     """Return True if attributes meet all Bard career-path minimums.
 
     Used at character creation (to decide whether a Fighter can be on the
-    bard track) and again at each transition point (Fighter→Thief,
-    Thief→Bard).  Bard minimums are the sole eligibility gate for both
-    transitions — normal dual-class destination minimums do not apply.
+    bard track) and again at each transition point (Fighter->Thief,
+    Thief->Bard).  Bard minimums are the sole eligibility gate for both
+    transitions -- normal dual-class destination minimums do not apply.
+    Minimums are sourced from attributemins.csv (columns B:H for 'Bard').
     """
     return all(attributes.get(attr, 0) >= minimum
-               for attr, minimum in BARD_MINS.items())
+               for attr, minimum in bard_mins().items())
 
 
 # char_classes = ()

@@ -27,7 +27,7 @@ class CharacterInterface:
         self.level = level
         self.minmaxlevel = {"min": level, "max": level}       # only used during full party gen
         self.bulk_attributes = {"level": 1, "charclass": "ANY", "race": "ANY", "gender": "ANY", "samplesize": 1000,
-                                "dual_class": True}
+                                "dual_class": True, "oa_freq": "2.5% (default)"}
         self.master = master
         self.selected_character = character.Character(self.level, event_bus=self.event_bus)
         self.master.attributes('-fullscreen', True)
@@ -540,8 +540,6 @@ class CharacterInterface:
         else:
             self.nonmember_buttons()
 
-
-
     def _dual_class_picker(self, options):
         """Modal dialog letting the player choose a destination class from options list."""
         dialog = tk.Toplevel(self.master, bg="#000000")
@@ -901,14 +899,27 @@ class CharacterInterface:
                                   activeforeground='#FFFFFF', width=24)
             class_dropdown["menu"].config(bg='#000000', fg='#FFFFFF', font=('Courier', 12))
             class_dropdown.grid(row=order * 2 - 1, column=4, columnspan=4, sticky='w')
+        oa_row = tk.Frame(master=self.selection_body, bg='#000000')
+        oa_row.grid(row=11, column=2, columnspan=8, sticky='sw', padx=(6, 0))
+        tk.Label(master=oa_row, text="OA frequency:", bg='#000000', fg='#FFFFFF',
+                 font=('Courier', 12), width=16, anchor='e').pack(side='left')
+        self.oa_freq_var = tk.StringVar(oa_row, self.bulk_attributes["oa_freq"])
+        oa_dropdown = tk.OptionMenu(oa_row, self.oa_freq_var,
+                                    *selectclass.OA_FREQ_OPTIONS.keys(), command=self.bulkoafreqset)
+        oa_dropdown.config(bg='#000000', fg='#FFFFFF', font=('Courier', 12), activebackground='#000000',
+                           activeforeground='#FFFFFF', relief=tk.FLAT, bd=0, highlightthickness=0, padx=0)
+        oa_dropdown["menu"].config(bg='#000000', fg='#FFFFFF', font=('Courier', 12))
+        oa_dropdown.pack(side='left', padx=(4, 0))
         self.dual_class_var.set(self.bulk_attributes["dual_class"])
-        dual_class_check = tk.Checkbutton(self.selection_body, text="auto dual-class",
-                                          variable=self.dual_class_var,
-                                          command=self.bulkdualclassset,
-                                          bg='#000000', fg='#FFFFFF', font=('Courier', 12),
-                                          selectcolor='#000000', activebackground='#000000',
-                                          activeforeground='#FFFFFF')
-        dual_class_check.grid(row=12, column=2, columnspan=3, sticky='sw', padx=(4, 0))     # padx to judge 1px right
+        dc_row = tk.Frame(master=self.selection_body, bg='#000000')
+        dc_row.grid(row=12, column=2, columnspan=8, sticky='sw', padx=(6, 0))
+        tk.Label(master=dc_row, text="auto dual-class:", bg='#000000', fg='#FFFFFF',
+                 font=('Courier', 12), width=16, anchor='e').pack(side='left')
+        tk.Checkbutton(dc_row, text="", variable=self.dual_class_var,
+                       command=self.bulkdualclassset,
+                       bg='#000000', fg='#FFFFFF', font=('Courier', 12),
+                       selectcolor='#000000', activebackground='#000000',
+                       activeforeground='#FFFFFF').pack(side='left')
         self.button = tk.Button(self.selection_body, text="GENERATE UNITS", relief=tk.FLAT,
                                 command=lambda: self.bulk_outcome())
         self.button.grid(row=5, column=13, columnspan=2, sticky='nsew')
@@ -936,6 +947,10 @@ class CharacterInterface:
 
     def bulkdualclassset(self):
         self.bulk_attributes["dual_class"] = self.dual_class_var.get()
+
+    def bulkoafreqset(self, label):
+        self.bulk_attributes["oa_freq"] = label
+        selectclass.set_oa_multiplier(selectclass.OA_FREQ_OPTIONS[label])
 
     def multi_sort(self, sorted_proportions, start_end, default, proportional):
         min_sum, max_sum, keys, temp_dict, count = 0, 0, list(sorted_proportions.keys()), {}, len(sorted_proportions)
@@ -1195,14 +1210,27 @@ class CharacterInterface:
         self.frame.grid(row=3, column=6, columnspan=4, sticky='nsew')
         self.button = tk.Button(self.frame, text="GENERATE PARTY", relief=tk.FLAT, command=lambda: self.make_party())
         self.button.pack(expand=True, fill='both')
+        oa_row = tk.Frame(master=self.selection_body, bg='#000000')
+        oa_row.grid(row=11, column=2, columnspan=8, sticky='sw')
+        tk.Label(master=oa_row, text="OA frequency:", bg='#000000', fg='#FFFFFF',
+                 font=('Courier', 12), width=16, anchor='e').pack(side='left')
+        self.oa_freq_var = tk.StringVar(oa_row, self.bulk_attributes["oa_freq"])
+        oa_dropdown = tk.OptionMenu(oa_row, self.oa_freq_var,
+                                    *selectclass.OA_FREQ_OPTIONS.keys(), command=self.bulkoafreqset)
+        oa_dropdown.config(bg='#000000', fg='#FFFFFF', font=('Courier', 12), activebackground='#000000',
+                           activeforeground='#FFFFFF', relief=tk.FLAT, bd=0, highlightthickness=0, padx=0)
+        oa_dropdown["menu"].config(bg='#000000', fg='#FFFFFF', font=('Courier', 12))
+        oa_dropdown.pack(side='left', padx=(4, 0))
         self.dual_class_var.set(self.bulk_attributes["dual_class"])
-        dual_class_check = tk.Checkbutton(self.selection_body, text="auto dual-class",
-                                          variable=self.dual_class_var,
-                                          command=self.bulkdualclassset,
-                                          bg='#000000', fg='#FFFFFF', font=('Courier', 12),
-                                          selectcolor='#000000', activebackground='#000000',
-                                          activeforeground='#FFFFFF')
-        dual_class_check.grid(row=12, column=2, columnspan=3, sticky='sw')
+        dc_row = tk.Frame(master=self.selection_body, bg='#000000')
+        dc_row.grid(row=12, column=2, columnspan=8, sticky='sw')
+        tk.Label(master=dc_row, text="auto dual-class:", bg='#000000', fg='#FFFFFF',
+                 font=('Courier', 12), width=16, anchor='e').pack(side='left')
+        tk.Checkbutton(dc_row, text="", variable=self.dual_class_var,
+                       command=self.bulkdualclassset,
+                       bg='#000000', fg='#FFFFFF', font=('Courier', 12),
+                       selectcolor='#000000', activebackground='#000000',
+                       activeforeground='#FFFFFF').pack(side='left')
         self.create_main_menu_button(self.selection_frame)
 
     def make_party(self):
@@ -1449,7 +1477,7 @@ class CharacterInterface:
         self.settings_panel = tk.Frame(master=self.header_control_frame, bd=2, relief=tk.FLAT)
         self.settings_panel.grid(row=4, column=0, columnspan=2, rowspan=2, sticky='nsew')
         self.settings_panel.grid_columnconfigure(0, weight=1, uniform=1)
-        for r in range(3):                          # 3 rows: dual classing, UA toggle (future), OA toggle (future)
+        for r in range(3):                          # 3 rows: dual classing, OA frequency, UA toggle (future)
             self.settings_panel.grid_rowconfigure(r, weight=1, uniform=1)
         self.dual_class_var.set(self.bulk_attributes["dual_class"])
         tk.Checkbutton(self.settings_panel, text="auto dual-class",
@@ -1458,6 +1486,18 @@ class CharacterInterface:
                        bg='#000000', fg='#FFFFFF', font=('Courier', 12),
                        selectcolor='#000000', activebackground='#000000',
                        activeforeground='#FFFFFF').grid(row=0, column=0, sticky='w')
+        oa_inner = tk.Frame(master=self.settings_panel)
+        oa_inner.grid(row=1, column=0, sticky='nsew')
+        oa_inner.grid_columnconfigure(0, weight=1, uniform=1)
+        oa_inner.grid_columnconfigure(1, weight=2, uniform=1)
+        tk.Label(master=oa_inner, text="OA:", anchor='e').grid(row=0, column=0, sticky='nse')
+        self.oa_freq_var = tk.StringVar(oa_inner, self.bulk_attributes["oa_freq"])
+        oa_dd = tk.OptionMenu(oa_inner, self.oa_freq_var,
+                              *selectclass.OA_FREQ_OPTIONS.keys(), command=self.bulkoafreqset)
+        oa_dd.config(bg='#000000', fg='#FFFFFF', font=('Courier', 10), activebackground='#000000',
+                     activeforeground='#FFFFFF', width=16)
+        oa_dd["menu"].config(bg='#000000', fg='#FFFFFF', font=('Courier', 10))
+        oa_dd.grid(row=0, column=1, sticky='w')
 
     def party_frame_popup(self, top_button=False):
         self.temp_frame = tk.Frame(master=self.master, bd=4)

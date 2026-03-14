@@ -221,8 +221,9 @@ class Character:
     def _recompute_bard_con(self):                              # recomputes three-slot con list for Bard stage 3
         """Bard con rules:
         - Bard slot: 0 until Bard level exceeds original_level (frozen Thief level); then accrues normally.
-        - Thief slot: frozen at original_level (same as standard dual-class original).
-        - Fighter slot: frozen at fighter_level.
+        - Thief slot: frozen at transition — read from original_hp[-1][0], never recomputed.
+        - Fighter slot: frozen at transition — read from original_hp[-1][1], never recomputed.
+        Con changes (modify_con) only affect the Bard slot; the frozen slots are immutable.
         """
         con = self.attributes['Con']
         bonus = datalocus.con_hpbonus(con)
@@ -236,9 +237,8 @@ class Character:
             multiplier = min(raw_mult, hpcalcs[4])
             return temp * multiplier
 
-        bard_level    = self.level[0]
-        thief_level   = self.dual_class['original_level']       # frozen Thief level
-        fighter_level = self.dual_class['fighter_level']        # frozen Fighter level
+        bard_level  = self.level[0]
+        thief_level = self.dual_class['original_level']         # frozen Thief level
 
         # Bard con: 0 until bard_level > thief_level, then accrues for levels above thief_level
         if bard_level > thief_level:
@@ -246,8 +246,11 @@ class Character:
         else:
             bard_con = 0
 
-        thief_con   = _class_con('Thief', thief_level)
-        fighter_con = _class_con('Fighter', fighter_level)
+        # Thief and Fighter con are frozen at the moment of the Thief->Bard transition.
+        # original_hp[-1] = [thief_con, fighter_con] as captured in initiate_dual_class().
+        frozen_con  = self.dual_class['original_hp'][-1]
+        thief_con   = frozen_con[0]
+        fighter_con = frozen_con[1]
         self.hp_history[-1] = [bard_con, thief_con, fighter_con]
 
     def modify_wis(self, adjustment):
@@ -539,12 +542,14 @@ class Character:
 
     def _detect_crossover(self) -> bool:
         if self.dual_class is None:
-            return False            # is the unit non-dual class?
+            return False            # non-dual-class unit
+        if 'fighter_level' in self.dual_class:
+            return False            # stage-3 Bard: frozen classes never reinserted into self.classes
         if max(self.level) <= self.dual_class['original_level']:
-            return False            # did they all ready cross over (destination level > origin level)?
+            return False            # destination has not yet exceeded original level
         if self.dual_class['original'] in self.classes:
-            return False
-        return True                 # throws TRUE when destination level exceeds original_level for class reinsertion
+            return False            # already crossed over
+        return True                 # destination level exceeds original_level: reinsertion needed
 
     def _apply_crossover(self) -> None:                             # reinserts original class and hp_history
         original, orig_level = self.dual_class['original'], self.dual_class['original_level']
@@ -559,6 +564,36 @@ class Character:
         self.display_level = generatecharacter.display_level(self.level, self.dual_class)
 
     def _undo_dual_class(self) -> str:                              # reverses dual-class transition on drain to 0
+        # Stage-3 Bard: revert to post-crossover Thief|Fighter, not bare Thief.
+        # original_hp = [thief_rolls, fighter_rolls, [thief_con, fighter_con]]
+        if 'fighter_level' in self.dual_class:
+            thief_level   = self.dual_class['original_level']
+            fighter_level = self.dual_class['fighter_level']
+            thief_rolls   = self.dual_class['original_hp'][0]
+            fighter_rolls = self.dual_class['original_hp'][1]
+            frozen_con    = self.dual_class['original_hp'][2]       # [thief_con, fighter_con]
+            self.classes  = ['Thief', 'Fighter']
+            self.level    = [thief_level, fighter_level]
+            self.hp_history = [thief_rolls, fighter_rolls, frozen_con]
+            self.xp       = self.dual_class['frozen_xp']
+            # Reconstruct the Thief|Fighter dual_class dict so post-crossover
+            # state is fully coherent (Fighter was the original at stage 1).
+            self.dual_class = {
+                'original':       'Fighter',
+                'destination':    'Thief',
+                'original_level': fighter_level,
+                'original_hp':    [fighter_rolls[:], [frozen_con[1]]],
+                'frozen_xp':      self.dual_class['frozen_xp'],
+            }
+            self.hp = self._flatten()
+            self.display_class = generatecharacter.display_classes(self.classes[:], self.dual_class)
+            self.display_level = generatecharacter.display_level(self.level, self.dual_class)
+            next_level_raw = generatecharacter.generate_level(
+                self.attributes, self.classes, self.race, self.xp, self.excess).pop('next_level')
+            self.next_level = [int(next_level_raw[0]), next_level_raw[1]]
+            return '{} reverts to Thief {}|Fighter {}'.format(
+                self.character_name, thief_level, fighter_level)
+
         original, original_level = self.dual_class['original'], self.dual_class['original_level']
         self.classes, self.level = [original], [original_level]
         self.hp_history = self.dual_class['original_hp']            # restored deep copy
