@@ -1846,6 +1846,234 @@ class TestBardTrack(unittest.TestCase):
 
 
 # ===========================================================================
+# PSIONICS
+# ===========================================================================
+
+class TestPsionics(unittest.TestCase):
+    """psionics.py eligibility, strength formula, mutation, and display."""
+
+    # ---- race gate ----------------------------------------------------------
+
+    def test_ineligible_race_never_psionic(self):
+        """A High Elf with maxed qualifying attrs must never gain psionics."""
+        import psionics
+        c = make_fighter()
+        c.race = 'High Elf'
+        c.attributes['Int'], c.attributes['Wis'], c.attributes['Cha'] = 18, 18, 18
+        c.psionic_roll, c.psionic_strength = 0, 0
+        psionics.check_and_apply(c)
+        self.assertEqual(c.psionic_strength, 0)
+
+    def test_gnome_ineligible(self):
+        import psionics
+        self.assertFalse(psionics.is_eligible_race('Gnome'))
+
+    def test_human_eligible_race(self):
+        import psionics
+        self.assertTrue(psionics.is_eligible_race('Human'))
+
+    def test_hill_dwarf_eligible_race(self):
+        import psionics
+        self.assertTrue(psionics.is_eligible_race('Hill Dwarf'))
+
+    def test_mountain_dwarf_eligible_race(self):
+        import psionics
+        self.assertTrue(psionics.is_eligible_race('Mountain Dwarf'))
+
+    def test_tallfellow_halfling_eligible_race(self):
+        import psionics
+        self.assertTrue(psionics.is_eligible_race('Tallfellow Halfling'))
+
+    def test_stout_halfling_eligible_race(self):
+        import psionics
+        self.assertTrue(psionics.is_eligible_race('Stout Halfling'))
+
+    # ---- eligibility probability formula ------------------------------------
+
+    def test_eligibility_prob_zero_when_no_qualifying_attrs(self):
+        """All three qualifying attrs at exactly 16 — zero probability."""
+        import psionics
+        self.assertEqual(psionics.eligibility_prob(16, 16, 16), 0.0)
+
+    def test_eligibility_prob_matt_example(self):
+        """Int 17, Wis 5, Cha 17 →
+        floor((0.01 + 0.025 + 0 + 0.005) * 100) / 100 = 0.04."""
+        import psionics
+        self.assertAlmostEqual(psionics.eligibility_prob(17, 5, 17), 0.04)
+
+    def test_eligibility_prob_three_quals(self):
+        """Int 18, Wis 18, Cha 18 →
+        floor((0.01 + 0.05 + 0.03 + 0.01) * 100) / 100 = 0.10."""
+        import psionics
+        self.assertAlmostEqual(psionics.eligibility_prob(18, 18, 18), 0.10)
+
+    def test_eligibility_prob_never_negative(self):
+        import psionics
+        self.assertGreaterEqual(psionics.eligibility_prob(17, 1, 1), 0.0)
+
+    # ---- qualifying attr count ----------------------------------------------
+
+    def test_qualifying_count_zero(self):
+        import psionics
+        self.assertEqual(psionics.qualifying_attr_count(16, 16, 16), 0)
+
+    def test_qualifying_count_one(self):
+        import psionics
+        self.assertEqual(psionics.qualifying_attr_count(17, 16, 16), 1)
+
+    def test_qualifying_count_three(self):
+        import psionics
+        self.assertEqual(psionics.qualifying_attr_count(18, 18, 18), 3)
+
+    # ---- strength formula ---------------------------------------------------
+
+    def test_strength_full_matt_example(self):
+        """Matt: Int 17, Wis 5, Cha 17, roll 45 → 4*(45+5+0+5) = 220."""
+        import psionics
+        self.assertEqual(psionics.psionic_strength_full(45, 17, 5, 17), 220)
+
+    def test_strength_full_always_even(self):
+        """Result is always even (multiplier is 2**n, n >= 1)."""
+        import psionics
+        for roll in (1, 50, 100):
+            result = psionics.psionic_strength_full(roll, 17, 17, 17)
+            self.assertEqual(result % 2, 0,
+                             f"Expected even result for roll={roll}, got {result}")
+
+    def test_strength_full_zero_when_no_quals(self):
+        """All attrs ≤16 → strength = 0 (formula guarded by quals check)."""
+        import psionics
+        self.assertEqual(psionics.psionic_strength_full(50, 16, 16, 16), 0)
+
+    def test_strength_full_single_qual(self):
+        """One qualifying attr: multiplier = 2."""
+        import psionics
+        # Int 17, Wis 5, Cha 5: quals=1, bonus = max(0,17-12)+0+0 = 5
+        self.assertEqual(psionics.psionic_strength_full(50, 17, 5, 5), 2 * (50 + 5))
+
+    # ---- Cha reduction (Matt loses one point) -------------------------------
+
+    def test_cha_reduction_recalculates_strength(self):
+        """Matt: Int 17, Wis 5, Cha 17, roll 45 → 220.
+        Cha drops to 16: quals=1, strength = 2*(45+5+0+4) = 108."""
+        import psionics
+        c = make_fighter()
+        c.race = 'Human'
+        c.attributes['Int'], c.attributes['Wis'], c.attributes['Cha'] = 17, 5, 17
+        c.psionic_roll = 45
+        c.psionic_strength = psionics.psionic_strength_full(45, 17, 5, 17)   # 220
+        # Now drop Cha to 16
+        c.attributes['Cha'] = 16
+        psionics.check_and_apply(c)
+        self.assertEqual(c.psionic_strength, 108)
+
+    def test_cha_increase_recalculates_strength(self):
+        """Matt: Int 17, Wis 5, Cha 17, roll 45 → 220.
+        Cha rises to 18: quals=2, strength = 4*(45+5+0+6) = 224."""
+        import psionics
+        c = make_fighter()
+        c.race = 'Human'
+        c.attributes['Int'], c.attributes['Wis'], c.attributes['Cha'] = 17, 5, 17
+        c.psionic_roll = 45
+        c.psionic_strength = psionics.psionic_strength_full(45, 17, 5, 17)   # 220
+        c.attributes['Cha'] = 18
+        psionics.check_and_apply(c)
+        self.assertEqual(c.psionic_strength, 4 * (45 + 5 + 0 + 6))
+
+    # ---- loss of all qualifying attrs ---------------------------------------
+
+    def test_all_quals_lost_zeroes_roll_and_strength(self):
+        """If every qualifying attr drops to ≤16, both fields become 0."""
+        import psionics
+        c = make_fighter()
+        c.race = 'Human'
+        c.attributes['Int'], c.attributes['Wis'], c.attributes['Cha'] = 17, 5, 5
+        c.psionic_roll = 45
+        c.psionic_strength = psionics.psionic_strength_full(45, 17, 5, 5)
+        c.attributes['Int'] = 16            # last qualifying attr drops
+        psionics.check_and_apply(c)
+        self.assertEqual(c.psionic_roll, 0,
+                         "psionic_roll must be zeroed when all quals drop to ≤16")
+        self.assertEqual(c.psionic_strength, 0)
+
+    # ---- display ------------------------------------------------------------
+
+    def test_display_strength_none_when_zero(self):
+        import psionics
+        c = make_fighter()
+        c.psionic_strength = 0
+        self.assertEqual(psionics.display_strength(c), 'none')
+
+    def test_display_strength_halved(self):
+        import psionics
+        c = make_fighter()
+        c.psionic_strength = 220
+        self.assertEqual(psionics.display_strength(c), '110')
+
+    def test_display_strength_halved_odd_full_impossible(self):
+        """Full value is always even; halved display is always a whole number."""
+        import psionics
+        c = make_fighter()
+        c.psionic_strength = 108
+        self.assertEqual(psionics.display_strength(c), '54')
+
+    # ---- Character fields exist after __init__ ------------------------------
+
+    def test_character_has_psionic_fields(self):
+        """Every Character (classed or 0-level) must have psionic_roll and
+        psionic_strength after __init__."""
+        c = make_fighter()
+        self.assertTrue(hasattr(c, 'psionic_roll'),
+                        "Character must have psionic_roll field")
+        self.assertTrue(hasattr(c, 'psionic_strength'),
+                        "Character must have psionic_strength field")
+
+    def test_psionic_fields_are_ints(self):
+        c = make_fighter()
+        self.assertIsInstance(c.psionic_roll, int)
+        self.assertIsInstance(c.psionic_strength, int)
+
+    def test_ineligible_character_has_zero_strength(self):
+        """make_fighter() uses Int 12, Wis 10, Cha 11 — all ≤16, so no psionics."""
+        c = make_fighter()
+        self.assertEqual(c.psionic_strength, 0)
+        self.assertEqual(c.psionic_roll, 0)
+
+    # ---- PSIONIC_CHANGED event via change_attribute -------------------------
+
+    def test_psionic_changed_event_emitted_on_qualifying_attr_increase(self):
+        """Raising Int to 17 on an otherwise-qualifying Human should eventually
+        emit PSIONIC_CHANGED if the probability check passes.  We force the
+        outcome by directly calling check_and_apply after seeding psionic_roll."""
+        import psionics
+        from character import CharacterEventType
+        bus = StubEventBus()
+        c = make_fighter(event_bus=bus)
+        c.race = 'Human'
+        # Seed a psionic character manually so the event must fire on recompute
+        c.attributes['Int'] = 17
+        c.psionic_roll = 50
+        c.psionic_strength = psionics.psionic_strength_full(50, 17, 10, 11)
+        bus.clear()
+        # Now raise Int — _recompute_psionics fires through change_attribute
+        c.attributes['Int'] = 18
+        c._recompute_psionics()
+        self.assertIn(CharacterEventType.PSIONIC_CHANGED, bus.types(),
+                      "PSIONIC_CHANGED must be emitted when strength changes")
+
+    def test_non_qualifying_attr_change_no_psionic_event(self):
+        """Changing Str or Dex must never emit PSIONIC_CHANGED."""
+        from character import CharacterEventType
+        bus = StubEventBus()
+        c = make_fighter(event_bus=bus)
+        bus.clear()
+        c.change_attribute('Str', +1)
+        self.assertNotIn(CharacterEventType.PSIONIC_CHANGED, bus.types())
+        c.change_attribute('Dex', +1)
+        self.assertNotIn(CharacterEventType.PSIONIC_CHANGED, bus.types())
+
+
+# ===========================================================================
 # ENTRY POINT
 # ===========================================================================
 

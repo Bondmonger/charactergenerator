@@ -10,12 +10,14 @@ import datalocus
 from enum import Enum
 import json
 import os
+import psionics
 # import time
 
 
 class CharacterEventType(Enum):                         # events emitted by Character operations
     CHARACTER_RENAMED, XP_AWARDED, LEVEL_CHANGED = "character_renamed", "xp_awarded", "level_changed"
     ATTRIBUTE_CHANGED, AGE_CHANGED, CHARACTER_TRANSFORMED = "attribute_changed", "age_changed", "character_transformed"
+    PSIONIC_CHANGED = "psionic_changed"                 # emitted when psionic_strength changes
 
 
 def roll(b):  # rolls a single die of "b" sides
@@ -63,6 +65,8 @@ class Character:
             self.attributes['Exc'] = 0
             self.display_class, self.xp, self.level, self.hp = '0-level', 0, [0], 5
             self.size = heightweight.size(self.race, self.gender)
+            self.psionic_roll     = 0       # 0-level units are never psionic
+            self.psionic_strength = 0
             return
         self.age = agevalues.generate_age(self.race, self.classes, level)
         pre_age_attrs = dict(self.attributes)               # snapshot for probabilistic bard eligibility check
@@ -95,11 +99,14 @@ class Character:
         self.next_level = [int(next_level_raw[0]), next_level_raw[1]]
         self.display_level = generatecharacter.display_level(self.level)
         self.hp_history = hitpoints.generate_hp(self.classes, self.level, self.attributes['Con'])
+        self.psionic_roll     = 0           # must be set before modify_age() — age adj can touch Int/Wis/Cha,
+        self.psionic_strength = 0           # which fires _recompute_psionics() before __init__ completes
         self.modify_age(0)  # this is to factor in modifiers from the age increments in generate_level()
         self.size = heightweight.size(self.race, self.gender)
         self.hp = generatecharacter.flatten(self.hp_history)
         if auto_dual_class:
             self._apply_auto_dual_class(max(self.level), self.xp)
+        psionics.check_and_apply(self)      # final check on fully-resolved attributes; no event on creation
         return
 
     def change_attribute(self, attr: str, adjustment: int) -> None:  # public domain wrapper for modify_attribute
@@ -305,7 +312,17 @@ class Character:
         next_level_raw = generatecharacter.generate_level(self.attributes, self.classes, self.race, self.xp,
                                                            self.excess).pop('next_level')
         self.next_level = [int(next_level_raw[0]), next_level_raw[1]]
+        if attr in ('Int', 'Wis', 'Cha'):           # qualifying attrs: recheck psionic eligibility
+            self._recompute_psionics()
         return
+
+    def _recompute_psionics(self) -> None:          # recomputes psionic strength after a qualifying attr changes
+        old_strength = self.psionic_strength
+        changed = psionics.check_and_apply(self)
+        if changed and self.event_bus:
+            self.event_bus.emit(CharacterEventType.PSIONIC_CHANGED, {
+                'character': self, 'name': self.character_name,
+                'old_strength': old_strength, 'new_strength': self.psionic_strength})
 
     def modify_age(self, adjustment):
         starting_category, starting_atts, atts_mod = self.age[1], [], []

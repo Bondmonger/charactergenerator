@@ -11,6 +11,7 @@ import character
 import datalocus
 import selectclass
 import attributes
+import psionics
 from gameevents import EventBus
 from party import Party, PartyEventType
 from character import CharacterEventType
@@ -352,13 +353,14 @@ class CharacterInterface:
                                     command=lambda increase=x: self.adjust_attribute(increase, 1))
             self.button.place(height=8, width=6, x=120, y=80 + 18 * x)
         self.chright_label['text'] = "\n{}\n{} years old ({})\n\nXP: {:,}\n    {:,} xp to next level ({})\n\n{}' "\
-                                     "{}   {} lbs\n\nMovement: {}\u0022\nAlignment: {}\nPsionics: "\
+                                     "{}   {} lbs\n\nMovement: {}\u0022\nAlignment: {}\nPsionics: {}"\
             .format(self.selected_character.gender, self.selected_character.age[0], self.selected_character.age[1],
                     self.selected_character.xp, int(self.selected_character.next_level[0]) - self.selected_character.xp,
                     self.selected_character.next_level[1], int(self.selected_character.size[0] / 12),
                     str(self.selected_character.size[0] % 12) + '"' if self.selected_character.size[0] % 12 > 0 else '',
                     str(self.selected_character.size[1]), self.selected_character.class_movement(),
-                    self.selected_character.alignment)
+                    self.selected_character.alignment,
+                    psionics.display_strength(self.selected_character))
 
     def reroll(self, dummy_val=''):                 # generates a new character and refreshes label text
         self.display_text[0] = dummy_val            # look, I'm just getting rid of that argument warning
@@ -1014,7 +1016,7 @@ class CharacterInterface:
 
     @staticmethod
     def block_analysis(data_block):
-        if data_block == "" or isinstance(data_block[0], str):  # this statement deals with the three blank outputs
+        if data_block == "" or not data_block or isinstance(data_block[0], str):  # handles blank, empty, or string lists
             return ["", "", "", ""]
         else:
             medio, minio, maxio = np.median(data_block), min(data_block), max(data_block)
@@ -1106,6 +1108,7 @@ class CharacterInterface:
         character_list, class_list, race_list, levels, hp_values, armor_class, thac0 = [], [], [], [], [], [], []
         strength, intelligence, wisdom, dexterity, constitution, charisma, comeliness = [], [], [], [], [], [], []
         movement, age, height, weight, gender_count, start, align_list = [], [], [], [], [], time.time(), []
+        psionic_values = []                                             # full psionic_strength per character
         for element in range(self.bulk_attributes["samplesize"]):   # generates units...
             classes = charclass.copy()                              # [copy() prevents downgrade-subsequent-units bug]
             temp_char = character.Character(self.bulk_attributes["level"], race=race, gender=gender, classes=classes,
@@ -1122,6 +1125,7 @@ class CharacterInterface:
             charisma.append(aaa.attributes["Cha"]), comeliness.append(aaa.attributes["Com"]), height.append(aaa.size[0])
             weight.append(aaa.size[1]), age.append(aaa.age[0]), gender_count.append(aaa.gender)
             align_list.append(aaa.alignment)
+            psionic_values.append(aaa.psionic_strength)             # 0 = not psionic
         # generates output column headers
         self.sub_frame = tk.Frame(master=self.frame)
         self.sub_frame.grid(row=1, column=3, columnspan=5, sticky='nsew')
@@ -1136,17 +1140,21 @@ class CharacterInterface:
         self.sub_frame.grid(row=2, column=1, rowspan=8, columnspan=2, sticky='nsew')
         self.sub_frame.grid_propagate(False)
         self.sub_frame.grid_columnconfigure(0, weight=1, uniform=1)
-        outputs = [levels, hp_values, armor_class, thac0, movement, age, height, weight, "", strength, intelligence,
-                   wisdom, dexterity, constitution, charisma, comeliness, "", class_list, race_list, gender_count,
-                   align_list]
+        psionic_pct_labeled = ['psionic' if s > 0 else 'non-psionic' for s in psionic_values]  # breakout on button click
+        psionic_str_only    = [s for s in psionic_values if s > 0]                             # stats for psionic chars only
+        outputs = [levels, hp_values, armor_class, thac0, movement, age, height, weight, psionic_str_only,
+                   "", strength, intelligence, wisdom, dexterity, constitution, charisma, comeliness,
+                   "", class_list, race_list, gender_count, align_list]
         button_labels = ["level:", "hitpoints:", "armor class:", "thac0:", "movement rate:", "age:", "height:",
-                         "weight:", "", "strength:", "intelligence:", "wisdom:", "dexterity:", "constitution:",
-                         "charisma:", "comeliness:", "", "class breakout", "race breakout", "gender breakout",
-                         "alignment breakout"]
-        data_bools = [False, False, False, False, False, False, False, False, False, False, False, False, False, False,
-                      False, False, False, True, True, True, True]
-        fin_output, out_units = [], ["", "", "", "", '"', "", '"', "", "", "", "", "", "", "", "", "", "", "", "", "",
-                                     ""]
+                         "weight:", "psionic strength:", "", "strength:", "intelligence:", "wisdom:", "dexterity:",
+                         "constitution:", "charisma:", "comeliness:", "", "class breakout", "race breakout",
+                         "gender breakout", "alignment breakout"]
+        data_bools = [False, False, False, False, False, False, False, False, True,
+                      False, False, False, False, False, False, False, False, False, True, True, True, True]
+        # button click for "psionic strength:" passes the labeled breakout list, not psionic_str_only
+        psionic_row_index = button_labels.index("psionic strength:")
+        fin_output, out_units = [], ["", "", "", "", '"', "", '"', "", "",
+                                     "", "", "", "", "", "", "", "", "", "", "", "", ""]
         for h in outputs:
             fin_output.append(self.block_analysis(h))
         self.dub_frame = tk.Frame(master=self.frame)
@@ -1160,6 +1168,10 @@ class CharacterInterface:
             self.dub_frame.grid_rowconfigure(j, weight=1, uniform=1)
             if label == "":                 # if it's going to generate a blank button, make it a label
                 self.button = tk.Label(master=self.sub_frame, anchor='e', text=label)
+            elif j == psionic_row_index:    # psionic strength: display stats, but click shows psionic % breakout
+                self.button = tk.Button(master=self.sub_frame, relief=tk.FLAT, anchor='e', text=label, justify='right',
+                                        command=lambda: self.bulk_buttons(psionic_pct_labeled,
+                                                                          "psionic strength:", True))
             else:                           # otherwise, button
                 self.button = tk.Button(master=self.sub_frame, relief=tk.FLAT, anchor='e', text=label, justify='right',
                                         command=lambda b=j: self.bulk_buttons(outputs[b], button_labels[b],
