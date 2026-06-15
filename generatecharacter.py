@@ -133,7 +133,7 @@ def display_level(levels, dual_class=None):
 #   COMPLETE [fix auto-dual-classing toggle placement in bulk, party maker and character sheet]
 #   COMPLETE [Bard eligibility and implementation]
 #   COMPLETE [on/off toggle for OA/UA and frequency slider for OA]
-# 5) psionic eligibility / calculate psionic strength
+#   COMPLETE [psionic eligibility / calculate psionic strength]
 # 6) figure out storage/equipment fields
 #   a)	csv all armor
 #   b)  csv all weapons

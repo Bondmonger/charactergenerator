@@ -55,6 +55,7 @@ class Character:
         # Designated bards: roll attributes against Bard minimums (Str15 Int12 Wis15 Dex15 Con10 Cha15).
         # self.classes is already ['Fighter'] but methodvi must see ['Bard'] to target the right minimums.
         methodvi_classes = ['Bard'] if _designated_bard else self.classes
+        print("race: ", self.race, "   classes: ", self.classes, "   methodvi_classes: ", methodvi_classes)
         self.attributes = attributes.methodvi(self.race, methodvi_classes) if len(attrib_list) == 0 else attrib_list
         self.excess, self.attributes = self.attributes.pop(1), self.attributes[0]   # excess = same format as attributes
         self.gender = heightweight.random_gender() if gender == "random" else gender            # female

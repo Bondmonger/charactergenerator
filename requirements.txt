@@ -1,1 +1,15 @@
-pytest
+# External dependencies for CharGen
+matplotlib
+numpy
+pandas
+pygame
+scipy
+pdfplumber
+openpyxl
+ollama
+
+# the terminal command following clean install is this:
+# pip install matplotlib numpy pandas ollama pygame scipy pdfplumber openpyxl
+
+# note the absence of versions - because we can't know which version of Pycharm/Python you're on, we're better off...
+# ...letting pip sort out the versioning

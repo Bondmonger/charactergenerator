@@ -33,7 +33,7 @@ class CharacterInterface:
         self.selected_character = character.Character(self.level, event_bus=self.event_bus)
         self.master.attributes('-fullscreen', True)
         self.master.title("Interface Template")
-        self.master.configure(relief=tk.RIDGE, bd=16)
+        self.master.configure(relief="ridge", bd=16)
         self.file_dict = []
 
         self.gender = "random"                  # accepts "random", "male" or "female"
@@ -49,69 +49,68 @@ class CharacterInterface:
 
         self.master.grid_propagate(False)       # locks the internal configuration of self.master's grid
         for k in range(4):                      # generates the 6x4 grid
-            self.master.grid_rowconfigure(k, weight=1, uniform=1)
+            self.master.grid_rowconfigure(k, weight=1, uniform="1")
         for i in range(6):
-            self.master.grid_columnconfigure(i, weight=1, uniform=1)
+            self.master.grid_columnconfigure(i, weight=1, uniform="1")
             for j in range(4):
                 self.dummy_frame = tk.Frame(self.master, bg='#'+str(2*j)+str(2*j)+str(2*j)+str(i)+str(i)+str(i),
-                                            relief=tk.RIDGE, bd=4)
+                                            relief="ridge", bd=4)
                 self.dummy_frame.grid(row=j, column=i, sticky='nsew')
 
-        self.start_frame = tk.Frame(self.master, relief=tk.RIDGE, bd=4)  # generates start screen
+        self.start_frame = tk.Frame(self.master, relief="ridge", bd=4)  # generates start screen
         self.start_frame.grid(row=0, column=0, rowspan=4, columnspan=6, sticky="nsew")
-        self.start_frame.grid_columnconfigure(0, weight=1, uniform=1)
-        self.start_frame.grid_rowconfigure(0, weight=2, uniform=1)  # first row is thickness "2"
-        for i in range(1, 7):                                       # subsequent seven rows are thickness "1"
-            self.start_frame.grid_rowconfigure(i, weight=1, uniform=1)
-        self.start_label = tk.Label(master=self.start_frame,
-                                    )
+        self.start_frame.grid_columnconfigure(0, weight=1)
+        self.start_frame.grid_rowconfigure(0, weight=2)           # first row is thickness "2"
+        for i in range(1, 7):                                           # subsequent seven rows are thickness "1"
+            self.start_frame.grid_rowconfigure(i, weight=1)
+        self.start_label = tk.Label(master=self.start_frame)
         self.start_label.grid(row=0, column=0, sticky='nsew')
         self.start_label['text'] = "***WELCOME TO NATHAN'S 1E AD&D CHARACTER GENERATOR***\n\n\nWHICH METHOD WOULD YOU" \
                                    " LIKE TO USE?\n\n\n--------------------"
         self.methodi_button = tk.Button(self.start_frame, command=lambda: self.methodi_header(attributes.methodi()),
-                                        relief=tk.FLAT, text="METHOD I\n4d6, keep the top three, player selects order")
+                                        relief="flat", text="METHOD I\n4d6, keep the top three, player selects order")
         self.methodi_button.grid(row=1, column=0, sticky='nsew')
         self.methodii_button = tk.Button(self.start_frame, command=lambda: self.methodii_header(attributes.methodii()),
                                          text="METHOD II\n3d6 twelve times, keep the top six, player selects order",
-                                         relief=tk.FLAT)
+                                         relief="flat")
         self.methodii_button.grid(row=2, column=0, sticky='nsew')
-        self.methodiii_button = tk.Button(self.start_frame, relief=tk.FLAT,
+        self.methodiii_button = tk.Button(self.start_frame, relief="flat",
                                           command=lambda: self.methodiii_header(attributes.methodiii()),
                                           text="METHOD III\n3d6 six times per attribute, order is locked")
         self.methodiii_button.grid(row=3, column=0, sticky='nsew')
-        self.methodiv_button = tk.Button(self.start_frame, relief=tk.FLAT,
+        self.methodiv_button = tk.Button(self.start_frame, relief="flat",
                                          command=lambda: self.methodiv_header(attributes.methodiv()),
                                          text="METHOD IV\ncreate 12 characters via 3d6, player selects one, order is "
                                               "locked")
         self.methodiv_button.grid(row=4, column=0, sticky='nsew')
-        self.methodv_button = tk.Button(self.start_frame, relief=tk.FLAT, command=lambda: self.methodv_header(),
+        self.methodv_button = tk.Button(self.start_frame, relief="flat", command=lambda: self.methodv_header(),
                                         text="METHOD V\nclass-based 3d6 to 9d6 method, order is locked")
         self.methodv_button.grid(row=5, column=0, sticky='nsew')
-        self.methodvi_button = tk.Button(self.start_frame, command=lambda: self.methodvi_header(), relief=tk.FLAT,
+        self.methodvi_button = tk.Button(self.start_frame, command=lambda: self.methodvi_header(), relief="flat",
                                          text="METHOD VI\nhybrid of Methods I & V, order is locked")
         self.methodvi_button.grid(row=6, column=0, sticky='nsew')
 
         self.char_frame = tk.Frame(self.master, bg='#000077')   # generates character sheet frame
         self.char_frame.grid(row=0, column=0, rowspan=2, columnspan=3, sticky="nsew")
         self.char_frame.grid_propagate(False)                   # locks char_frame's right border
-        self.char_frame.grid_columnconfigure(0, weight=1, uniform=1)
-        self.char_frame.grid_columnconfigure(1, weight=3, uniform=1)
-        self.char_frame.grid_rowconfigure(0, weight=1, uniform=1)
-        self.char_frame.grid_rowconfigure(1, weight=6, uniform=1)
-        self.chtop_label = tk.Label(master=self.char_frame, relief=tk.RIDGE, bd=4, justify="left", anchor='nw')
+        self.char_frame.grid_columnconfigure(0, weight=1, uniform="1")
+        self.char_frame.grid_columnconfigure(1, weight=3, uniform="1")
+        self.char_frame.grid_rowconfigure(0, weight=1, uniform="1")
+        self.char_frame.grid_rowconfigure(1, weight=6, uniform="1")
+        self.chtop_label = tk.Label(master=self.char_frame, relief="ridge", bd=4, justify="left", anchor='nw')
         self.chtop_label.grid(row=0, column=0, columnspan=2, sticky='nsew')
-        self.chleft_label = tk.Label(master=self.char_frame, relief=tk.RIDGE, bd=4, justify="left", anchor='nw')
+        self.chleft_label = tk.Label(master=self.char_frame, relief="ridge", bd=4, justify="left", anchor='nw')
         self.chleft_label.grid(row=1, column=0, sticky='nsew')
-        self.chright_label = tk.Label(master=self.char_frame, relief=tk.RIDGE, bd=4, justify="left", anchor='nw')
+        self.chright_label = tk.Label(master=self.char_frame, relief="ridge", bd=4, justify="left", anchor='nw')
         self.chright_label.grid(row=1, column=1, sticky='nsew')
 
         self.contdisp_frame = tk.Frame(self.master)    # generates control/display frame
         self.contdisp_frame.grid(row=2, column=0, rowspan=2, columnspan=6, sticky="nsew")
         self.contdisp_frame.grid_propagate(False)
-        self.contdisp_frame.grid_columnconfigure(0, weight=1, uniform=1)
-        self.contdisp_frame.grid_rowconfigure(0, weight=8, uniform=1)   # wonky weights for matching selectionframe...
-        self.contdisp_frame.grid_rowconfigure(1, weight=9, uniform=1)   # ...9:1 across 3/4 of the master frame, where
-        self.contdisp_frame.grid_rowconfigure(2, weight=3, uniform=1)   # ...contdisp was originally 3:3:1 across 1/2
+        self.contdisp_frame.grid_columnconfigure(0, weight=1, uniform="1")
+        self.contdisp_frame.grid_rowconfigure(0, weight=8, uniform="1")   # wonky weights for matching selectionframe...
+        self.contdisp_frame.grid_rowconfigure(1, weight=9, uniform="1")   # ...9:1 across 3/4 of the master frame, where
+        self.contdisp_frame.grid_rowconfigure(2, weight=3, uniform="1")   # ...contdisp was originally 3:3:1 across 1/2
         self.display_label_text = ''
         self.display_label = tk.Label(master=self.contdisp_frame, bd=4, text=self.display_label_text, anchor='w',
                                       padx=60)
@@ -124,29 +123,30 @@ class CharacterInterface:
 
         # AND NOW THE CONTROL PANEL BUTTONS:
         self.new_button = tk.Button(self.control_label, text="New Character", command=self.reroll, width=16,
-                                    underline=4, relief=tk.FLAT)
+                                    underline=4, relief="flat")
         self.drain_button = tk.Button(self.control_label, command=lambda: self.drain(), text="Drain Level", width=16,
-                                      underline=0, relief=tk.FLAT)
+                                      underline=0, relief="flat")
         self.add_button = tk.Button(self.control_label, command=lambda: self.add_party_member(), width=16,
-                                    text="Add Member", underline=0, relief=tk.FLAT)
+                                    text="Add Member", underline=0, relief="flat")
         self.re_name = tk.Button(self.control_label, command=lambda: self.select_name(), text="Name", underline=0,
-                                 relief=tk.FLAT, width=16)
-        self.remove_button = tk.Button(self.control_label, text="Remove", underline=0, relief=tk.FLAT, width=16,
+                                 relief="flat", width=16)
+        self.remove_button = tk.Button(self.control_label, text="Remove", underline=0, relief="flat", width=16,
                                        command=lambda: self.remove_party_member())
         self.xp_button = tk.Button(self.control_label, text="Award 1000xp", command=lambda: self.boost(), underline=10,
-                                   relief=tk.FLAT, width=16)
+                                   relief="flat", width=16)
         self.set_name = tk.Button(self.control_label, command=lambda: self.name_character(), width=16, text="Accept",
-                                  relief=tk.FLAT)
+                                  relief="flat")
         self.marching_order = tk.Button(self.control_label, command=lambda: self.arrange_party(self.selected_character),
-                                        text="Marching Order", relief=tk.FLAT, underline=9, width=16)
+                                        text="Marching Order", relief="flat", underline=9, width=16)
         self.name_slot = tk.Entry(self.control_label, insertbackground="#FFFFFF")
         self.extended_party = tk.Button(self.control_label, command=lambda: self.party_frame_popup(), width=16,
-                                        text="Expanded Party", relief=tk.FLAT, underline=9)
+                                        text="Expanded Party", relief="flat", underline=9)
 
-        # --- dual-class UI controls ---
-        self.dual_class_var = tk.BooleanVar(value=self.bulk_attributes["dual_class"])   # shared across all screens
+        # --- dual-class & OA UI controls ---
+        self.dual_class_var = tk.BooleanVar(value=bool(self.bulk_attributes["dual_class"])) # shared across all screens
         self.dual_class_button = tk.Button(self.control_label, text="Dual Class", width=12,
-                                           command=lambda: self.initiate_dual_class_ui(), relief=tk.FLAT)
+                                           command=lambda: self.initiate_dual_class_ui(), relief="flat")
+        self.oa_freq_var = tk.StringVar()
 
         self.start_label = ''    # establishes all label_text values as strings
 
@@ -199,7 +199,7 @@ class CharacterInterface:
         self.frameleft = tk.Frame()                 # left frame of bulk generation report
         self.frameright = tk.Frame()                # right frame of bulk generation report
         self.save_frame = tk.Frame()                # save/load screen
-        self.settings_panel = tk.Frame()            # header_controls() settings panel
+        # self.settings_panel = tk.Frame()            # header_controls() settings panel NOT IN USE, ~1489-1512
         self.method_info_label = tk.Label()         # the small, gray-text method labels
 
         self.button = tk.Button()
@@ -236,7 +236,8 @@ class CharacterInterface:
             self.display_text[0] = f"{new}'s name has been assigned"
         print(f"[EVENT] Character renamed: {old!r} -> {new!r}")
 
-    def _on_xp_awarded(self, event):                # handles XP_AWARDED event
+    @staticmethod
+    def _on_xp_awarded(event):                # handles XP_AWARDED event
         name, amount = event.data['name'], event.data['amount']
         print(f"[EVENT] {name} awarded {amount} xp (total: {event.data['total_xp']})")
 
@@ -250,7 +251,8 @@ class CharacterInterface:
         self.dual_class_button.pack_forget()        # clear first, then re-evaluate
         self._pack_dual_class_controls()
 
-    def _on_age_changed(self, event):               # handles AGE_CHANGED event (silent)
+    @staticmethod
+    def _on_age_changed(event):               # handles AGE_CHANGED event (silent)
         print(f"[EVENT] {event.data['name']} age category: "
               f"{event.data['old_category']} -> {event.data['new_category']}")
 
@@ -268,16 +270,19 @@ class CharacterInterface:
         self.display_text[0] = f"{name} has been removed from the party"
         print(f"[EVENT] Member removed: {name}")    # For debugging
 
-    def _on_party_reordered(self, event):           # handles PARTY_REORDERED event
+    @staticmethod
+    def _on_party_reordered(event):           # handles PARTY_REORDERED event
         name = event.data['name']
         old_pos = event.data['old_position'] + 1    # Converts to 1-indexed for display
         new_pos = event.data['new_position'] + 1
         print(f"[EVENT] {name} moved from position {old_pos} to {new_pos}")
 
-    def _on_party_sorted(self, event):              # handles PARTY_SORTED event
+    @staticmethod
+    def _on_party_sorted():              # handles PARTY_SORTED event
         print(f"[EVENT] Party sorted by combat value")
 
-    def _on_party_cleared(self, event):             # handles PARTY_CLEARED event
+    @staticmethod
+    def _on_party_cleared(event):             # handles PARTY_CLEARED event
         count = event.data['count']
         print(f"[EVENT] Party cleared ({count} members removed)")
 
@@ -293,8 +298,8 @@ class CharacterInterface:
         self.member_frame.grid(row=0, column=3, rowspan=2, columnspan=3, sticky="nsew")
         self.member_frame.grid_propagate(False)
         for col, weight in enumerate(column_weights):
-            self.member_frame.grid_columnconfigure(col, weight=weight, uniform=1)
-        self.member_frame.grid_rowconfigure(0, weight=1, uniform=1)
+            self.member_frame.grid_columnconfigure(col, weight=weight, uniform="1")
+        self.member_frame.grid_rowconfigure(0, weight=1, uniform="1")
         self.party_frame = tk.Frame(master=self.member_frame, bd=4, bg='#000077')
         labels = {'hps': self.hps_label, 'acs': self.acs_label, 'th': self.th_label}
         for name in labels:
@@ -313,7 +318,7 @@ class CharacterInterface:
         display_names.place(x=5, y=4, height=20, relwidth=1.0)
         for a, member in enumerate(self.party, 1):             # constructs member buttons
             display_names = tk.Button(self.party_frame, text='\u0332{}  {}'.format(str(a), member.character_name),
-                                      relief=tk.FLAT, justify="left", anchor='w',
+                                      relief="flat", justify="left", anchor='w',
                                       command=lambda pos=a: self.refresh(self.party.get_member(pos - 1)))
             display_names.place(x=3, y=5 + 18 * a, height=18, relwidth=1.0)
             display_hps += '\n{}'.format(member.hp)                 # updates attribute column text
@@ -346,10 +351,10 @@ class CharacterInterface:
             .format(self.selected_character.hp, 10 + self.selected_character.calculate_ac(),
                     20 + self.selected_character.calculate_thaco(), self.stacked_attrs()[0:-1])
         for x in range(7):
-            self.button = tk.Button(self.chleft_label, text="<", relief=tk.FLAT,
+            self.button = tk.Button(self.chleft_label, text="<", relief="flat",
                                     command=lambda decrease=x: self.adjust_attribute(decrease, -1))
             self.button.place(height=8, width=6, x=110, y=80 + 18 * x)
-            self.button = tk.Button(self.chleft_label, text=">", relief=tk.FLAT,
+            self.button = tk.Button(self.chleft_label, text=">", relief="flat",
                                     command=lambda increase=x: self.adjust_attribute(increase, 1))
             self.button.place(height=8, width=6, x=120, y=80 + 18 * x)
         self.chright_label['text'] = "\n{}\n{} years old ({})\n\nXP: {:,}\n    {:,} xp to next level ({})\n\n{}' "\
@@ -450,21 +455,21 @@ class CharacterInterface:
     def drain(self):                                        # drains one level from current character
         self.selected_character.drain_level()
         self.update_charsheet()
-        self.member_buttons() if self.selected_character in self.party else self.nonmember_buttons()
+        (self.member_buttons if self.selected_character in self.party else self.nonmember_buttons)()
         self.display_text[0] = ''
 
     def boost(self):                                        # awards 1,000 xp to current character
         self.selected_character.auto_dual_class = False
         self.selected_character.award_xp(1000)
         self.update_charsheet()
-        self.member_buttons() if self.selected_character in self.party else self.nonmember_buttons()
+        (self.member_buttons if self.selected_character in self.party else self.nonmember_buttons)()
         self.display_text[0] = ''
 
     def adjust_attribute(self, attr, adj):                  # modifies an attribute by the value of adj
         attr_list = ['Str', 'Int', 'Wis', 'Dex', 'Con', 'Cha', 'Com']
-        self.selected_character.change_attribute(attr_list[attr], adj)
+        self.selected_character.change_attribute(attr_list[int(attr)], adj)
         self.update_charsheet()
-        self.member_buttons() if self.selected_character in self.party else self.nonmember_buttons()
+        (self.member_buttons if self.selected_character in self.party else self.nonmember_buttons)()
 
     # --- dual-class UI helpers ---
 
@@ -476,7 +481,7 @@ class CharacterInterface:
             (bard_track_eligible() adds 'Bard' to the picker when applicable).
         """
         c = self.selected_character
-        lvl = max(c.level)
+        lvl = int(max(c.level))
         # --- Bard stage 2→3: Thief|Fighter → Bard --------------------------------
         if (c.intended_class == 'Bard'
                 and c.dual_class is not None
@@ -502,14 +507,14 @@ class CharacterInterface:
     def initiate_dual_class_ui(self):
         """Trigger dual-class transition for selected_character; prompt for destination if needed."""
         c = self.selected_character
-        lvl = max(c.level)
+        lvl = int(max(c.level))
         # --- Bard stage 2→3: Thief|Fighter → Bard --------------------------------
         if (c.intended_class == 'Bard'
                 and c.dual_class is not None
                 and 'fighter_level' not in c.dual_class
                 and 'Thief' in c.classes):
             c.initiate_dual_class('Bard', starting_xp=0)
-            self.display_text[0] = (f"{c.character_name} becomes a Bard")
+            self.display_text[0] = f"{c.character_name} becomes a Bard"
             self.update_charsheet()
             if c in self.party:
                 self.member_buttons()
@@ -535,7 +540,7 @@ class CharacterInterface:
             c.intended_class = 'Bard'
             destination = 'Thief'
         c.initiate_dual_class(destination)
-        self.display_text[0] = (f"{c.character_name} transitions to {destination}")
+        self.display_text[0] = f"{c.character_name} transitions to {destination}"
         self.update_charsheet()
         if c in self.party:
             self.member_buttons()
@@ -555,9 +560,11 @@ class CharacterInterface:
         tk.Label(dialog, text="Choose destination class:", bg="#000000", fg="#FFFFFF",
                  font=('Courier', 12), pady=8).pack()
         for opt in options:
+            def on_click(dest=opt):
+                dialog.destroy()
+                self._apply_dual_class(dest)
             tk.Button(dialog, text=opt, width=20, bg="#000000", fg="#FFFFFF", font=('Courier', 12),
-                      relief=tk.RIDGE, bd=4,
-                      command=lambda dest=opt: (dialog.destroy(), self._apply_dual_class(dest))).pack(pady=2)
+                      relief="ridge", bd=4, command=on_click).pack(pady=2)
         dialog.bind("<Escape>", lambda e: dialog.destroy())
         dialog.focus_set()
         self.master.wait_window(dialog)
@@ -599,20 +606,21 @@ class CharacterInterface:
             for key in self.master.bind():
                 self.master.unbind(key)                     # unbinds hotkeys
             for widget in self.control_label.winfo_children():
-                widget.pack_forget()                        # forgets control panel widgets
+                if isinstance(widget, tk.Widget):
+                    widget.pack_forget()                    # forgets control panel widgets
             self.control_label['text'] = '   Enter character name:'
             self.name_slot.pack(side='left')                # packs input field
             self.set_name.pack(side='left')                 # packs 'Enter' button (<Return> key bound below)
             self.name_slot.focus_set()                      # places cursor in input field
-            self.master.bind('<Return>', lambda event: self.name_character(add_member))
+            self.master.bind('<Return>', lambda event: self.name_character())
 
-    def name_character(self, add_member=False):         # names character
+    def name_character(self):                           # names character
         temp_n = self.name_slot.get()                   # captures name text...
         self.selected_character.rename(temp_n)          # domain method sets name and emits CHARACTER_RENAMED event
         self.method_label.destroy()                     # manual rem. of temp label (update_party_frame(buttons=False))
         # self.close_selection_frame.configure(state='normal')     # restoration of main menu button
         self.update_charsheet()                         # update_charsheet()
-        self.member_buttons() if self.selected_character in self.party else self.nonmember_buttons()
+        (self.member_buttons if self.selected_character in self.party else self.nonmember_buttons)()
         for i, member in enumerate(self.party, 1):
             self.bind_member(i)                         # re-binds party hotkeys
         self.master.unbind('<Return>')                  # releases <Return> key
@@ -625,7 +633,8 @@ class CharacterInterface:
         self.update_party_frame(buttons=False)          # blanks out party buttons
         # self.close_selection_frame.configure(state='disabled')   # blanks out return to main menu button
         for widget in self.control_label.winfo_children():
-            widget.pack_forget()                        # forgets control panel widgets
+            if isinstance(widget, tk.Widget):
+                widget.pack_forget()                    # forgets control panel widgets
         for key in self.master.bind():
             self.master.unbind(key)                     # unbinds hotkeys
         self.control_label['text'] = "  Assign {}'s new position with a NUMBER key (1 through {})"\
@@ -672,32 +681,32 @@ class CharacterInterface:
             self.master.unbind(key)                     # ...but restores <escape> key
         self.master.bind('<Escape>', lambda event: self.escape_function())
         self.attributes_frame.destroy()
-        self.attributes_frame = tk.Frame(master=self.master, relief=tk.RIDGE, bd=4)
+        self.attributes_frame = tk.Frame(master=self.master, relief="ridge", bd=4)
         self.attributes_frame.grid(row=0, column=0, columnspan=6, sticky="nsew", ipadx=5, ipady=5)
         for i, width in enumerate([3, 1]):
-            self.attributes_frame.grid_columnconfigure(i, weight=width, uniform=1)
-        self.attributes_frame.grid_rowconfigure(0, weight=1, uniform=1)
+            self.attributes_frame.grid_columnconfigure(i, weight=width, uniform="1")
+        self.attributes_frame.grid_rowconfigure(0, weight=1, uniform="1")
         self.attributes_frame.grid_propagate(False)
         self.attribs_fr = tk.Frame(master=self.attributes_frame, bd=4)
         self.attribs_fr.grid(row=0, column=0, sticky="nsew")
         self.hcontrol_fr = tk.Frame(master=self.attributes_frame, bd=4)
         self.hcontrol_fr.grid(row=0, column=1, sticky="nsew")
         for i, width in enumerate([1, 3, 1]):           # assigns column widths
-            self.hcontrol_fr.grid_columnconfigure(i, weight=width, uniform=1)
-        # self.hcontrol_fr.grid_rowconfigure(0, weight=1, uniform=1)
+            self.hcontrol_fr.grid_columnconfigure(i, weight=width, uniform="1")
+        # self.hcontrol_fr.grid_rowconfigure(0, weight=1, uniform="1")
 
     def headerdefaults(self, attribs):                  # generates common elements for methods I & II headers
         self.common_header_elements()
         for i, width in enumerate([5, 1, 1, 1, 1, 1, 1, 1, 1]):     # column widths
-            self.attribs_fr.grid_columnconfigure(i, weight=width, uniform=1)
+            self.attribs_fr.grid_columnconfigure(i, weight=width, uniform="1")
         for j in range(3):
-            self.attribs_fr.grid_rowconfigure(j, weight=1, uniform=1)
+            self.attribs_fr.grid_rowconfigure(j, weight=1, uniform="1")
         for k, value in enumerate(["Str", "Int", "Wis", "Dex", "Con", "Cha", "Com"], 1):
             self.method_label = tk.Label(master=self.attribs_fr, bd=4, justify="left", anchor='s')
             self.method_label.grid(row=0, column=k, sticky='nsew')
             self.method_label['text'] = value
         for m, attribute in enumerate(attribs, 1):      # generates attribute buttons (for swapping attributes)
-            self.method_label = tk.Button(master=self.attribs_fr, relief=tk.RIDGE, bd=8, justify="left",
+            self.method_label = tk.Button(master=self.attribs_fr, relief="ridge", bd=8, justify="left",
                                           command=lambda new_val=m-1: self.method_suspension(attribs, new_val))
             self.method_label.grid(row=1, column=m, columnspan=1, sticky='nsew')
             self.method_label['text'] = attribute
@@ -731,10 +740,10 @@ class CharacterInterface:
         self.headerdefaults(attribs)
         for v in range(6):                      # generates attribute buttons (for swapping attributes)
             if v == selected_attribute:         # we still send the un-do command to att_swap ("swap pos1 for pos1")
-                self.method_label = tk.Button(master=self.attribs_fr, relief=tk.RIDGE, bd=8, fg="#000000", bg='#FFFFFF',
+                self.method_label = tk.Button(master=self.attribs_fr, relief="ridge", bd=8, fg="#000000", bg='#FFFFFF',
                                               command=lambda pos=v: self.att_swap(attribs, pos, pos), justify="left")
             else:
-                self.method_label = tk.Button(master=self.attribs_fr, relief=tk.RIDGE, justify="left", bd=8,
+                self.method_label = tk.Button(master=self.attribs_fr, relief="ridge", justify="left", bd=8,
                                               command=lambda pos=v: self.att_swap(attribs, selected_attribute, pos))
             self.method_label.grid(row=1, column=v+1, columnspan=1, sticky='nsew')
             self.method_label['text'] = attribs[v]
@@ -749,9 +758,9 @@ class CharacterInterface:
         self.update_newchar_button(self.methodiii_header)
         self.common_header_elements()
         for i, width in enumerate([5, 1, 1, 1, 1, 1, 1, 1, 1]):  # column widths
-            self.attribs_fr.grid_columnconfigure(i, weight=width, uniform=1)
+            self.attribs_fr.grid_columnconfigure(i, weight=width, uniform="1")
         for j in range(3):
-            self.attribs_fr.grid_rowconfigure(j, weight=1, uniform=1)
+            self.attribs_fr.grid_rowconfigure(j, weight=1, uniform="1")
         for k, (name, value) in enumerate(zip(["Str", "Int", "Wis", "Dex", "Con", "Cha", "Com"], attribs), 1):
             self.method_label = tk.Label(master=self.attribs_fr, bd=4, justify="left", anchor='s')
             self.method_label.grid(row=0, column=k, sticky='nsew')
@@ -775,18 +784,18 @@ class CharacterInterface:
         attribs = attr_names + attribs                      # adds attribute names to front of attributes lists
         self.attribs_fr.grid_propagate(False)
         for i in range(15):                                 # generates column widths
-            self.attribs_fr.grid_columnconfigure(i, weight=1, uniform=1)
+            self.attribs_fr.grid_columnconfigure(i, weight=1, uniform="1")
         for i, weight in enumerate([3, 1]):
-            self.attribs_fr.grid_rowconfigure(i, weight=weight, uniform=1)
+            self.attribs_fr.grid_rowconfigure(i, weight=weight, uniform="1")
         for k in range(13):                                 # generates attribute sets
             if k == 0:                                      # assigns attribute names to first column
-                self.methodiv_button = tk.Label(master=self.attribs_fr, relief=tk.FLAT, anchor='s', bd=4)
+                self.methodiv_button = tk.Label(master=self.attribs_fr, relief="flat", anchor='s', bd=4)
             elif k == selection:                            # sets lambda to de-highlight and de-select
-                self.methodiv_button = tk.Button(master=self.attribs_fr, relief=tk.FLAT, anchor='s', bg='#FFFFFF',
+                self.methodiv_button = tk.Button(master=self.attribs_fr, relief="flat", anchor='s', bg='#FFFFFF',
                                                  command=lambda des=k: self.methodiv_header(attribs[1:14], 13),  bd=4,
                                                  fg="#000000")
             else:                                           # sets lambda to highlight and populate the selectionframe
-                self.methodiv_button = tk.Button(master=self.attribs_fr, relief=tk.FLAT, anchor='s', bd=4,
+                self.methodiv_button = tk.Button(master=self.attribs_fr, relief="flat", anchor='s', bd=4,
                                                  command=lambda sel=k: self.methodiv_header(attribs[1:14], sel))
             self.methodiv_button.grid(row=0, column=k+1, columnspan=1, sticky='nsew')
             self.methodiv_button['text'] = '{}\n{}\n{}\n{}\n{}\n{}\n{}'.\
@@ -802,9 +811,9 @@ class CharacterInterface:
         self.common_header_elements()
         self.attributes_frame.grid_propagate(False)
         for i, width in enumerate([5, 1, 1, 1, 1, 1, 1, 1, 1]):         # generates column widths
-            self.attribs_fr.grid_columnconfigure(i, weight=width, uniform=1)
+            self.attribs_fr.grid_columnconfigure(i, weight=width, uniform="1")
         for j in range(3):
-            self.attribs_fr.grid_rowconfigure(j, weight=1, uniform=1)
+            self.attribs_fr.grid_rowconfigure(j, weight=1, uniform="1")
         if charclass is None:
             self.method_label = tk.Label(master=self.attribs_fr, bd=4, anchor='s')
             self.method_label.grid(row=1, column=0, columnspan=4, sticky='nse')
@@ -828,18 +837,18 @@ class CharacterInterface:
         self.common_header_elements()
         # self.header_controls(rr=False)            # controls will live in selectionframe
         for i, width in enumerate([1, 1, 1, 1]):    # column widths
-            self.attribs_fr.grid_columnconfigure(i, weight=width, uniform=1)
+            self.attribs_fr.grid_columnconfigure(i, weight=width, uniform="1")
         for j in range(3):
-            self.attribs_fr.grid_rowconfigure(j, weight=1, uniform=1)
-        self.button = tk.Button(self.attribs_fr, text="GENERATE\nINDIVIDUAL\nCHARACTERS", relief=tk.FLAT,
+            self.attribs_fr.grid_rowconfigure(j, weight=1, uniform="1")
+        self.button = tk.Button(self.attribs_fr, text="GENERATE\nINDIVIDUAL\nCHARACTERS", relief="flat",
 
                                 command=lambda: self.startframe_close())
         self.button.grid(row=0, column=0, rowspan=3, sticky='nsew')
-        self.button = tk.Button(self.attribs_fr, text="GENERATE\nFULL\nPARTY", relief=tk.FLAT,
+        self.button = tk.Button(self.attribs_fr, text="GENERATE\nFULL\nPARTY", relief="flat",
 
                                 command=lambda: self.party_maker())
         self.button.grid(row=0, column=1, rowspan=3, sticky='nsew')
-        self.button = tk.Button(self.attribs_fr, text="BULK\nTEST", relief=tk.FLAT,
+        self.button = tk.Button(self.attribs_fr, text="BULK\nTEST", relief="flat",
 
                                 command=lambda: self.bulk_maker())
         self.button.grid(row=0, column=2, rowspan=3, sticky='nsew')
@@ -849,7 +858,7 @@ class CharacterInterface:
         self.method_frame = tk.Frame(master=location)
         self.method_frame.grid(row=1, column=0, sticky="nsew")
         self.close_selection_frame = tk.Button(self.method_frame, text="return to main menu", anchor='w',
-                                               relief=tk.FLAT, command=lambda: self.clbutt())
+                                               relief="flat", command=lambda: self.clbutt())
         self.close_selection_frame.pack(side='bottom')
 
     def selectionframe_methodvi(self):
@@ -857,9 +866,9 @@ class CharacterInterface:
         self.selection_frame = tk.Label(master=self.master)
         self.selection_frame.grid_propagate(False)
         self.selection_frame.grid(row=1, column=0, rowspan=3, columnspan=6, sticky="nsew")
-        self.selection_frame.grid_columnconfigure(0, weight=1, uniform=1)
-        self.selection_frame.grid_rowconfigure(0, weight=9, uniform=1)
-        self.selection_frame.grid_rowconfigure(1, weight=1, uniform=1)
+        self.selection_frame.grid_columnconfigure(0, weight=1, uniform="1")
+        self.selection_frame.grid_rowconfigure(0, weight=9, uniform="1")
+        self.selection_frame.grid_rowconfigure(1, weight=1, uniform="1")
         self.create_main_menu_button(self.selection_frame)
 
     def bulk_maker(self):
@@ -867,9 +876,9 @@ class CharacterInterface:
         self.selection_body = tk.Frame(master=self.selection_frame)
         self.selection_body.grid(row=0, column=0, sticky="nsew")
         for i in range(20):
-            self.selection_body.grid_columnconfigure(i, weight=1, uniform=1)
+            self.selection_body.grid_columnconfigure(i, weight=1, uniform="1")
         for i in range(12):
-            self.selection_body.grid_rowconfigure(i, weight=1, uniform=1)
+            self.selection_body.grid_rowconfigure(i, weight=1, uniform="1")
         option_levels = list(range(1, 17))                          # we begin populating the 5 dropdown arrays
         eligibility_object, maximums = selectclass.IsEligible(), [18, 18, 18, 18, 18, 18]
         eligibility_object.eligible(maximums)
@@ -895,7 +904,7 @@ class CharacterInterface:
                 enumerate(zip(dropdown_values, label_values, label_texts, command_values), 1):
             self.method_label = tk.Label(master=self.selection_body, justify="right", text=text)
             self.method_label.grid(row=order * 2 - 1, column=1, columnspan=3, sticky='nse')
-            self.tk_variable = tk.IntVar(self.selection_body, self.bulk_attributes[label])
+            self.tk_variable = tk.StringVar(self.selection_body, str(self.bulk_attributes[label]))
             class_dropdown = tk.OptionMenu(self.selection_body, self.tk_variable, *dropdown, command=command)
             class_dropdown.config(bg='#000000', fg='#FFFFFF', font=('Courier', 12), activebackground='#000000',
                                   activeforeground='#FFFFFF', width=24)
@@ -905,14 +914,14 @@ class CharacterInterface:
         oa_row.grid(row=11, column=2, columnspan=8, sticky='sw', padx=(6, 0))
         tk.Label(master=oa_row, text="OA frequency:", bg='#000000', fg='#FFFFFF',
                  font=('Courier', 12), width=16, anchor='e').pack(side='left')
-        self.oa_freq_var = tk.StringVar(oa_row, self.bulk_attributes["oa_freq"])
+        self.oa_freq_var = tk.StringVar(oa_row, str(self.bulk_attributes["oa_freq"]))
         oa_dropdown = tk.OptionMenu(oa_row, self.oa_freq_var,
                                     *selectclass.OA_FREQ_OPTIONS.keys(), command=self.bulkoafreqset)
         oa_dropdown.config(bg='#000000', fg='#FFFFFF', font=('Courier', 12), activebackground='#000000',
-                           activeforeground='#FFFFFF', relief=tk.FLAT, bd=0, highlightthickness=0, padx=0)
+                           activeforeground='#FFFFFF', relief="flat", bd=0, highlightthickness=0, padx=0)
         oa_dropdown["menu"].config(bg='#000000', fg='#FFFFFF', font=('Courier', 12))
         oa_dropdown.pack(side='left', padx=(4, 0))
-        self.dual_class_var.set(self.bulk_attributes["dual_class"])
+        self.dual_class_var.set(bool(self.bulk_attributes["dual_class"]))
         dc_row = tk.Frame(master=self.selection_body, bg='#000000')
         dc_row.grid(row=12, column=2, columnspan=8, sticky='sw', padx=(6, 0))
         tk.Label(master=dc_row, text="auto dual-class:", bg='#000000', fg='#FFFFFF',
@@ -922,7 +931,7 @@ class CharacterInterface:
                        bg='#000000', fg='#FFFFFF', font=('Courier', 12),
                        selectcolor='#000000', activebackground='#000000',
                        activeforeground='#FFFFFF').pack(side='left')
-        self.button = tk.Button(self.selection_body, text="GENERATE UNITS", relief=tk.FLAT,
+        self.button = tk.Button(self.selection_body, text="GENERATE UNITS", relief="flat",
                                 command=lambda: self.bulk_outcome())
         self.button.grid(row=5, column=13, columnspan=2, sticky='nsew')
         self.create_main_menu_button(self.selection_frame)
@@ -989,7 +998,7 @@ class CharacterInterface:
             sorted_proportions = dict(sorted(element_proportions.items()))
         sorted_proportions = self.multi_sort(sorted_proportions, start_end, default, result_sort)
         if is_levels:                       # replaces key names with vulgar fractions if key is character levels
-            temp_dict = {}                  # sorted_proportions["DisplayValues]: {3.0: 11, 3.33: 18, 3.5: 21, , ...}
+            temp_dict = {}                  # sorted_proportions["DisplayValues"]: {3.0: 11, 3.33: 18, 3.5: 21,..., ...}
             for key in sorted_proportions["DisplayValues"]:
                 temp_dict[self.vulfrac(key)] = sorted_proportions["DisplayValues"][key]
             sorted_proportions["DisplayValues"] = temp_dict
@@ -1040,20 +1049,20 @@ class CharacterInterface:
         label = "{:.1f}".format(100 * labels[1] / self.bulk_attributes["samplesize"]) + "%"
         self.label = tk.Label(master=self.frameleft, padx=0, pady=0, anchor='e', text=label, justify='right')
         self.label.grid(row=row, column=0, sticky='nsew')
-        self.label = tk.Button(master=self.frameright, relief=tk.FLAT, padx=8, pady=0, anchor='w', text=labels[0],
+        self.label = tk.Button(master=self.frameright, relief="flat", padx=8, pady=0, anchor='w', text=labels[0],
                                justify='left',
                                command=lambda: self.bulk_buttons(element_list, button_label, result_sort,
                                                                  mod_midpoint))
         self.label.grid(row=row, column=0, sticky='nsew')
 
-    def bulk_buttons(self, element_list, button_label, result_sort, default="default"):
+    def bulk_buttons(self, element_list, button_label, result_sort, default: str | tuple | list = "default"):
         self.zoom_frame.destroy()
         self.zoom_frame = tk.Frame(master=self.selection_body)
         self.zoom_frame.grid(row=0, column=1, sticky='nsew')
         for a, weight in enumerate([1, 9]):         # at [1, 8] this will blank out the bulk_outcome frame at 1080p
-            self.zoom_frame.rowconfigure(a, weight=weight, uniform=1)
+            self.zoom_frame.rowconfigure(a, weight=weight, uniform="1")
         for a, weight in enumerate([2, 5]):
-            self.zoom_frame.columnconfigure(a, weight=weight, uniform=1)
+            self.zoom_frame.columnconfigure(a, weight=weight, uniform="1")
         self.method_label = tk.Label(master=self.zoom_frame, text=button_label)
         self.method_label.grid(row=0, column=0, sticky='se')
         self.frameleft = tk.Frame(master=self.zoom_frame)
@@ -1062,10 +1071,10 @@ class CharacterInterface:
         self.frameright.grid(row=1, column=1, sticky='nsew')
         self.frameleft.grid_propagate(False)
         self.frameright.grid_propagate(False)
-        self.frameleft.columnconfigure(0, weight=1, uniform=1)
+        self.frameleft.columnconfigure(0, weight=1, uniform="1")
         for i in range(25):                         # spaces out the result grid
-            self.frameleft.rowconfigure(i, weight=1, uniform=1)
-            self.frameright.rowconfigure(i, weight=1, uniform=1)
+            self.frameleft.rowconfigure(i, weight=1, uniform="1")
+            self.frameright.rowconfigure(i, weight=1, uniform="1")
         element_count = len(np.unique(np.array(element_list)))
         if default == "default":                    # if this is a default page, display the mid-point
             start_end = self.start_end_assigner(int(element_count / 2) - 10, element_count, 0)
@@ -1091,15 +1100,15 @@ class CharacterInterface:
         self.selection_body = tk.Frame(master=self.selection_frame)
         self.selection_body.grid(row=0, column=0, sticky="nsew")
         for i, width in enumerate([1, 1]):
-            self.selection_body.grid_columnconfigure(i, weight=width, uniform=1)
-        self.selection_body.grid_rowconfigure(0, weight=1, uniform=1)
-        self.frame = tk.Frame(master=self.selection_body, relief=tk.FLAT)
+            self.selection_body.grid_columnconfigure(i, weight=width, uniform="1")
+        self.selection_body.grid_rowconfigure(0, weight=1, uniform="1")
+        self.frame = tk.Frame(master=self.selection_body, relief="flat")
         self.frame.grid(row=0, column=0, sticky='nsew')
         self.frame.grid_propagate(False)
         for i in range(12):
-            self.frame.grid_rowconfigure(i, weight=1, uniform=1)
+            self.frame.grid_rowconfigure(i, weight=1, uniform="1")
         for i in range(8):
-            self.frame.grid_columnconfigure(i, weight=1, uniform=1)
+            self.frame.grid_columnconfigure(i, weight=1, uniform="1")
         # generates character_list and properties lists
         race = '' if self.bulk_attributes["race"] == "ANY" else self.bulk_attributes["race"]
         gender = "random" if self.bulk_attributes["gender"] == "ANY" else self.bulk_attributes["gender"]
@@ -1108,8 +1117,8 @@ class CharacterInterface:
         character_list, class_list, race_list, levels, hp_values, armor_class, thac0 = [], [], [], [], [], [], []
         strength, intelligence, wisdom, dexterity, constitution, charisma, comeliness = [], [], [], [], [], [], []
         movement, age, height, weight, gender_count, start, align_list = [], [], [], [], [], time.time(), []
-        psionic_values = []                                             # full psionic_strength per character
-        for element in range(self.bulk_attributes["samplesize"]):   # generates units...
+        psionic_values = []                                         # full psionic_strength per character
+        for element in range(int(self.bulk_attributes["samplesize"])):  # generates units...
             classes = charclass.copy()                              # [copy() prevents downgrade-subsequent-units bug]
             temp_char = character.Character(self.bulk_attributes["level"], race=race, gender=gender, classes=classes,
                                             auto_dual_class=self.bulk_attributes["dual_class"])
@@ -1130,16 +1139,16 @@ class CharacterInterface:
         self.sub_frame = tk.Frame(master=self.frame)
         self.sub_frame.grid(row=1, column=3, columnspan=5, sticky='nsew')
         self.sub_frame.grid_propagate(False)
-        self.sub_frame.grid_rowconfigure(0, weight=1, uniform=1)
+        self.sub_frame.grid_rowconfigure(0, weight=1, uniform="1")
         for i, text_value in enumerate(["MEAN", "MEDIAN", "MINIMUM", "MAXIMUM"]):
-            self.sub_frame.grid_columnconfigure(i, weight=1, uniform=1)
+            self.sub_frame.grid_columnconfigure(i, weight=1, uniform="1")
             self.label = tk.Label(master=self.sub_frame, text=text_value, anchor="s")
             self.label.grid(row=0, column=i, sticky='nsew')
         # generates output buttons, labels and values
         self.sub_frame = tk.Frame(master=self.frame)
         self.sub_frame.grid(row=2, column=1, rowspan=8, columnspan=2, sticky='nsew')
         self.sub_frame.grid_propagate(False)
-        self.sub_frame.grid_columnconfigure(0, weight=1, uniform=1)
+        self.sub_frame.grid_columnconfigure(0, weight=1, uniform="1")
         psionic_pct_labeled = ['psionic' if s > 0 else 'non-psionic' for s in psionic_values]  # breakout on button click
         psionic_str_only    = [s for s in psionic_values if s > 0]                             # stats for psionic chars only
         outputs = [levels, hp_values, armor_class, thac0, movement, age, height, weight, psionic_str_only,
@@ -1160,20 +1169,20 @@ class CharacterInterface:
         self.dub_frame = tk.Frame(master=self.frame)
         self.dub_frame.grid(row=2, column=3, rowspan=8, columnspan=5, sticky='nsew')
         self.dub_frame.grid_propagate(False)
-        self.dub_frame.grid_columnconfigure(0, weight=1, uniform=1)
+        self.dub_frame.grid_columnconfigure(0, weight=1, uniform="1")
         for i in range(4):
-            self.dub_frame.grid_columnconfigure(i, weight=1, uniform=1)
+            self.dub_frame.grid_columnconfigure(i, weight=1, uniform="1")
         for j, (label, out_data, units) in enumerate(zip(button_labels, fin_output, out_units)):
-            self.sub_frame.grid_rowconfigure(j, weight=1, uniform=1)
-            self.dub_frame.grid_rowconfigure(j, weight=1, uniform=1)
+            self.sub_frame.grid_rowconfigure(j, weight=1, uniform="1")
+            self.dub_frame.grid_rowconfigure(j, weight=1, uniform="1")
             if label == "":                 # if it's going to generate a blank button, make it a label
                 self.button = tk.Label(master=self.sub_frame, anchor='e', text=label)
             elif j == psionic_row_index:    # psionic strength: display stats, but click shows psionic % breakout
-                self.button = tk.Button(master=self.sub_frame, relief=tk.FLAT, anchor='e', text=label, justify='right',
+                self.button = tk.Button(master=self.sub_frame, relief="flat", anchor='e', text=label, justify='right',
                                         command=lambda: self.bulk_buttons(psionic_pct_labeled,
                                                                           "psionic strength:", True))
             else:                           # otherwise, button
-                self.button = tk.Button(master=self.sub_frame, relief=tk.FLAT, anchor='e', text=label, justify='right',
+                self.button = tk.Button(master=self.sub_frame, relief="flat", anchor='e', text=label, justify='right',
                                         command=lambda b=j: self.bulk_buttons(outputs[b], button_labels[b],
                                                                               data_bools[b]))
             self.button.grid(row=j, column=0, sticky='nsew')
@@ -1181,9 +1190,9 @@ class CharacterInterface:
                 self.label = tk.Label(master=self.dub_frame, text=out_data[k]+units)
                 self.label.grid(row=j, column=k, sticky='nsew')
         # current parameters, displayed in upper left corner of frame
-        user_val = str(len(character_list)) + " units   level: " + str(self.bulk_attributes["level"]) + "   race: " + \
-            self.bulk_attributes["race"] + "   class: " + self.bulk_attributes["charclass"] + "\nruntime:  " + \
-            "{:.0f}".format(1000 * (time.time() - start)) + " ms"
+        user_val = (str(len(character_list)) + " units   level: " + str(self.bulk_attributes["level"]) + "   race: " +
+                    str(self.bulk_attributes["race"]) + "   class: " + str(self.bulk_attributes["charclass"]) +
+                    "\nruntime:  " + "{:.0f}".format(1000 * (time.time() - start)) + " ms")
         self.label = tk.Label(master=self.frame, bd=4, fg="#AAAAAA", font=('Courier', 8), text=user_val, justify='left')
         self.label.grid(row=0, column=0, columnspan=5, sticky='nw')
         self.bulk_buttons(levels, "level:", False)              # establishes a default value for zoom_frame (levels)
@@ -1197,22 +1206,22 @@ class CharacterInterface:
         self.selection_body.grid(row=0, column=0, sticky="nsew")
         self.selection_body.grid_propagate(False)
         for i in range(20):
-            self.selection_body.grid_columnconfigure(i, weight=1, uniform=1)
+            self.selection_body.grid_columnconfigure(i, weight=1, uniform="1")
         for i in range(12):
-            self.selection_body.grid_rowconfigure(i, weight=1, uniform=1)
+            self.selection_body.grid_rowconfigure(i, weight=1, uniform="1")
         self.method_label = tk.Label(master=self.selection_body, justify="left", text="Level Range")
         self.method_label.grid(row=2, column=2, columnspan=3, sticky='sw')
         options = list(range(1, 17))
-        self.tk_variable = tk.IntVar(self.selection_body, self.minmaxlevel['min'])
-        level_dropdown = tk.OptionMenu(self.selection_body, self.tk_variable, *options, command=self.minlevelset)
+        min_var = tk.StringVar(self.selection_body, str(self.minmaxlevel['min']))
+        level_dropdown = tk.OptionMenu(self.selection_body, min_var, *options, command=self.minlevelset)
         level_dropdown.config(bg='#000000', fg='#FFFFFF', font=('Courier', 12), activebackground='#000000',
                               activeforeground='#FFFFFF')
         level_dropdown["menu"].config(bg='#000000', fg='#FFFFFF', font=('Courier', 12))
         level_dropdown.grid(row=3, column=2, sticky='new')
         self.method_label = tk.Label(master=self.selection_body, text="to")
         self.method_label.grid(row=3, column=3, sticky='new')
-        self.tk_variable = tk.IntVar(self.selection_body, self.minmaxlevel['max'])
-        level_dropdown = tk.OptionMenu(self.selection_body, self.tk_variable, *options, command=self.maxlevelset)
+        max_var = tk.StringVar(self.selection_body, str(self.minmaxlevel['max']))
+        level_dropdown = tk.OptionMenu(self.selection_body, max_var, *options, command=self.maxlevelset)
         level_dropdown.config(bg='#000000', fg='#FFFFFF', font=('Courier', 12), activebackground='#000000',
                               activeforeground='#FFFFFF')
         level_dropdown["menu"].config(bg='#000000', fg='#FFFFFF', font=('Courier', 12))
@@ -1220,20 +1229,20 @@ class CharacterInterface:
         self.frame = tk.Frame(self.selection_body)
         self.frame.pack_propagate(False)
         self.frame.grid(row=3, column=6, columnspan=4, sticky='nsew')
-        self.button = tk.Button(self.frame, text="GENERATE PARTY", relief=tk.FLAT, command=lambda: self.make_party())
+        self.button = tk.Button(self.frame, text="GENERATE PARTY", relief="flat", command=lambda: self.make_party())
         self.button.pack(expand=True, fill='both')
         oa_row = tk.Frame(master=self.selection_body, bg='#000000')
         oa_row.grid(row=11, column=2, columnspan=8, sticky='sw')
         tk.Label(master=oa_row, text="OA frequency:", bg='#000000', fg='#FFFFFF',
                  font=('Courier', 12), width=16, anchor='e').pack(side='left')
-        self.oa_freq_var = tk.StringVar(oa_row, self.bulk_attributes["oa_freq"])
+        self.oa_freq_var = tk.StringVar(oa_row, str(self.bulk_attributes["oa_freq"]))
         oa_dropdown = tk.OptionMenu(oa_row, self.oa_freq_var,
                                     *selectclass.OA_FREQ_OPTIONS.keys(), command=self.bulkoafreqset)
         oa_dropdown.config(bg='#000000', fg='#FFFFFF', font=('Courier', 12), activebackground='#000000',
-                           activeforeground='#FFFFFF', relief=tk.FLAT, bd=0, highlightthickness=0, padx=0)
+                           activeforeground='#FFFFFF', relief="flat", bd=0, highlightthickness=0, padx=0)
         oa_dropdown["menu"].config(bg='#000000', fg='#FFFFFF', font=('Courier', 12))
         oa_dropdown.pack(side='left', padx=(4, 0))
-        self.dual_class_var.set(self.bulk_attributes["dual_class"])
+        self.dual_class_var.set(bool(self.bulk_attributes["dual_class"]))
         dc_row = tk.Frame(master=self.selection_body, bg='#000000')
         dc_row.grid(row=12, column=2, columnspan=8, sticky='sw')
         tk.Label(master=dc_row, text="auto dual-class:", bg='#000000', fg='#FFFFFF',
@@ -1256,7 +1265,7 @@ class CharacterInterface:
             self.frame = tk.Frame(self.selection_body)
             self.frame.pack_propagate(False)    # this loop creates three buttons
             self.frame.grid(row=row_loc, column=6, columnspan=4, sticky='nsew')
-            self.button = tk.Button(self.frame, text=butt_name, relief=tk.FLAT, command=lambda x=command_def: x())
+            self.button = tk.Button(self.frame, text=butt_name, relief="flat", command=lambda x=command_def: x())
             self.button.pack(expand=True, fill='both')
         self.frame = tk.Frame(self.selection_body)
         self.frame.pack_propagate(False)        # if disabled/changed to grid_prop- the window starts resizing
@@ -1313,13 +1322,13 @@ class CharacterInterface:
         self.selection_frame.grid(row=1, column=0, rowspan=3, columnspan=6, sticky="nsew")
         self.selection_frame.lift()
         for y, race in enumerate(eligible_races):          # generates race buttons from IsEligible object
-            self.rc_opts = tk.Button(self.selection_frame, text=race, relief=tk.FLAT, anchor='w',
+            self.rc_opts = tk.Button(self.selection_frame, text=race, relief="flat", anchor='w',
                                      command=lambda r=race: self.selectionframe_suspension(attribs, eligibility_object,
                                                                                            eligible_races,
                                                                                            eligible_classes, 1, r))
             self.rc_opts.place(height=20, width=254, x=10 + 254 * int(y / 23), y=10 + 20 * (y % 23))
         for z, ch_cl in enumerate(eligible_classes):              # generates class buttons from IsEligible object
-            self.rc_opts = tk.Button(self.selection_frame, text=ch_cl, relief=tk.FLAT, anchor='w',
+            self.rc_opts = tk.Button(self.selection_frame, text=ch_cl, relief="flat", anchor='w',
                                      command=lambda c=ch_cl: self.selectionframe_suspension(attribs, eligibility_object,
                                                                                             eligible_races,
                                                                                             eligible_classes, 0, c))
@@ -1340,11 +1349,11 @@ class CharacterInterface:
             for y, race in enumerate(all_races):
                 if race in remaining_races:
                     self.rc_opts = tk.Button(self.selection_frame, text=race, bg='#FFFFFF', fg="#000000",
-                                             relief=tk.FLAT, anchor='w',
+                                             relief="flat", anchor='w',
                                              command=lambda rac=race: self.selectionframe_open(attribs))
                     self.rc_opts.place(height=20, width=254, x=10 + 254 * int(y / 23), y=10 + 20 * (y % 23))
                 else:
-                    self.rc_opts = tk.Button(self.selection_frame, text=race, fg="#666666", relief=tk.FLAT, anchor='w',
+                    self.rc_opts = tk.Button(self.selection_frame, text=race, fg="#666666", relief="flat", anchor='w',
                                              command=lambda r=race: self.selectionframe_suspension(attribs, elig_object,
                                                                                                    all_races,
                                                                                                    all_classes,
@@ -1352,7 +1361,7 @@ class CharacterInterface:
                     self.rc_opts.place(height=20, width=254, x=10 + 254 * int(y / 23), y=10 + 20 * (y % 23))
             for z, ch_cl in enumerate(all_classes):
                 if ch_cl in remaining_classes:
-                    self.rc_opts = tk.Button(self.selection_frame, text=ch_cl, relief=tk.FLAT, anchor='w',
+                    self.rc_opts = tk.Button(self.selection_frame, text=ch_cl, relief="flat", anchor='w',
                                              command=lambda c=ch_cl: self.charsheet_transition(selection, c, attribs))
                     self.rc_opts.place(height=20, width=254, x=640 + 254 * int((z / 23)), y=10 + 20 * (z % 23))
                 else:
@@ -1361,7 +1370,7 @@ class CharacterInterface:
         else:
             for y, race in enumerate(all_races):
                 if race in remaining_races:
-                    self.rc_opts = tk.Button(self.selection_frame, text=race, relief=tk.FLAT, anchor='w',
+                    self.rc_opts = tk.Button(self.selection_frame, text=race, relief="flat", anchor='w',
                                              command=lambda r=race: self.charsheet_transition(r, selection, attribs))
                     self.rc_opts.place(height=20, width=254, x=10 + 254 * int(y / 23), y=10 + 20 * (y % 23))
                 else:           # these labels need their x-axis location adjusted by +2 for the text to line up
@@ -1370,11 +1379,11 @@ class CharacterInterface:
             for z, ch_cl in enumerate(all_classes):
                 if ch_cl in remaining_classes:
                     self.rc_opts = tk.Button(self.selection_frame, text=ch_cl, bg='#FFFFFF', fg="#000000",
-                                             relief=tk.FLAT, anchor='w',
+                                             relief="flat", anchor='w',
                                              command=lambda c=ch_cl: self.selectionframe_open(attribs))
                     self.rc_opts.place(height=20, width=254, x=640 + 254 * int((z / 23)), y=10 + 20 * (z % 23))
                 else:
-                    self.rc_opts = tk.Button(self.selection_frame, text=ch_cl, fg="#666666", relief=tk.FLAT, anchor='w',
+                    self.rc_opts = tk.Button(self.selection_frame, text=ch_cl, fg="#666666", relief="flat", anchor='w',
                                              command=lambda c=ch_cl: self.selectionframe_suspension(attribs,
                                                                                                     elig_object,
                                                                                                     all_races,
@@ -1393,15 +1402,15 @@ class CharacterInterface:
         self.selection_frame = tk.Frame(master=self.master, bd=2)
         self.selection_frame.grid(row=1, column=0, rowspan=3, columnspan=6, sticky="nsew", ipadx=5, ipady=5)
         for a, value in enumerate([4, 1]):
-            self.selection_frame.grid_rowconfigure(a, weight=value, uniform=1)
-        self.selection_frame.grid_columnconfigure(0, weight=1, uniform=1)
+            self.selection_frame.grid_rowconfigure(a, weight=value, uniform="1")
+        self.selection_frame.grid_columnconfigure(0, weight=1, uniform="1")
         self.selection_label = tk.Label(master=self.selection_frame)
         self.selection_label.grid(row=0, column=0, sticky="nsew")
         if charclass is None:
             eligible_classes = eligibility_object.eligible_classes
             self.header_controls(rr=False)  # creates a control panel without the reroll button
             for z, ch_cl in enumerate(eligible_classes):
-                self.rc_opts = tk.Button(self.selection_label, text=ch_cl, anchor='w', relief=tk.FLAT,
+                self.rc_opts = tk.Button(self.selection_label, text=ch_cl, anchor='w', relief="flat",
                                          command=lambda c=ch_cl: self.methodv_header(charclass=c,
                                                                                      attribs=attributes.methodv(c)))
                 self.rc_opts.place(height=20, width=274, x=320 + 404 * int((z / 23)), y=10 + 20 * (z % 23))
@@ -1418,7 +1427,7 @@ class CharacterInterface:
                 self.selection_label['text'] = "Attributes do not meet class minimum"
             else:
                 for z, race in enumerate(charraces):
-                    self.rc_opts = tk.Button(self.selection_frame, text=race, anchor='w', relief=tk.FLAT,
+                    self.rc_opts = tk.Button(self.selection_frame, text=race, anchor='w', relief="flat",
                                              command=lambda r=race: self.charsheet_transition(r, charclass, attribs))
                     self.rc_opts.place(height=20, width=274, x=320 + 404 * int((z / 23)), y=10 + 20 * (z % 23))
         self.close_selection_frame = tk.Frame(self.selection_frame, bg='#002200')
@@ -1444,12 +1453,12 @@ class CharacterInterface:
     def charsheet_transition(self, charrace, charclass, attribs):
         self.display_text[0] = ''
         formatted_atts = attributes.apply_race_modifiers(charrace, attribs)     # applies racial modifier and formats
-        # print("charsheet_transition pre-list format: ", charclass)
+        # print("charsheet_transition pre-list format:", charclass)
         class_list = selectclass.string_to_list(charclass, '/')
         self.selected_character = character.Character(level=self.level, race=charrace, classes=class_list,
                                                       attrib_list=formatted_atts, gender=self.gender,
                                                       event_bus=self.event_bus)
-        # print("charsheet_transition class format: ", class_list)
+        # print("charsheet_transition class format:", class_list)
         self.selection_frame.destroy()
         self.attributes_frame.destroy()
         self.nonmember_buttons()                                                # activates character sheet hotkeys
@@ -1462,66 +1471,68 @@ class CharacterInterface:
         self.header_control_frame = tk.Frame(master=self.hcontrol_fr)
         self.header_control_frame.grid(row=0, column=1, sticky='nsew')
         for k in range(6):
-            self.header_control_frame.grid_rowconfigure(k, weight=1, uniform=1)
+            self.header_control_frame.grid_rowconfigure(k, weight=1, uniform="1")
         for m in range(2):
-            self.header_control_frame.grid_columnconfigure(m, weight=1, uniform=1)
-        self.reroll_header = tk.Button(master=self.header_control_frame, relief=tk.RIDGE, justify="left",
+            self.header_control_frame.grid_columnconfigure(m, weight=1, uniform="1")
+        self.reroll_header = tk.Button(master=self.header_control_frame, relief="ridge", justify="left",
                                        text='Reroll', command=lambda: self.make_another_character(), bd=4)
         if rr:
             self.reroll_header.grid(row=0, column=0, columnspan=2, sticky='nsew')
         self.method_label = tk.Label(master=self.header_control_frame, text='Gender:', justify="left")
-        self.gender_select = tk.Button(master=self.header_control_frame, relief=tk.RIDGE, justify="left", width=7,
+        self.gender_select = tk.Button(master=self.header_control_frame, relief="ridge", justify="left", width=7,
                                        text=str(self.gender), command=lambda: self.select_gender(), bd=4)
         self.method_label.grid(row=1, column=0, sticky='nsew')
         self.gender_select.grid(row=1, column=1, sticky='nsew')
         self.method_label = tk.Label(master=self.header_control_frame, text=' Level:', justify="left")
         self.method_label.grid(row=2, column=0, sticky='nsew')
         options = list(range(1, 17))
-        self.tk_variable = tk.IntVar(self.header_control_frame, self.level)
+        self.tk_variable = tk.StringVar(self.header_control_frame, str(self.level))
         level_dropdown = tk.OptionMenu(self.header_control_frame, self.tk_variable, *options, command=self.levelset)
         level_dropdown.config(bg='#000000', fg='#FFFFFF', font=('Courier', 12), activebackground='#000000',
                               activeforeground='#FFFFFF')
         level_dropdown["menu"].config(bg='#000000', fg='#FFFFFF', font=('Courier', 12))
         level_dropdown.grid(row=2, column=1, sticky='nsew')
-        self.button = tk.Button(master=self.header_control_frame, relief=tk.RIDGE, justify="left", bd=4,
+        self.button = tk.Button(master=self.header_control_frame, relief="ridge", justify="left", bd=4,
                                 text="view party", command=lambda: self.party_frame_popup(top_button=True))
         self.button.grid(row=3, column=0, columnspan=2, sticky='nsew')
-        self.settings_panel = tk.Frame(master=self.header_control_frame, bd=2, relief=tk.FLAT)
-        self.settings_panel.grid(row=4, column=0, columnspan=2, rowspan=2, sticky='nsew')
-        self.settings_panel.grid_columnconfigure(0, weight=1, uniform=1)
-        for r in range(3):                          # 3 rows: dual classing, OA frequency, UA toggle (future)
-            self.settings_panel.grid_rowconfigure(r, weight=1, uniform=1)
-        self.dual_class_var.set(self.bulk_attributes["dual_class"])
-        tk.Checkbutton(self.settings_panel, text="auto dual-class",
-                       variable=self.dual_class_var,
-                       command=self.bulkdualclassset,
-                       bg='#000000', fg='#FFFFFF', font=('Courier', 12),
-                       selectcolor='#000000', activebackground='#000000',
-                       activeforeground='#FFFFFF').grid(row=0, column=0, sticky='w')
-        oa_inner = tk.Frame(master=self.settings_panel)
-        oa_inner.grid(row=1, column=0, sticky='nsew')
-        oa_inner.grid_columnconfigure(0, weight=1, uniform=1)
-        oa_inner.grid_columnconfigure(1, weight=2, uniform=1)
-        tk.Label(master=oa_inner, text="OA:", anchor='e').grid(row=0, column=0, sticky='nse')
-        self.oa_freq_var = tk.StringVar(oa_inner, self.bulk_attributes["oa_freq"])
-        oa_dd = tk.OptionMenu(oa_inner, self.oa_freq_var,
-                              *selectclass.OA_FREQ_OPTIONS.keys(), command=self.bulkoafreqset)
-        oa_dd.config(bg='#000000', fg='#FFFFFF', font=('Courier', 10), activebackground='#000000',
-                     activeforeground='#FFFFFF', width=16)
-        oa_dd["menu"].config(bg='#000000', fg='#FFFFFF', font=('Courier', 10))
-        oa_dd.grid(row=0, column=1, sticky='w')
+        # The following instantiates the dual-class and OA probabilities in the chargen transition panels
+        #
+        # self.settings_panel = tk.Frame(master=self.header_control_frame, bd=2, relief="flat")
+        # self.settings_panel.grid(row=4, column=0, columnspan=2, rowspan=2, sticky='nsew')
+        # self.settings_panel.grid_columnconfigure(0, weight=1, uniform="1")
+        # for r in range(3):                          # 3 rows: dual classing, OA frequency, UA toggle (future)
+        #     self.settings_panel.grid_rowconfigure(r, weight=1, uniform="1")
+        # self.dual_class_var.set(self.bulk_attributes["dual_class"])
+        # tk.Checkbutton(self.settings_panel, text="auto dual-class",
+        #                variable=self.dual_class_var,
+        #                command=self.bulkdualclassset,
+        #                bg='#000000', fg='#FFFFFF', font=('Courier', 12),
+        #                selectcolor='#000000', activebackground='#000000',
+        #                activeforeground='#FFFFFF').grid(row=0, column=0, sticky='w')
+        # oa_inner = tk.Frame(master=self.settings_panel)
+        # oa_inner.grid(row=1, column=0, sticky='nsew')
+        # oa_inner.grid_columnconfigure(0, weight=1, uniform="1")
+        # oa_inner.grid_columnconfigure(1, weight=2, uniform="1")
+        # tk.Label(master=oa_inner, text="OA:", anchor='e').grid(row=0, column=0, sticky='nse')
+        # self.oa_freq_var = tk.StringVar(oa_inner, self.bulk_attributes["oa_freq"])
+        # oa_dd = tk.OptionMenu(oa_inner, self.oa_freq_var,
+        #                       *selectclass.OA_FREQ_OPTIONS.keys(), command=self.bulkoafreqset)
+        # oa_dd.config(bg='#000000', fg='#FFFFFF', font=('Courier', 10), activebackground='#000000',
+        #              activeforeground='#FFFFFF', width=16)
+        # oa_dd["menu"].config(bg='#000000', fg='#FFFFFF', font=('Courier', 10))
+        # oa_dd.grid(row=0, column=1, sticky='w')
 
     def party_frame_popup(self, top_button=False):
         self.temp_frame = tk.Frame(master=self.master, bd=4)
         self.temp_frame.grid(row=0, column=0, columnspan=6, sticky='nsew', ipadx=5, ipady=5)
         for i, width in enumerate([3, 1]):
-            self.temp_frame.grid_columnconfigure(i, weight=width, uniform=1)
-        self.temp_frame.grid_rowconfigure(0, weight=1, uniform=1)
+            self.temp_frame.grid_columnconfigure(i, weight=width, uniform="1")
+        self.temp_frame.grid_rowconfigure(0, weight=1, uniform="1")
         self.temp_frame.grid_propagate(False)
         self.close_popup_frame = tk.Frame(master=self.temp_frame, bd=4)
         self.close_popup_frame.grid(row=0, column=1, sticky="nsew")
         for i, width in enumerate([1, 3, 1]):       # NOT defining row width is what allows the spillover/large button
-            self.close_popup_frame.grid_columnconfigure(i, weight=width, uniform=1)
+            self.close_popup_frame.grid_columnconfigure(i, weight=width, uniform="1")
         self.expanded_party_display(top_button)
         # self.save_characters("party", self.party_list)
 
@@ -1530,9 +1541,9 @@ class CharacterInterface:
         self.expanded_member_frame, final_list = tk.Frame(self.master), []
         self.expanded_member_frame.grid(row=1, column=0, rowspan=3, columnspan=6, sticky="nsew")
         for a, value in enumerate([3, 3, 1, 3, 3, 1, 1, 1, 1, 1]):
-            self.expanded_member_frame.grid_columnconfigure(a, weight=value, uniform=1)
-        self.expanded_member_frame.grid_rowconfigure(0, weight=1, uniform=1)
-        self.expanded_member_frame.grid_rowconfigure(1, weight=1, uniform=1)
+            self.expanded_member_frame.grid_columnconfigure(a, weight=value, uniform="1")
+        self.expanded_member_frame.grid_rowconfigure(0, weight=1, uniform="1")
+        self.expanded_member_frame.grid_rowconfigure(1, weight=1, uniform="1")
         self.frame = tk.Frame(self.expanded_member_frame)
         self.frame.grid(row=0, column=0, sticky="nsew")
         display_class, display_hp, display_th, display_race = ['\nClass\n'], ['\nHP\n'], ['\nTH\n'], ['\nRace\n']
@@ -1542,7 +1553,7 @@ class CharacterInterface:
         self.label.place(height=40, width=274, x=50, y=18)
         for a, member in enumerate(self.party, 1):
             self.button = tk.Button(self.frame, text='\u0332{}  {}'.format(str(a), member.character_name),
-                                    relief=tk.FLAT, justify="left", anchor='w',
+                                    relief="flat", justify="left", anchor='w',
                                     command=lambda pos=a: self.party_to_charsheet(self.party.get_member(pos - 1)))
             self.button.place(height=18, width=274, x=50, y=40 + 18 * a)
             self.party_screen_bind(a)         # where the hell do these un-bind?
@@ -1570,9 +1581,9 @@ class CharacterInterface:
         self.frame = tk.Frame(self.expanded_member_frame, bd=6)
         self.frame.grid(row=1, column=0, columnspan=9, sticky="nsew")
         for i in range(10):
-            self.frame.grid_columnconfigure(i, weight=1, uniform=1)
+            self.frame.grid_columnconfigure(i, weight=1, uniform="1")
         for i in range(20):             # 20 since LCD of 9 and 12 is 36 (+4 for footer) and we're using the bottom half
-            self.frame.grid_rowconfigure(i, weight=1, uniform=1)
+            self.frame.grid_rowconfigure(i, weight=1, uniform="1")
         self.partypopup_close(lowclose=not top_button)      # this is clumsy, but we need to use the inverted boolean
 
     def sort_party_by_combat_value(self):
@@ -1602,15 +1613,15 @@ class CharacterInterface:
                 self.inner_frame = tk.Frame(self.frame)
                 self.inner_frame.pack_propagate(False)
                 self.inner_frame.grid(row=row, column=3, rowspan=height, columnspan=2, sticky='nsew')
-                self.button = tk.Button(self.inner_frame, text=txt, relief=tk.FLAT, command=cmd)
+                self.button = tk.Button(self.inner_frame, text=txt, relief="flat", command=cmd)
                 self.button.pack(expand=True, fill='both')
         if not lowclose:    # for the top button (close only)
             self.temp_control_frame = tk.Frame(master=self.close_popup_frame)
             self.temp_control_frame.grid(row=0, column=1, sticky='nsew')
             for k in range(5):
-                self.temp_control_frame.grid_rowconfigure(k, weight=1, uniform=1)
-            self.temp_control_frame.grid_columnconfigure(0, weight=1, uniform=1)
-            self.button = tk.Button(master=self.temp_control_frame, relief=tk.RIDGE, justify="left", width=14,
+                self.temp_control_frame.grid_rowconfigure(k, weight=1, uniform="1")
+            self.temp_control_frame.grid_columnconfigure(0, weight=1, uniform="1")
+            self.button = tk.Button(master=self.temp_control_frame, relief="ridge", justify="left", width=14,
                                     text="CLOSE", command=lambda: self.clear_party_popup(), bd=4)
             self.button.grid(row=3, column=0, columnspan=2, sticky='nsew')
 
@@ -1648,9 +1659,9 @@ class CharacterInterface:
         button_frame = tk.Frame(dialog, bg="#000000")
         button_frame.pack(pady=10)
         tk.Button(button_frame, text="Yes", width=10, command=on_yes, bg="#000000", justify="left")\
-            .pack(side=tk.LEFT, padx=10)
+            .pack(side="left", padx=10)
         tk.Button(button_frame, text="No", width=10, command=on_no, bg="#000000", justify="left")\
-            .pack(side=tk.LEFT, padx=10)
+            .pack(side="left", padx=10)
         dialog.bind("<Return>", lambda e: on_yes())             # temporary key bindings
         dialog.bind("<Escape>", lambda e: on_no())
         dialog.focus_set()
@@ -1697,9 +1708,9 @@ class CharacterInterface:
         self.save_frame.grid_propagate(False)
         self.save_frame.grid(row=0, column=0, rowspan=4, columnspan=6, sticky="nsew")
         for j in range(4):                      # generates 6x4 grid
-            self.save_frame.grid_rowconfigure(j, weight=1, uniform=1)
+            self.save_frame.grid_rowconfigure(j, weight=1, uniform="1")
         for k in range(6):
-            self.save_frame.grid_columnconfigure(k, weight=1, uniform=1)
+            self.save_frame.grid_columnconfigure(k, weight=1, uniform="1")
         button_actions = {          # builds the save slot buttons
             "save": {"command": lambda loc: self.save_characters("party", f"Slot {loc}"),
                      "initial_state": "normal", "filled_state": "normal", "empty_state": "normal"},
@@ -1711,23 +1722,23 @@ class CharacterInterface:
             row, col, disp = int((m + 4) / 4), m % 4 + 1, m + 1
             slot_name = f"Slot {m + 1}"
             config = button_actions[action]
-            self.button = tk.Button(self.save_frame, bg="#000000", bd=24, justify="left", relief=tk.RIDGE,
+            self.button = tk.Button(self.save_frame, bg="#000000", bd=24, justify="left", relief="ridge",
                                     text=f"{slot_name}\n<empty>", command=lambda x=disp: config["command"](x),
-                                    state=config["initial_state"])
+                                    state=config["initial_state"])    # type: ignore
             self.button.grid(row=row, column=col, sticky="nsew", padx=24, pady=24)
             if slot_name in self.file_dict:
                 self.button.config(
-                    text=f"{slot_name}\n{self.file_dict[slot_name]}", state=config["filled_state"])
+                    text=f"{slot_name}\n{self.file_dict[slot_name]}", state=config["filled_state"])     # type: ignore
         # everything from here down is positioning for the close button
         self.frame = tk.Frame(self.save_frame, bd=4)
         self.frame.grid(row=0, column=3, columnspan=3, sticky="nsew")
         for i, width in enumerate([6, 3, 1]):
-            self.frame.grid_columnconfigure(i, weight=width, uniform=1)
+            self.frame.grid_columnconfigure(i, weight=width, uniform="1")
         for j in range(4):
             self.label = tk.Label(self.frame, bg="#000000", bd=4)
             self.label.grid(row=j, column=1, sticky="nsew")
         self.frame.grid_propagate(False)
-        self.button = tk.Button(master=self.frame, relief=tk.RIDGE, bd=5, justify="left", width=14, text="CLOSE",
+        self.button = tk.Button(master=self.frame, relief="ridge", bd=5, justify="left", width=14, text="CLOSE",
                                 command=lambda: self.close_save_screen())
         self.button.grid(row=5, column=1, sticky='nsew')
 
@@ -1740,18 +1751,18 @@ class CharacterInterface:
         self.header_control_frame = tk.Frame(master=self.hcontrol_fr)
         self.header_control_frame.grid(row=0, column=1, sticky='nsew')
         for k in range(5):
-            self.header_control_frame.grid_rowconfigure(k, weight=1, uniform=1)
+            self.header_control_frame.grid_rowconfigure(k, weight=1, uniform="1")
         for m in range(2):
-            self.header_control_frame.grid_columnconfigure(m, weight=1, uniform=1)
+            self.header_control_frame.grid_columnconfigure(m, weight=1, uniform="1")
         for x, gender in enumerate(["random", "male", "female"]):
-            self.button = tk.Button(master=self.header_control_frame, relief=tk.RIDGE, bg='#222222', justify="left",
+            self.button = tk.Button(master=self.header_control_frame, relief="ridge", bg='#222222', justify="left",
                                     text=gender, width=7, bd=4, command=lambda gen=gender: self.genderset(gen))
             self.button.grid(row=x+1, column=1, sticky='nsew')
 
     def genderset(self, selection):
         self.gender = selection          # self.gender_select.config(text=self.gender)
         self.header_control_frame.destroy()     # False argument simply means no reroll for Method V
-        self.header_controls(False) if self.make_another_character == self.methodv_header else self.header_controls()
+        self.header_controls(self.make_another_character != self.methodv_header)
 
     def levelset(self, level):
         self.level = level

@@ -259,14 +259,8 @@ class IsEligible:
 _oa_multiplier: float = 39.0    # default ≈ 2.5 %
 
 # Preset labels → multiplier values (used by the UI dropdown)
-OA_FREQ_OPTIONS = {
-    "0% (OA only)":    0.0,
-    "1%":              99.0,
-    "2.5% (default)":  39.0,
-    "10%":              9.0,
-    "50%":              1.0,
-    "100% (non-OA only)": float('inf'),
-}
+OA_FREQ_OPTIONS = {"  0% (none)": float('inf'), "  1%": 99.0, "2.5% (default)": 39.0, " 10%": 9.0, " 50%": 1.0,
+                   "100% (OA only)": 0.0}
 
 
 def set_oa_multiplier(value: float) -> None:
@@ -289,7 +283,7 @@ def set_oa_multiplier(value: float) -> None:
 
 @lru_cache(maxsize=10)
 def race_class_data():
-    min_df = pd.read_csv(get_resource_path("attributemins.csv"))           # loads the csv data into memory
+    min_df = pd.read_csv(get_resource_path("attributemins.csv"))    # loads the csv data into memory
     min_cols = [0, 1, 2, 3, 4, 5, 6, 10, 26, 27, 28, 29, 30, 31, 32, 70, 71, 73, 74]
     min_df = min_df[min_df.columns[min_cols]]           # creates a dataframe using only the specified columns
     min_df['modifiedfreq'] = min_df['weightedprob']     # creates a new column, 'modifiedfreq'
@@ -345,20 +339,24 @@ def weighted_class(race):           # returns {'single': {'Acrobat': 78.0, 'Assa
     temp_df['eligible'] = temp_df['charclass'].apply(lambda x: any([k in x for k in single_class]))     # boolean elig.
     temp_df = temp_df.loc[temp_df['eligible'], ['charclass', 'modifiedfreq']]
     single_dict, multi_dict = dict(temp_df.values), {}
+    ninja_freq = min_df.set_index('charclass').loc['Ninja', 'modifiedfreq'] / 4
     for multiclass in multi_class:
-        multi_dict[multiclass] = weighted_multi(multiclass)
+        if race == 'Human' and 'Ninja' in multiclass:  # ninja combos bypass multiprob;
+            single_dict[multiclass] = ninja_freq        # compete directly in single pool, equal share
+        else:
+            multi_dict[multiclass] = weighted_multi(multiclass)
     return {"single": single_dict, "multiclass": multi_dict, "multiclass_prob": multi_prob}
 
 
 def random_class(race_is):                              # accepts 'High Elf', returns ['Fighter', 'Magic User']
     multi_rand, proportions = random.uniform(0, 1), weighted_class(race_is)
     single = {k: v for k, v in proportions["single"].items() if v > 0}
-    multi  = {k: v for k, v in proportions["multiclass"].items() if v > 0}
+    multi = {k: v for k, v in proportions["multiclass"].items() if v > 0}
     if multi_rand > proportions["multiclass_prob"] or not multi:  # single-class, or no valid multi options
-        return random.choices(list(single.keys()), weights=single.values(), k=1)
+        final = random.choices(list(single.keys()), weights=single.values(), k=1)
     else:                                               # otherwise select from the proportional multi-dict
         final = random.choices(list(multi.keys()), weights=multi.values(), k=1)
-        return string_to_list(final[0], "/")
+    return string_to_list(final[0], "/")
 
 
 @lru_cache(maxsize=150)
